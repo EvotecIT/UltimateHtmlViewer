@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "universal-html-viewer-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.js",
+          "manifest": "./src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "UniversalHtmlViewerWebPartStrings": "lib/webparts/universalHtmlViewer/loc/{locale}.js"
+  }
+}

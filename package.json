@@ -14,5 +14,8 @@
     "jest-environment-jsdom": "^29.7.0",
     "ts-jest": "^29.4.5",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "gulp": "^5.0.1"
   }
 }
