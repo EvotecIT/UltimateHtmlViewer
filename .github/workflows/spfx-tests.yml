@@ -1,0 +1,107 @@
+name: UniversalHtmlViewer - SPFx Tests
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'main'
+    paths-ignore:
+      - 'README.md'
+      - 'TODO.md'
+      - 'INSTRUCTIONS.MD'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '22.x'
+  CI: 'true'
+
+jobs:
+  test-windows:
+    name: 'Windows'
+    runs-on: [self-hosted, windows]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: spfx/UniversalHtmlViewer/package-lock.json
+
+      - name: Install dependencies (skip native build scripts)
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm ci --ignore-scripts
+
+      - name: Run tests
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm test
+
+      - name: Build bundle
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm run bundle
+
+  test-linux:
+    name: 'Linux'
+    runs-on: [self-hosted, linux]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: spfx/UniversalHtmlViewer/package-lock.json
+
+      - name: Install dependencies (skip native build scripts)
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm ci --ignore-scripts
+
+      - name: Run tests
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm test
+
+      - name: Build bundle
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm run bundle
+
+  package-solution:
+    name: 'Package solution'
+    runs-on: [self-hosted, linux]
+    needs:
+      - test-windows
+      - test-linux
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: spfx/UniversalHtmlViewer/package-lock.json
+
+      - name: Install dependencies (skip native build scripts)
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm ci --ignore-scripts
+
+      - name: Bundle (ship)
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm run bundle:ship
+
+      - name: Package solution (ship)
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm run package-solution:ship
+
+      - name: Upload .sppkg
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-html-viewer-sppkg
+          path: spfx/UniversalHtmlViewer/sharepoint/solution/*.sppkg

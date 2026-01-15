@@ -2,6 +2,17 @@
 
 The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-side web part that renders a single `<iframe>` pointing to a static HTML page stored in SharePoint Online. It is designed to be generic and reusable across a tenant for hosting dashboards, reports, and other generated HTML pages.
 
+**SPFx solution location:** `spfx/UniversalHtmlViewer`
+
+## Features
+
+- **Flexible source modes**: full URL, base path + relative path, or base path + dashboard ID from query string.
+- **Security profiles**: strict tenant, allowlist, or any HTTPS (opt-in).
+- **Path controls**: optional allowed path prefixes to keep content in specific libraries.
+- **Cache-busting**: timestamp or SharePoint file modified time / ETag.
+- **Iframe controls**: sandbox, permissions policy, referrer policy, loading mode, title.
+- **Auto-refresh**: optional periodic reload for live dashboards.
+
 ## HTML source modes
 
 The web part supports three ways to define the iframe source URL, controlled by the **HTML source mode** property.
@@ -66,16 +77,35 @@ The web part exposes the following properties in the property pane:
   - `basePath` – used when `htmlSourceMode` is not `FullUrl`.
   - `relativePath` – used when `htmlSourceMode = BasePathAndRelativePath`.
   - `dashboardId`, `defaultFileName`, `queryStringParamName` – used when `htmlSourceMode = BasePathAndDashboardId`.
+- Group: **Security**
+  - `securityMode` (dropdown) – `StrictTenant` (default), `Allowlist`, or `AnyHttps`.
+  - `allowedHosts` – comma-separated hostnames used when `securityMode = Allowlist`.
+  - `allowedPathPrefixes` – optional site-relative path prefixes that URLs must start with.
+- Group: **Cache & refresh**
+  - `cacheBusterMode` (dropdown) – `None`, `Timestamp`, or `FileLastModified`.
+  - `cacheBusterParamName` – query string parameter name (defaults to `v`).
+  - `refreshIntervalMinutes` – auto-refresh interval (0 disables).
 - Group: **Layout**
   - `heightMode` (dropdown) – `Fixed` or `Viewport`.
   - `fixedHeightPx` – numeric value used when `heightMode = Fixed`.
+- Group: **Iframe**
+  - `iframeTitle` – accessibility title (defaults to `Universal HTML Viewer`).
+  - `iframeLoading` – `lazy`, `eager`, or browser default.
+  - `iframeSandbox` – space-separated sandbox tokens.
+  - `iframeAllow` – permissions policy string.
+  - `iframeReferrerPolicy` – referrer policy for iframe requests.
 
 ## URL safety and validation
 
 Before rendering the iframe, the web part:
 
-- Rejects URLs using the `javascript:` scheme or any scheme other than `http`, `https`, or a site-relative path starting with `/`.
-- When the URL is absolute (`http` or `https`), it ensures the host matches the current SharePoint page host (same tenant).
+- Rejects `javascript:`, `data:`, `vbscript:`, protocol-relative (`//`) URLs, and unknown schemes.
+- Allows only site-relative paths (starting with `/`) or absolute `http/https` URLs.
+- Enforces the selected **security mode**:
+  - `StrictTenant`: absolute URLs must match the current SharePoint host.
+  - `Allowlist`: current host + explicitly allowed hosts.
+  - `AnyHttps`: any HTTPS host (opt-in, less safe).
+- Optionally enforces `allowedPathPrefixes` to keep URLs inside specific site paths.
 - If validation fails, the web part renders a clear error message:
 
 > UniversalHtmlViewer: The target URL is invalid or not allowed.
@@ -83,6 +113,24 @@ Before rendering the iframe, the web part:
 If no URL can be computed, a friendly message is shown:
 
 > UniversalHtmlViewer: No URL configured. Please update the web part settings.
+
+## Cache-busting and refresh
+
+The web part can append a cache-busting query string to avoid stale dashboards:
+
+- `Timestamp` appends `?v=<epoch>` on every render/refresh.
+- `FileLastModified` uses SharePoint REST to read the file’s `TimeLastModified` / `ETag` and appends it.
+  - If the file is external (or the API fails), it falls back to a timestamp.
+
+You can also enable `refreshIntervalMinutes` to auto-refresh the iframe.
+
+## Iframe controls
+
+Optional iframe controls allow you to lock down or tune behavior:
+
+- `sandbox` tokens (e.g., `allow-scripts allow-same-origin`)
+- `allow` permissions policy (e.g., `fullscreen; clipboard-read; clipboard-write`)
+- `referrerpolicy`, `loading`, and `title`
 
 ## Styling
 
@@ -96,19 +144,75 @@ The web part uses minimal styling to keep the iframe clean:
 
 ## Limitations
 
-- Only same-tenant URLs are allowed when using absolute URLs.
-- `javascript:` URLs and non-HTTP(S) schemes (e.g. `ftp:`) are blocked.
-- Paths must either be absolute URLs on the same tenant or site-relative paths starting with `/`.
+- `AnyHttps` allows any HTTPS URL, which is less safe and should be used sparingly.
+- If `FileLastModified` is used for external URLs, the cache-buster falls back to timestamp.
+
+## Prerequisites
+
+- Node.js **22.14+** (SPFx 1.21.1 requirement)
+- npm
+
+## Install dependencies
+
+```bash
+cd spfx/UniversalHtmlViewer
+npm install
+```
+
+## Local development
+
+1) Edit `spfx/UniversalHtmlViewer/config/serve.json` and replace `{tenantDomain}` with your tenant domain.  
+2) Start the dev server:
+
+```bash
+cd spfx/UniversalHtmlViewer
+npm run serve
+```
+
+3) Open the SharePoint Online workbench:
+
+```text
+https://<your-tenant>.sharepoint.com/_layouts/workbench.aspx
+```
+
+## Build and package
+
+```bash
+cd spfx/UniversalHtmlViewer
+npm run bundle:ship
+npm run package-solution:ship
+```
+
+The package is generated at:
+
+```text
+spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg
+```
+
+## Deploy to SharePoint Online
+
+1) Upload the `.sppkg` to the **App Catalog**.  
+2) Approve and deploy the app.  
+3) Add the **Universal HTML Viewer** web part to a page.  
+4) Configure source + security settings in the property pane.  
+
+## GitHub Actions (self-hosted runners)
+
+Workflow: `/.github/workflows/spfx-tests.yml`
+
+- Uses `runs-on: [self-hosted, windows]` and `runs-on: [self-hosted, linux]`
+- Runs `npm ci`, `npm test`, and `npm run bundle` inside `spfx/UniversalHtmlViewer`
+- Packages a ship build on Linux and uploads `universal-html-viewer-sppkg` as a workflow artifact
 
 ## Running tests
 
 Unit tests for URL computation and validation logic are located in:
 
-- `src/webparts/universalHtmlViewer/__tests__/UrlHelper.test.ts`
+- `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/__tests__/UrlHelper.test.ts`
 
-Jest configuration is defined in `jest.config.js`. To run the tests, ensure Jest and `ts-jest` are installed, then run:
+Jest configuration is defined in `spfx/UniversalHtmlViewer/jest.config.js`. To run the tests, ensure dependencies are installed in the SPFx solution folder, then run:
 
 ```bash
+cd spfx/UniversalHtmlViewer
 npm test
 ```
-

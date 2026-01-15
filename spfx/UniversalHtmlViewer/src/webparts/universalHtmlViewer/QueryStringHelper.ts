@@ -4,9 +4,9 @@
  * @param url The URL to parse.
  * @param paramName The name of the query string parameter.
  */
-export function getQueryStringParam(url: string, paramName: string): string | null {
+export function getQueryStringParam(url: string, paramName: string): string | undefined {
   if (!url || !paramName) {
-    return null;
+    return undefined;
   }
 
   try {
@@ -14,7 +14,7 @@ export function getQueryStringParam(url: string, paramName: string): string | nu
     const value: string | null = parsed.searchParams.get(paramName);
 
     if (!value) {
-      return null;
+      return undefined;
     }
 
     return value;
@@ -22,7 +22,7 @@ export function getQueryStringParam(url: string, paramName: string): string | nu
     const questionMarkIndex: number = url.indexOf('?');
 
     if (questionMarkIndex === -1 || questionMarkIndex === url.length - 1) {
-      return null;
+      return undefined;
     }
 
     const queryPart: string = url.substring(questionMarkIndex + 1);
@@ -32,11 +32,10 @@ export function getQueryStringParam(url: string, paramName: string): string | nu
       const [key, value] = pair.split('=');
 
       if (decodeURIComponent(key) === paramName) {
-        return value ? decodeURIComponent(value) : null;
+        return value ? decodeURIComponent(value) : undefined;
       }
     }
 
-    return null;
+    return undefined;
   }
 }
-

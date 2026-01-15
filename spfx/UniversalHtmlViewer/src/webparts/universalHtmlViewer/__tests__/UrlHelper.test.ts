@@ -1,11 +1,16 @@
-import { buildFinalUrl, isUrlAllowed, HtmlSourceMode } from '../UrlHelper';
+import {
+  buildFinalUrl,
+  isUrlAllowed,
+  HtmlSourceMode,
+  UrlSecurityMode,
+} from '../UrlHelper';
 
 describe('buildFinalUrl', () => {
   const currentPageUrl: string = 'https://contoso.sharepoint.com/sites/Reports/Pages/Dashboard.aspx';
 
   it('uses fullUrl as-is in FullUrl mode', () => {
     const mode: HtmlSourceMode = 'FullUrl';
-    const url: string | null = buildFinalUrl({
+    const url: string | undefined = buildFinalUrl({
       htmlSourceMode: mode,
       fullUrl: 'https://contoso.sharepoint.com/sites/Reports/Dashboards/sample.html',
     });
@@ -16,16 +21,16 @@ describe('buildFinalUrl', () => {
   });
 
   it('returns null when fullUrl is empty in FullUrl mode', () => {
-    const url: string | null = buildFinalUrl({
+    const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'FullUrl',
       fullUrl: '   ',
     });
 
-    expect(url).toBeNull();
+    expect(url).toBeUndefined();
   });
 
   it('joins basePath and relativePath in BasePathAndRelativePath mode', () => {
-    const url: string | null = buildFinalUrl({
+    const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndRelativePath',
       basePath: '/sites/Reports/Dashboards',
       relativePath: '/system1/index.html',
@@ -35,7 +40,7 @@ describe('buildFinalUrl', () => {
   });
 
   it('builds URL using query string dashboard ID when present', () => {
-    const url: string | null = buildFinalUrl({
+    const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndDashboardId',
       basePath: '/sites/Reports/Dashboards',
       dashboardId: 'fallback-id',
@@ -48,7 +53,7 @@ describe('buildFinalUrl', () => {
   });
 
   it('falls back to dashboardId when no query string parameter is present', () => {
-    const url: string | null = buildFinalUrl({
+    const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndDashboardId',
       basePath: '/sites/Reports/Dashboards',
       dashboardId: 'fallback-id',
@@ -61,7 +66,7 @@ describe('buildFinalUrl', () => {
   });
 
   it('uses default index.html when defaultFileName is empty', () => {
-    const url: string | null = buildFinalUrl({
+    const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndDashboardId',
       basePath: '/sites/Reports/Dashboards',
       dashboardId: 'abc',
@@ -74,17 +79,17 @@ describe('buildFinalUrl', () => {
   });
 
   it('returns null when basePath is missing in BasePathAndRelativePath mode', () => {
-    const url: string | null = buildFinalUrl({
+    const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndRelativePath',
       basePath: '   ',
       relativePath: 'system1/index.html',
     });
 
-    expect(url).toBeNull();
+    expect(url).toBeUndefined();
   });
 
   it('returns null when dashboard ID cannot be determined', () => {
-    const url: string | null = buildFinalUrl({
+    const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndDashboardId',
       basePath: '/sites/Reports/Dashboards',
       dashboardId: '   ',
@@ -93,15 +98,19 @@ describe('buildFinalUrl', () => {
       pageUrl: currentPageUrl,
     });
 
-    expect(url).toBeNull();
+    expect(url).toBeUndefined();
   });
 });
 
 describe('isUrlAllowed', () => {
   const currentPageUrl: string = 'https://contoso.sharepoint.com/sites/Reports/Pages/Dashboard.aspx';
+  const strictOptions = {
+    securityMode: 'StrictTenant' as UrlSecurityMode,
+    currentPageUrl,
+  };
 
   it('allows site-relative URLs', () => {
-    expect(isUrlAllowed('/sites/Reports/Dashboards/sample.html', currentPageUrl)).toBe(
+    expect(isUrlAllowed('/sites/Reports/Dashboards/sample.html', strictOptions)).toBe(
       true,
     );
   });
@@ -110,7 +119,7 @@ describe('isUrlAllowed', () => {
     expect(
       isUrlAllowed(
         'https://contoso.sharepoint.com/sites/Reports/Dashboards/sample.html',
-        currentPageUrl,
+        strictOptions,
       ),
     ).toBe(true);
   });
@@ -119,19 +128,86 @@ describe('isUrlAllowed', () => {
     expect(
       isUrlAllowed(
         'https://fabrikam.sharepoint.com/sites/Reports/Dashboards/sample.html',
-        currentPageUrl,
+        strictOptions,
       ),
     ).toBe(false);
   });
 
   it('rejects javascript: URLs', () => {
-    expect(isUrlAllowed('javascript:alert("x")', currentPageUrl)).toBe(false);
+    const scriptUrl = ['java', 'script:alert("x")'].join('');
+    expect(isUrlAllowed(scriptUrl, strictOptions)).toBe(false);
   });
 
   it('rejects unsupported URL formats', () => {
-    expect(isUrlAllowed('ftp://contoso.sharepoint.com/file.html', currentPageUrl)).toBe(
+    expect(isUrlAllowed('ftp://contoso.sharepoint.com/file.html', strictOptions)).toBe(
       false,
     );
   });
-});
 
+  it('rejects protocol-relative URLs', () => {
+    expect(isUrlAllowed('//evil.example.com/file.html', strictOptions)).toBe(false);
+  });
+
+  it('rejects data: URLs', () => {
+    expect(isUrlAllowed('data:text/html;base64,AAA', strictOptions)).toBe(false);
+  });
+
+  it('allows allowlisted hosts when configured', () => {
+    expect(
+      isUrlAllowed('https://cdn.contoso.com/report.html', {
+        securityMode: 'Allowlist',
+        currentPageUrl,
+        allowedHosts: ['cdn.contoso.com'],
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects non-allowlisted hosts when in allowlist mode', () => {
+    expect(
+      isUrlAllowed('https://cdn.fabrikam.com/report.html', {
+        securityMode: 'Allowlist',
+        currentPageUrl,
+        allowedHosts: ['cdn.contoso.com'],
+      }),
+    ).toBe(false);
+  });
+
+  it('allows any https in AnyHttps mode but rejects http', () => {
+    expect(
+      isUrlAllowed('https://external.example.com/report.html', {
+        securityMode: 'AnyHttps',
+        currentPageUrl,
+      }),
+    ).toBe(true);
+
+    expect(
+      isUrlAllowed('http://external.example.com/report.html', {
+        securityMode: 'AnyHttps',
+        currentPageUrl,
+      }),
+    ).toBe(false);
+  });
+
+  it('enforces allowed path prefixes', () => {
+    const options = {
+      securityMode: 'StrictTenant' as UrlSecurityMode,
+      currentPageUrl,
+      allowedPathPrefixes: ['/sites/Reports/Dashboards'],
+    };
+
+    expect(isUrlAllowed('/sites/Reports/Dashboards/a.html', options)).toBe(true);
+    expect(isUrlAllowed('/sites/Reports/Other/a.html', options)).toBe(false);
+    expect(
+      isUrlAllowed(
+        'https://contoso.sharepoint.com/sites/Reports/Dashboards/a.html',
+        options,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects dot-segment paths', () => {
+    expect(
+      isUrlAllowed('/sites/Reports/Dashboards/../Secret/index.html', strictOptions),
+    ).toBe(false);
+  });
+});

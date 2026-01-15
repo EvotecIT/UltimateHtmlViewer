@@ -1,1 +1,13 @@
-﻿node_modules/*
+node_modules/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+
+spfx/UniversalHtmlViewer/node_modules/
+spfx/UniversalHtmlViewer/lib/
+spfx/UniversalHtmlViewer/dist/
+spfx/UniversalHtmlViewer/temp/
+spfx/UniversalHtmlViewer/release/
+spfx/UniversalHtmlViewer/sharepoint/solution/*.sppkg
+spfx/UniversalHtmlViewer/sharepoint/solution/debug/

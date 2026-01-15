@@ -34,9 +34,19 @@
         "defaultFileName": "index.html",
         "queryStringParamName": "dashboard",
         "heightMode": "Fixed",
-        "fixedHeightPx": 800
+        "fixedHeightPx": 800,
+        "securityMode": "StrictTenant",
+        "allowedHosts": "",
+        "allowedPathPrefixes": "",
+        "cacheBusterMode": "None",
+        "cacheBusterParamName": "v",
+        "iframeSandbox": "",
+        "iframeAllow": "",
+        "iframeReferrerPolicy": "",
+        "iframeLoading": "",
+        "iframeTitle": "Universal HTML Viewer",
+        "refreshIntervalMinutes": 0
       }
     }
   ]
 }
-

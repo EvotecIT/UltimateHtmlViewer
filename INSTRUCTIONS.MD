@@ -1,4 +1,7 @@
-﻿Step 1 – Make sure Node is OK
+NOTE: The SPFx solution already exists under `spfx/UniversalHtmlViewer`
+This file is legacy scaffolding guidance; keep for reference only.
+
+Step 1 – Make sure Node is OK
 
   1. In PowerShell:
 
