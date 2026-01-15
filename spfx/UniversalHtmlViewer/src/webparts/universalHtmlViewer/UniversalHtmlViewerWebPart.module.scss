@@ -12,3 +12,32 @@
   padding: 8px 0;
 }
 
+.fallback {
+  padding: 8px 0;
+}
+
+.fallbackLink {
+  color: #0b5cab;
+  text-decoration: underline;
+}
+
+.diagnostics {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid #d0d0d0;
+  background: #f7f7f7;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.diagnosticsTitle {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.diagnosticsBody {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

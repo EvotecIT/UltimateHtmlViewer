@@ -36,16 +36,21 @@
         "heightMode": "Fixed",
         "fixedHeightPx": 800,
         "securityMode": "StrictTenant",
+        "allowHttp": false,
         "allowedHosts": "",
         "allowedPathPrefixes": "",
+        "allowedFileExtensions": ".html,.htm",
         "cacheBusterMode": "None",
         "cacheBusterParamName": "v",
+        "sandboxPreset": "None",
         "iframeSandbox": "",
         "iframeAllow": "",
         "iframeReferrerPolicy": "",
         "iframeLoading": "",
         "iframeTitle": "Universal HTML Viewer",
-        "refreshIntervalMinutes": 0
+        "iframeLoadTimeoutSeconds": 10,
+        "refreshIntervalMinutes": 0,
+        "showDiagnostics": false
       }
     }
   ]

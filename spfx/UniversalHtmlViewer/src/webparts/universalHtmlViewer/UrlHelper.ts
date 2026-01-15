@@ -24,6 +24,8 @@ export interface UrlValidationOptions {
   currentPageUrl: string;
   allowedHosts?: string[];
   allowedPathPrefixes?: string[];
+  allowedFileExtensions?: string[];
+  allowHttp?: boolean;
 }
 
 /**
@@ -116,33 +118,51 @@ export function isUrlAllowed(
       : currentPageUrlOrOptions;
 
   if (trimmedUrl.startsWith('/')) {
-    return isPathAllowed(trimmedUrl, options.allowedPathPrefixes);
+    const pathOnly: string = stripQueryAndHash(trimmedUrl);
+    return isPathAllowed(
+      pathOnly,
+      options.allowedPathPrefixes,
+      options.allowedFileExtensions,
+    );
   }
 
   if (lowerUrl.startsWith('http://') || lowerUrl.startsWith('https://')) {
     try {
       const target: URL = new URL(trimmedUrl);
       const current: URL = new URL(options.currentPageUrl);
-      const targetHost: string = target.host.toLowerCase();
-      const currentHost: string = current.host.toLowerCase();
+      const targetHost: string = target.hostname.toLowerCase();
+      const currentHost: string = current.hostname.toLowerCase();
+
+      if (target.protocol === 'http:' && !options.allowHttp) {
+        return false;
+      }
 
       if (options.securityMode === 'AnyHttps') {
-        if (target.protocol !== 'https:') {
+        if (target.protocol !== 'https:' && !(options.allowHttp && target.protocol === 'http:')) {
           return false;
         }
-        return isPathAllowed(target.pathname, options.allowedPathPrefixes);
+        return isPathAllowed(
+          target.pathname,
+          options.allowedPathPrefixes,
+          options.allowedFileExtensions,
+        );
       }
 
       if (targetHost === currentHost) {
-        return isPathAllowed(target.pathname, options.allowedPathPrefixes);
+        return isPathAllowed(
+          target.pathname,
+          options.allowedPathPrefixes,
+          options.allowedFileExtensions,
+        );
       }
 
       if (options.securityMode === 'Allowlist') {
-        const allowedHosts: string[] = (options.allowedHosts || []).map((host) =>
-          host.toLowerCase(),
-        );
-        if (allowedHosts.includes(targetHost)) {
-          return isPathAllowed(target.pathname, options.allowedPathPrefixes);
+        if (isHostAllowed(targetHost, options.allowedHosts)) {
+          return isPathAllowed(
+            target.pathname,
+            options.allowedPathPrefixes,
+            options.allowedFileExtensions,
+          );
         }
       }
 
@@ -191,11 +211,25 @@ function normalizeRelativePath(relativePath?: string): string {
   return normalized;
 }
 
-function isPathAllowed(pathname: string, allowedPrefixes?: string[]): boolean {
+function isPathAllowed(
+  pathname: string,
+  allowedPrefixes?: string[],
+  allowedExtensions?: string[],
+): boolean {
   const normalizedPath: string = normalizePath(pathname);
 
+  if (hasDotSegments(normalizedPath)) {
+    return false;
+  }
+
+  if (allowedExtensions && allowedExtensions.length > 0) {
+    if (!isExtensionAllowed(normalizedPath, allowedExtensions)) {
+      return false;
+    }
+  }
+
   if (!allowedPrefixes || allowedPrefixes.length === 0) {
-    return !hasDotSegments(normalizedPath);
+    return true;
   }
 
   const prefixes: string[] = allowedPrefixes
@@ -204,10 +238,6 @@ function isPathAllowed(pathname: string, allowedPrefixes?: string[]): boolean {
 
   if (prefixes.length === 0) {
     return true;
-  }
-
-  if (hasDotSegments(normalizedPath)) {
-    return false;
   }
 
   return prefixes.some((prefix) => {
@@ -240,10 +270,74 @@ function normalizePath(pathname: string): string {
     normalized = normalized.replace(/\/{2,}/g, '/');
   }
 
-  return normalized;
+  return normalized.toLowerCase();
 }
 
 function hasDotSegments(pathname: string): boolean {
   const segments = pathname.split('/').filter((segment) => segment.length > 0);
   return segments.some((segment) => segment === '.' || segment === '..');
+}
+
+function stripQueryAndHash(value: string): string {
+  const hashIndex: number = value.indexOf('#');
+  const queryIndex: number = value.indexOf('?');
+
+  if (hashIndex === -1 && queryIndex === -1) {
+    return value;
+  }
+
+  const cutIndex =
+    hashIndex === -1
+      ? queryIndex
+      : queryIndex === -1
+        ? hashIndex
+        : Math.min(hashIndex, queryIndex);
+
+  return value.substring(0, cutIndex);
+}
+
+function isExtensionAllowed(pathname: string, allowedExtensions: string[]): boolean {
+  const normalized: string = pathname.toLowerCase();
+  if (normalized.endsWith('/')) {
+    return false;
+  }
+
+  const lastSlash = normalized.lastIndexOf('/');
+  const lastDot = normalized.lastIndexOf('.');
+  if (lastDot === -1 || lastDot < lastSlash) {
+    return false;
+  }
+
+  const extension: string = normalized.substring(lastDot);
+  const normalizedAllowed = allowedExtensions.map((ext) =>
+    ext.startsWith('.') ? ext.toLowerCase() : `.${ext.toLowerCase()}`,
+  );
+  return normalizedAllowed.includes(extension);
+}
+
+function isHostAllowed(hostname: string, allowedHosts?: string[]): boolean {
+  if (!allowedHosts || allowedHosts.length === 0) {
+    return false;
+  }
+
+  const normalizedHost: string = hostname.toLowerCase();
+  return allowedHosts.some((entry) => {
+    let normalizedEntry: string = (entry || '').trim().toLowerCase();
+    if (!normalizedEntry) {
+      return false;
+    }
+
+    if (normalizedEntry.startsWith('*.')) {
+      normalizedEntry = normalizedEntry.substring(1);
+    }
+
+    if (normalizedEntry.startsWith('.')) {
+      return (
+        normalizedHost.endsWith(normalizedEntry) &&
+        normalizedHost.length > normalizedEntry.length
+      );
+    }
+
+    return normalizedHost === normalizedEntry;
+  });
 }

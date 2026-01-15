@@ -4,6 +4,7 @@ import {
   PropertyPaneDropdown,
   PropertyPaneTextField,
   PropertyPaneSlider,
+  PropertyPaneToggle,
 } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import { escape } from '@microsoft/sp-lodash-subset';
@@ -31,26 +32,36 @@ export interface IUniversalHtmlViewerWebPartProps {
   heightMode: HeightMode;
   fixedHeightPx: number;
   securityMode?: UrlSecurityMode;
+  allowHttp?: boolean;
   allowedHosts?: string;
   allowedPathPrefixes?: string;
+  allowedFileExtensions?: string;
   cacheBusterMode?: CacheBusterMode;
   cacheBusterParamName?: string;
+  sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;
   iframeReferrerPolicy?: string;
   iframeLoading?: string;
   iframeTitle?: string;
+  iframeLoadTimeoutSeconds?: number;
   refreshIntervalMinutes?: number;
+  showDiagnostics?: boolean;
 }
 
 export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IUniversalHtmlViewerWebPartProps> {
   private refreshTimerId: number | undefined;
+  private iframeLoadTimeoutId: number | undefined;
 
   public render(): void {
     this.renderAsync().catch((error) => {
       this.clearRefreshTimer();
+      this.clearIframeLoadTimeout();
       this.domElement.innerHTML = this.buildMessageHtml(
         'UniversalHtmlViewer: Failed to render content.',
+        this.buildDiagnosticsHtml({
+          error: String(error),
+        }),
       );
       // eslint-disable-next-line no-console
       console.error('UniversalHtmlViewer render failed', error);
@@ -83,11 +94,15 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                 PropertyPaneTextField('fullUrl', {
                   label: 'Full URL to HTML page',
                   description: 'Used when HTML source mode is "FullUrl".',
+                  onGetErrorMessage: this.validateFullUrl.bind(this),
+                  deferredValidationTime: 200,
                 }),
                 PropertyPaneTextField('basePath', {
                   label: 'Base path (site-relative)',
                   description:
                     'Site-relative base path, used when HTML source mode is not "FullUrl". Example: /sites/Reports/Dashboards/',
+                  onGetErrorMessage: this.validateBasePath.bind(this),
+                  deferredValidationTime: 200,
                 }),
                 PropertyPaneTextField('relativePath', {
                   label: 'Relative path from base',
@@ -122,15 +137,30 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                     { key: 'AnyHttps', text: 'Any HTTPS (unsafe)' },
                   ],
                 }),
+                PropertyPaneToggle('allowHttp', {
+                  label: 'Allow HTTP (unsafe)',
+                  onText: 'Allow',
+                  offText: 'Block',
+                }),
                 PropertyPaneTextField('allowedHosts', {
                   label: 'Allowed hosts (comma-separated)',
                   description:
                     'Used when security mode is "Allowlist". Example: cdn.contoso.com, files.contoso.net',
+                  onGetErrorMessage: this.validateAllowedHosts.bind(this),
+                  deferredValidationTime: 200,
                 }),
                 PropertyPaneTextField('allowedPathPrefixes', {
                   label: 'Allowed path prefixes (comma-separated)',
                   description:
                     'Optional site-relative path prefixes that the URL must start with. Example: /sites/Reports/Dashboards/',
+                  onGetErrorMessage: this.validateAllowedPathPrefixes.bind(this),
+                  deferredValidationTime: 200,
+                }),
+                PropertyPaneTextField('allowedFileExtensions', {
+                  label: 'Allowed file extensions (comma-separated)',
+                  description: 'Optional file extensions, e.g. .html, .htm',
+                  onGetErrorMessage: this.validateAllowedFileExtensions.bind(this),
+                  deferredValidationTime: 200,
                 }),
               ],
             },
@@ -190,10 +220,19 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                     { key: 'eager', text: 'Eager' },
                   ],
                 }),
+                PropertyPaneDropdown('sandboxPreset', {
+                  label: 'Sandbox preset',
+                  options: [
+                    { key: 'None', text: 'None (no sandbox)' },
+                    { key: 'Relaxed', text: 'Relaxed' },
+                    { key: 'Strict', text: 'Strict' },
+                    { key: 'Custom', text: 'Custom (use tokens below)' },
+                  ],
+                }),
                 PropertyPaneTextField('iframeSandbox', {
                   label: 'Sandbox tokens',
                   description:
-                    'Space-separated sandbox tokens. Leave empty for no sandbox. Example: allow-scripts allow-same-origin',
+                    'Space-separated sandbox tokens used when Sandbox preset is "Custom". Example: allow-scripts allow-same-origin',
                 }),
                 PropertyPaneTextField('iframeAllow', {
                   label: 'Permissions policy (allow)',
@@ -213,6 +252,22 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                     { key: 'strict-origin-when-cross-origin', text: 'strict-origin-when-cross-origin' },
                     { key: 'unsafe-url', text: 'unsafe-url' },
                   ],
+                }),
+                PropertyPaneSlider('iframeLoadTimeoutSeconds', {
+                  label: 'Iframe load timeout (seconds)',
+                  min: 0,
+                  max: 60,
+                  step: 1,
+                }),
+              ],
+            },
+            {
+              groupName: 'Diagnostics',
+              groupFields: [
+                PropertyPaneToggle('showDiagnostics', {
+                  label: 'Show diagnostics panel',
+                  onText: 'On',
+                  offText: 'Off',
                 }),
               ],
             },
@@ -239,9 +294,11 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
 
   protected onDispose(): void {
     this.clearRefreshTimer();
+    this.clearIframeLoadTimeout();
   }
 
   private async renderAsync(): Promise<void> {
+    this.clearIframeLoadTimeout();
     const pageUrl: string = this.getCurrentPageUrl();
     const htmlSourceMode: HtmlSourceMode = this.properties.htmlSourceMode || 'FullUrl';
 
@@ -258,8 +315,16 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
 
     if (!finalUrl) {
       this.clearRefreshTimer();
+      this.clearIframeLoadTimeout();
       this.domElement.innerHTML = this.buildMessageHtml(
         'UniversalHtmlViewer: No URL configured. Please update the web part settings.',
+        this.buildDiagnosticsHtml(
+          this.buildDiagnosticsData({
+            htmlSourceMode,
+            pageUrl,
+            finalUrl,
+          }),
+        ),
       );
       return;
     }
@@ -268,8 +333,17 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
 
     if (!isUrlAllowed(finalUrl, validationOptions)) {
       this.clearRefreshTimer();
+      this.clearIframeLoadTimeout();
       this.domElement.innerHTML = this.buildMessageHtml(
         'UniversalHtmlViewer: The target URL is invalid or not allowed.',
+        this.buildDiagnosticsHtml(
+          this.buildDiagnosticsData({
+            htmlSourceMode,
+            pageUrl,
+            finalUrl,
+            validationOptions,
+          }),
+        ),
       );
       return;
     }
@@ -286,15 +360,32 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
       pageUrl,
     );
 
-    this.renderIframe(resolvedUrl, iframeHeightStyle);
+    this.renderIframe(
+      resolvedUrl,
+      iframeHeightStyle,
+      this.buildDiagnosticsHtml(
+        this.buildDiagnosticsData({
+          htmlSourceMode,
+          pageUrl,
+          finalUrl,
+          resolvedUrl,
+          validationOptions,
+          cacheBusterMode,
+        }),
+      ),
+    );
+    this.setupIframeLoadFallback(resolvedUrl);
     this.setupAutoRefresh(finalUrl, cacheBusterMode, cacheBusterParamName, pageUrl);
   }
 
-  private renderIframe(url: string, iframeHeightStyle: string): void {
+  private renderIframe(url: string, iframeHeightStyle: string, diagnosticsHtml: string): void {
     const iframeTitle: string =
       (this.properties.iframeTitle || '').trim() || 'Universal HTML Viewer';
     const iframeLoading: string = this.normalizeIframeLoading(this.properties.iframeLoading);
-    const iframeSandbox: string = this.normalizeIframeSandbox(this.properties.iframeSandbox);
+    const iframeSandbox: string = this.normalizeIframeSandbox(
+      this.properties.iframeSandbox,
+      this.properties.sandboxPreset,
+    );
     const iframeAllow: string = this.normalizeIframeAllow(this.properties.iframeAllow);
     const iframeReferrerPolicy: string = this.normalizeReferrerPolicy(
       this.properties.iframeReferrerPolicy,
@@ -320,21 +411,27 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
           width="100%"
           frameborder="0"${loadingAttribute}${sandboxAttribute}${allowAttribute}${referrerPolicyAttribute}
         ></iframe>
-      </div>`;
+      </div>${diagnosticsHtml}`;
   }
 
   private buildUrlValidationOptions(currentPageUrl: string): UrlValidationOptions {
     const securityMode: UrlSecurityMode = this.properties.securityMode || 'StrictTenant';
+    const allowHttp: boolean = !!this.properties.allowHttp;
     const allowedHosts: string[] = this.parseHosts(this.properties.allowedHosts);
     const allowedPathPrefixes: string[] = this.parsePathPrefixes(
       this.properties.allowedPathPrefixes,
+    );
+    const allowedFileExtensions: string[] = this.parseFileExtensions(
+      this.properties.allowedFileExtensions,
     );
 
     return {
       securityMode,
       currentPageUrl,
+      allowHttp,
       allowedHosts,
       allowedPathPrefixes,
+      allowedFileExtensions,
     };
   }
 
@@ -344,15 +441,23 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0)
       .map((entry) => {
+        let hostValue: string = entry;
         try {
           if (entry.includes('://')) {
-            return new URL(entry).host.toLowerCase();
+            hostValue = new URL(entry).hostname;
+          } else {
+            hostValue = entry.split('/')[0];
           }
-          const withoutPath: string = entry.split('/')[0];
-          return withoutPath.toLowerCase();
         } catch {
-          return entry.toLowerCase();
+          hostValue = entry;
         }
+
+        if (hostValue.startsWith('*.')) {
+          hostValue = hostValue.substring(1);
+        }
+
+        const withoutPort: string = hostValue.split(':')[0];
+        return withoutPort.toLowerCase();
       });
   }
 
@@ -366,6 +471,19 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
           return `/${entry}`;
         }
         return entry;
+      });
+  }
+
+  private parseFileExtensions(value?: string): string[] {
+    return (value || '')
+      .split(/[,;\s]+/g)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+      .map((entry) => {
+        if (entry.startsWith('.')) {
+          return entry.toLowerCase();
+        }
+        return `.${entry.toLowerCase()}`;
       });
   }
 
@@ -388,7 +506,18 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
     return '';
   }
 
-  private normalizeIframeSandbox(value?: string): string {
+  private normalizeIframeSandbox(value?: string, preset?: string): string {
+    const normalizedPreset: string = (preset || '').trim().toLowerCase();
+    if (normalizedPreset && normalizedPreset !== 'custom') {
+      if (normalizedPreset === 'relaxed') {
+        return 'allow-same-origin allow-scripts allow-forms allow-popups';
+      }
+      if (normalizedPreset === 'strict') {
+        return 'allow-scripts';
+      }
+      return '';
+    }
+
     const tokens: string[] = (value || '')
       .split(/\s+/g)
       .map((token) => token.trim())
@@ -505,6 +634,55 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
     this.refreshTimerId = undefined;
   }
 
+  private setupIframeLoadFallback(url: string): void {
+    this.clearIframeLoadTimeout();
+
+    const timeoutSeconds: number = this.getIframeLoadTimeoutSeconds();
+    if (timeoutSeconds <= 0) {
+      return;
+    }
+
+    const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
+    if (!iframe || typeof window === 'undefined') {
+      return;
+    }
+
+    iframe.addEventListener('load', () => {
+      this.clearIframeLoadTimeout();
+    });
+
+    this.iframeLoadTimeoutId = window.setTimeout(() => {
+      this.clearRefreshTimer();
+      this.domElement.innerHTML = this.buildMessageHtml(
+        'UniversalHtmlViewer: The content did not load in time. It may be blocked by SharePoint security headers.',
+        `${this.buildOpenInNewTabHtml(url)}${this.buildDiagnosticsHtml(
+          this.buildDiagnosticsData({
+            resolvedUrl: url,
+            timeoutSeconds,
+          }),
+        )}`,
+      );
+    }, timeoutSeconds * 1000);
+  }
+
+  private getIframeLoadTimeoutSeconds(): number {
+    const configuredSeconds = this.properties.iframeLoadTimeoutSeconds;
+    if (typeof configuredSeconds !== 'number') {
+      return 10;
+    }
+    if (configuredSeconds <= 0) {
+      return 0;
+    }
+    return configuredSeconds;
+  }
+
+  private clearIframeLoadTimeout(): void {
+    if (this.iframeLoadTimeoutId && typeof window !== 'undefined') {
+      window.clearTimeout(this.iframeLoadTimeoutId);
+    }
+    this.iframeLoadTimeoutId = undefined;
+  }
+
   private async resolveUrlWithCacheBuster(
     baseUrl: string,
     cacheBusterMode: CacheBusterMode,
@@ -609,10 +787,181 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
     }
   }
 
-  private buildMessageHtml(message: string): string {
+  private buildMessageHtml(message: string, extraHtml?: string): string {
+    const extra: string = extraHtml ? extraHtml : '';
     return `
       <div class="${styles.universalHtmlViewer}">
         <div class="${styles.message}">${escape(message)}</div>
+      </div>${extra}`;
+  }
+
+  private buildOpenInNewTabHtml(url: string): string {
+    const escapedUrl: string = escape(url);
+    return `
+      <div class="${styles.fallback}">
+        <a class="${styles.fallbackLink}" href="${escapedUrl}" target="_blank" rel="noopener noreferrer">
+          Open in new tab
+        </a>
       </div>`;
+  }
+
+  private buildDiagnosticsHtml(data?: Record<string, unknown>): string {
+    if (!this.properties.showDiagnostics || !data) {
+      return '';
+    }
+
+    const json: string = JSON.stringify(data, null, 2) || '';
+    const escaped: string = escape(json);
+
+    return `
+      <div class="${styles.diagnostics}">
+        <div class="${styles.diagnosticsTitle}">Diagnostics</div>
+        <pre class="${styles.diagnosticsBody}">${escaped}</pre>
+      </div>`;
+  }
+
+  private buildDiagnosticsData(values: Record<string, unknown>): Record<string, unknown> {
+    return {
+      timestamp: new Date().toISOString(),
+      ...values,
+      allowHttp: !!this.properties.allowHttp,
+      allowedHosts: this.parseHosts(this.properties.allowedHosts),
+      allowedPathPrefixes: this.parsePathPrefixes(this.properties.allowedPathPrefixes),
+      allowedFileExtensions: this.parseFileExtensions(this.properties.allowedFileExtensions),
+      securityMode: this.properties.securityMode || 'StrictTenant',
+      cacheBusterMode: this.properties.cacheBusterMode || 'None',
+      sandboxPreset: this.properties.sandboxPreset || 'None',
+      iframeSandbox: this.properties.iframeSandbox || '',
+      iframeLoadTimeoutSeconds: this.getIframeLoadTimeoutSeconds(),
+    };
+  }
+
+  private validateFullUrl(value?: string): string {
+    const trimmed: string = (value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    const lower = trimmed.toLowerCase();
+    const blockedSchemes = ['javascript', 'data', 'vbscript'];
+    if (blockedSchemes.some((scheme) => lower.startsWith(`${scheme}:`))) {
+      return 'Unsupported or unsafe URL scheme.';
+    }
+
+    if (trimmed.startsWith('/')) {
+      return '';
+    }
+
+    if (lower.startsWith('https://')) {
+      return '';
+    }
+
+    if (lower.startsWith('http://')) {
+      return this.properties.allowHttp
+        ? ''
+        : 'HTTP is blocked by default. Enable "Allow HTTP" if required.';
+    }
+
+    return 'Enter a site-relative path or an absolute http/https URL.';
+  }
+
+  private validateBasePath(value?: string): string {
+    const trimmed: string = (value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+    if (trimmed.includes('://')) {
+      return 'Base path must be site-relative, e.g. /sites/Reports/Dashboards/.';
+    }
+    if (!trimmed.startsWith('/')) {
+      return 'Base path must start with "/".';
+    }
+    if (trimmed.includes('?') || trimmed.includes('#')) {
+      return 'Base path should not include query strings or fragments.';
+    }
+    if (this.hasDotSegments(trimmed)) {
+      return 'Base path must not include "." or ".." segments.';
+    }
+    return '';
+  }
+
+  private validateAllowedHosts(value?: string): string {
+    const entries = (value || '')
+      .split(/[,;\s]+/g)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+
+    for (const entry of entries) {
+      let host = entry;
+      try {
+        if (entry.includes('://')) {
+          host = new URL(entry).hostname;
+        } else {
+          host = entry.split('/')[0];
+        }
+      } catch {
+        return `Invalid host entry: "${entry}".`;
+      }
+
+      if (host.startsWith('*.')) {
+        host = host.substring(1);
+      }
+
+      host = host.split(':')[0];
+      if (host.startsWith('.')) {
+        host = host.substring(1);
+      }
+
+      if (!/^[a-z0-9.-]+$/i.test(host) || host.length === 0) {
+        return `Invalid host entry: "${entry}".`;
+      }
+    }
+
+    return '';
+  }
+
+  private validateAllowedPathPrefixes(value?: string): string {
+    const entries = (value || '')
+      .split(/[,;\s]+/g)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+
+    for (const entry of entries) {
+      if (!entry.startsWith('/')) {
+        return `Path prefixes must start with "/": "${entry}".`;
+      }
+      if (entry.includes('://')) {
+        return `Path prefixes must be site-relative: "${entry}".`;
+      }
+      if (entry.includes('?') || entry.includes('#')) {
+        return `Path prefixes must not include query strings: "${entry}".`;
+      }
+      if (this.hasDotSegments(entry)) {
+        return `Path prefixes must not include "." or "..": "${entry}".`;
+      }
+    }
+
+    return '';
+  }
+
+  private validateAllowedFileExtensions(value?: string): string {
+    const entries = (value || '')
+      .split(/[,;\s]+/g)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+
+    for (const entry of entries) {
+      const normalized = entry.startsWith('.') ? entry : `.${entry}`;
+      if (!/^\.[a-z0-9]+$/i.test(normalized)) {
+        return `Invalid extension: "${entry}". Use values like .html, .htm.`;
+      }
+    }
+
+    return '';
+  }
+
+  private hasDotSegments(pathname: string): boolean {
+    const segments = pathname.split('/').filter((segment) => segment.length > 0);
+    return segments.some((segment) => segment === '.' || segment === '..');
   }
 }

@@ -172,6 +172,16 @@ describe('isUrlAllowed', () => {
     ).toBe(false);
   });
 
+  it('supports wildcard suffix hosts in allowlist mode', () => {
+    expect(
+      isUrlAllowed('https://assets.sharepoint.com/report.html', {
+        securityMode: 'Allowlist',
+        currentPageUrl,
+        allowedHosts: ['.sharepoint.com'],
+      }),
+    ).toBe(true);
+  });
+
   it('allows any https in AnyHttps mode but rejects http', () => {
     expect(
       isUrlAllowed('https://external.example.com/report.html', {
@@ -186,6 +196,23 @@ describe('isUrlAllowed', () => {
         currentPageUrl,
       }),
     ).toBe(false);
+  });
+
+  it('blocks http by default but allows it when explicitly enabled', () => {
+    expect(
+      isUrlAllowed('http://contoso.sharepoint.com/sites/Reports/Dashboards/a.html', {
+        securityMode: 'StrictTenant',
+        currentPageUrl,
+      }),
+    ).toBe(false);
+
+    expect(
+      isUrlAllowed('http://contoso.sharepoint.com/sites/Reports/Dashboards/a.html', {
+        securityMode: 'StrictTenant',
+        currentPageUrl,
+        allowHttp: true,
+      }),
+    ).toBe(true);
   });
 
   it('enforces allowed path prefixes', () => {
@@ -203,6 +230,29 @@ describe('isUrlAllowed', () => {
         options,
       ),
     ).toBe(true);
+  });
+
+  it('treats allowed path prefixes as case-insensitive', () => {
+    const options = {
+      securityMode: 'StrictTenant' as UrlSecurityMode,
+      currentPageUrl,
+      allowedPathPrefixes: ['/sites/reports/dashboards'],
+    };
+
+    expect(isUrlAllowed('/Sites/Reports/Dashboards/a.html', options)).toBe(true);
+  });
+
+  it('enforces allowed file extensions when configured', () => {
+    const options = {
+      securityMode: 'StrictTenant' as UrlSecurityMode,
+      currentPageUrl,
+      allowedFileExtensions: ['.html', '.htm'],
+    };
+
+    expect(isUrlAllowed('/sites/Reports/Dashboards/a.html', options)).toBe(true);
+    expect(isUrlAllowed('/sites/Reports/Dashboards/a.HTM', options)).toBe(true);
+    expect(isUrlAllowed('/sites/Reports/Dashboards/a.js', options)).toBe(false);
+    expect(isUrlAllowed('/sites/Reports/Dashboards/', options)).toBe(false);
   });
 
   it('rejects dot-segment paths', () => {

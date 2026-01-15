@@ -8,10 +8,11 @@ The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-sid
 
 - **Flexible source modes**: full URL, base path + relative path, or base path + dashboard ID from query string.
 - **Security profiles**: strict tenant, allowlist, or any HTTPS (opt-in).
-- **Path controls**: optional allowed path prefixes to keep content in specific libraries.
+- **Path controls**: optional allowed path prefixes + file extension allowlist.
 - **Cache-busting**: timestamp or SharePoint file modified time / ETag.
-- **Iframe controls**: sandbox, permissions policy, referrer policy, loading mode, title.
+- **Iframe controls**: sandbox presets, permissions policy, referrer policy, loading mode, title.
 - **Auto-refresh**: optional periodic reload for live dashboards.
+- **Diagnostics + fallback**: optional diagnostics panel and iframe load timeout with “Open in new tab”.
 
 ## HTML source modes
 
@@ -79,8 +80,10 @@ The web part exposes the following properties in the property pane:
   - `dashboardId`, `defaultFileName`, `queryStringParamName` – used when `htmlSourceMode = BasePathAndDashboardId`.
 - Group: **Security**
   - `securityMode` (dropdown) – `StrictTenant` (default), `Allowlist`, or `AnyHttps`.
+  - `allowHttp` (toggle) – allows HTTP when explicitly enabled.
   - `allowedHosts` – comma-separated hostnames used when `securityMode = Allowlist`.
   - `allowedPathPrefixes` – optional site-relative path prefixes that URLs must start with.
+  - `allowedFileExtensions` – optional file extensions allowlist (e.g. `.html, .htm`). Leave blank to allow any.
 - Group: **Cache & refresh**
   - `cacheBusterMode` (dropdown) – `None`, `Timestamp`, or `FileLastModified`.
   - `cacheBusterParamName` – query string parameter name (defaults to `v`).
@@ -91,9 +94,13 @@ The web part exposes the following properties in the property pane:
 - Group: **Iframe**
   - `iframeTitle` – accessibility title (defaults to `Universal HTML Viewer`).
   - `iframeLoading` – `lazy`, `eager`, or browser default.
+  - `sandboxPreset` – `None`, `Relaxed`, `Strict`, or `Custom`.
   - `iframeSandbox` – space-separated sandbox tokens.
   - `iframeAllow` – permissions policy string.
   - `iframeReferrerPolicy` – referrer policy for iframe requests.
+  - `iframeLoadTimeoutSeconds` – seconds before showing the fallback message (0 disables).
+- Group: **Diagnostics**
+  - `showDiagnostics` – shows a diagnostics panel with computed configuration and URLs.
 
 ## URL safety and validation
 
@@ -101,11 +108,13 @@ Before rendering the iframe, the web part:
 
 - Rejects `javascript:`, `data:`, `vbscript:`, protocol-relative (`//`) URLs, and unknown schemes.
 - Allows only site-relative paths (starting with `/`) or absolute `http/https` URLs.
+- HTTP URLs are blocked by default unless `allowHttp` is enabled.
 - Enforces the selected **security mode**:
   - `StrictTenant`: absolute URLs must match the current SharePoint host.
   - `Allowlist`: current host + explicitly allowed hosts.
   - `AnyHttps`: any HTTPS host (opt-in, less safe).
 - Optionally enforces `allowedPathPrefixes` to keep URLs inside specific site paths.
+- Optionally enforces `allowedFileExtensions` to limit file types.
 - If validation fails, the web part renders a clear error message:
 
 > UniversalHtmlViewer: The target URL is invalid or not allowed.
@@ -129,6 +138,7 @@ You can also enable `refreshIntervalMinutes` to auto-refresh the iframe.
 Optional iframe controls allow you to lock down or tune behavior:
 
 - `sandbox` tokens (e.g., `allow-scripts allow-same-origin`)
+- `sandboxPreset` simplifies common configurations; use `Custom` to apply `iframeSandbox` tokens.
 - `allow` permissions policy (e.g., `fullscreen; clipboard-read; clipboard-write`)
 - `referrerpolicy`, `loading`, and `title`
 
