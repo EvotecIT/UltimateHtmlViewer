@@ -22,6 +22,7 @@ import {
 } from './UrlHelper';
 
 export interface IUniversalHtmlViewerWebPartProps {
+  configurationPreset?: string;
   htmlSourceMode: HtmlSourceMode;
   fullUrl?: string;
   basePath?: string;
@@ -47,6 +48,13 @@ export interface IUniversalHtmlViewerWebPartProps {
   iframeLoadTimeoutSeconds?: number;
   refreshIntervalMinutes?: number;
   showDiagnostics?: boolean;
+  showChrome?: boolean;
+  chromeTitle?: string;
+  chromeSubtitle?: string;
+  showOpenInNewTab?: boolean;
+  showRefreshButton?: boolean;
+  showStatus?: boolean;
+  showLoadingIndicator?: boolean;
 }
 
 export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IUniversalHtmlViewerWebPartProps> {
@@ -72,7 +80,45 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
     return Version.parse('1.0');
   }
 
+  protected onPropertyPaneFieldChanged(
+    propertyPath: string,
+    oldValue: unknown,
+    newValue: unknown,
+  ): void {
+    super.onPropertyPaneFieldChanged(propertyPath, oldValue, newValue);
+
+    if (propertyPath === 'configurationPreset' && newValue !== oldValue) {
+      this.applyPreset(String(newValue || 'Custom'));
+      this.context.propertyPane.refresh();
+      this.render();
+      return;
+    }
+
+    if (
+      propertyPath === 'htmlSourceMode' ||
+      propertyPath === 'securityMode' ||
+      propertyPath === 'sandboxPreset' ||
+      propertyPath === 'cacheBusterMode' ||
+      propertyPath === 'showChrome'
+    ) {
+      this.context.propertyPane.refresh();
+    }
+
+    this.render();
+  }
+
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
+    const htmlSourceMode: HtmlSourceMode = this.properties.htmlSourceMode || 'FullUrl';
+    const isFullUrl: boolean = htmlSourceMode === 'FullUrl';
+    const isRelativePath: boolean = htmlSourceMode === 'BasePathAndRelativePath';
+    const isDashboardId: boolean = htmlSourceMode === 'BasePathAndDashboardId';
+    const securityMode: UrlSecurityMode = this.properties.securityMode || 'StrictTenant';
+    const isAllowlistMode: boolean = securityMode === 'Allowlist';
+    const cacheBusterMode: CacheBusterMode = this.properties.cacheBusterMode || 'None';
+    const sandboxPreset: string = this.properties.sandboxPreset || 'None';
+    const isCustomSandbox: boolean = sandboxPreset === 'Custom';
+    const showChrome: boolean = this.properties.showChrome !== false;
+
     return {
       pages: [
         {
@@ -80,6 +126,59 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
             description: 'Configure the HTML source and layout.',
           },
           groups: [
+            {
+              groupName: 'Presets & UX',
+              groupFields: [
+                PropertyPaneDropdown('configurationPreset', {
+                  label: 'Configuration preset',
+                  options: [
+                    { key: 'Custom', text: 'Custom (manual settings)' },
+                    { key: 'SharePointLibraryRelaxed', text: 'SharePoint library (relaxed)' },
+                    { key: 'SharePointLibraryStrict', text: 'SharePoint library (strict)' },
+                    { key: 'AllowlistCDN', text: 'Allowlist CDN' },
+                    { key: 'AnyHttps', text: 'Any HTTPS (unsafe)' },
+                  ],
+                }),
+                PropertyPaneToggle('showChrome', {
+                  label: 'Show header chrome',
+                  onText: 'On',
+                  offText: 'Off',
+                }),
+                PropertyPaneTextField('chromeTitle', {
+                  label: 'Chrome title',
+                  description: 'Shown above the iframe.',
+                  disabled: !showChrome,
+                }),
+                PropertyPaneTextField('chromeSubtitle', {
+                  label: 'Chrome subtitle',
+                  description: 'Optional helper text under the title.',
+                  disabled: !showChrome,
+                }),
+                PropertyPaneToggle('showRefreshButton', {
+                  label: 'Show refresh button',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !showChrome,
+                }),
+                PropertyPaneToggle('showOpenInNewTab', {
+                  label: 'Show "Open in new tab"',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !showChrome,
+                }),
+                PropertyPaneToggle('showStatus', {
+                  label: 'Show status pill',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !showChrome,
+                }),
+                PropertyPaneToggle('showLoadingIndicator', {
+                  label: 'Show loading indicator',
+                  onText: 'On',
+                  offText: 'Off',
+                }),
+              ],
+            },
             {
               groupName: 'Source settings',
               groupFields: [
@@ -94,6 +193,7 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                 PropertyPaneTextField('fullUrl', {
                   label: 'Full URL to HTML page',
                   description: 'Used when HTML source mode is "FullUrl".',
+                  disabled: !isFullUrl,
                   onGetErrorMessage: this.validateFullUrl.bind(this),
                   deferredValidationTime: 200,
                 }),
@@ -101,6 +201,7 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                   label: 'Base path (site-relative)',
                   description:
                     'Site-relative base path, used when HTML source mode is not "FullUrl". Example: /sites/Reports/Dashboards/',
+                  disabled: isFullUrl,
                   onGetErrorMessage: this.validateBasePath.bind(this),
                   deferredValidationTime: 200,
                 }),
@@ -108,21 +209,25 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                   label: 'Relative path from base',
                   description:
                     'Used when HTML source mode is "BasePathAndRelativePath". Example: system1/index.html',
+                  disabled: !isRelativePath,
                 }),
                 PropertyPaneTextField('dashboardId', {
                   label: 'Dashboard ID (fallback)',
                   description:
                     'Used when HTML source mode is "BasePathAndDashboardId" and no query string parameter is provided.',
+                  disabled: !isDashboardId,
                 }),
                 PropertyPaneTextField('defaultFileName', {
                   label: 'Default file name',
                   description:
                     'Used when HTML source mode is "BasePathAndDashboardId". Defaults to "index.html" when left empty.',
+                  disabled: !isDashboardId,
                 }),
                 PropertyPaneTextField('queryStringParamName', {
                   label: 'Query string parameter name',
                   description:
                     'Used when HTML source mode is "BasePathAndDashboardId" to read the dashboard ID from the page URL. Defaults to "dashboard" when left empty.',
+                  disabled: !isDashboardId,
                 }),
               ],
             },
@@ -146,6 +251,7 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                   label: 'Allowed hosts (comma-separated)',
                   description:
                     'Used when security mode is "Allowlist". Example: cdn.contoso.com, files.contoso.net',
+                  disabled: !isAllowlistMode,
                   onGetErrorMessage: this.validateAllowedHosts.bind(this),
                   deferredValidationTime: 200,
                 }),
@@ -178,6 +284,7 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                 PropertyPaneTextField('cacheBusterParamName', {
                   label: 'Cache-buster parameter name',
                   description: 'Defaults to "v" when empty.',
+                  disabled: cacheBusterMode === 'None',
                 }),
                 PropertyPaneSlider('refreshIntervalMinutes', {
                   label: 'Auto-refresh interval (minutes)',
@@ -233,6 +340,7 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
                   label: 'Sandbox tokens',
                   description:
                     'Space-separated sandbox tokens used when Sandbox preset is "Custom". Example: allow-scripts allow-same-origin',
+                  disabled: !isCustomSandbox,
                 }),
                 PropertyPaneTextField('iframeAllow', {
                   label: 'Permissions policy (allow)',
@@ -373,12 +481,26 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
           cacheBusterMode,
         }),
       ),
+      finalUrl,
+      cacheBusterMode,
+      cacheBusterParamName,
+      pageUrl,
+      validationOptions,
     );
     this.setupIframeLoadFallback(resolvedUrl);
     this.setupAutoRefresh(finalUrl, cacheBusterMode, cacheBusterParamName, pageUrl);
   }
 
-  private renderIframe(url: string, iframeHeightStyle: string, diagnosticsHtml: string): void {
+  private renderIframe(
+    url: string,
+    iframeHeightStyle: string,
+    diagnosticsHtml: string,
+    baseUrl: string,
+    cacheBusterMode: CacheBusterMode,
+    cacheBusterParamName: string,
+    pageUrl: string,
+    validationOptions: UrlValidationOptions,
+  ): void {
     const iframeTitle: string =
       (this.properties.iframeTitle || '').trim() || 'Universal HTML Viewer';
     const iframeLoading: string = this.normalizeIframeLoading(this.properties.iframeLoading);
@@ -390,6 +512,11 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
     const iframeReferrerPolicy: string = this.normalizeReferrerPolicy(
       this.properties.iframeReferrerPolicy,
     );
+    const chromeHtml: string = this.buildChromeHtml(url, validationOptions, cacheBusterMode);
+    const loadingHtml: string = this.buildLoadingHtml();
+    const iframeContainerClass: string = chromeHtml
+      ? styles.iframeContainer
+      : `${styles.iframeContainer} ${styles.iframeContainerNoChrome}`;
 
     const loadingAttribute: string = iframeLoading
       ? ` loading="${escape(iframeLoading)}"`
@@ -404,6 +531,9 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
 
     this.domElement.innerHTML = `
       <div class="${styles.universalHtmlViewer}">
+        ${chromeHtml}
+        <div class="${iframeContainerClass}">
+          ${loadingHtml}
         <iframe class="${styles.iframe}"
           src="${escape(url)}"
           title="${escape(iframeTitle)}"
@@ -411,7 +541,10 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
           width="100%"
           frameborder="0"${loadingAttribute}${sandboxAttribute}${allowAttribute}${referrerPolicyAttribute}
         ></iframe>
+        </div>
       </div>${diagnosticsHtml}`;
+
+    this.attachChromeHandlers(baseUrl, cacheBusterMode, cacheBusterParamName, pageUrl);
   }
 
   private buildUrlValidationOptions(currentPageUrl: string): UrlValidationOptions {
@@ -433,6 +566,75 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
       allowedPathPrefixes,
       allowedFileExtensions,
     };
+  }
+
+  private applyPreset(presetValue: string): void {
+    const preset: string = (presetValue || 'Custom').trim();
+    this.properties.configurationPreset = preset;
+
+    if (preset === 'Custom') {
+      return;
+    }
+
+    const basePathPrefix: string = this.normalizeBasePathForPrefix(this.properties.basePath);
+
+    this.properties.allowHttp = false;
+    this.properties.allowedFileExtensions = '.html,.htm';
+    this.properties.showChrome = true;
+    this.properties.showOpenInNewTab = true;
+    this.properties.showRefreshButton = true;
+    this.properties.showStatus = true;
+    this.properties.showLoadingIndicator = true;
+    this.properties.iframeLoadTimeoutSeconds = 10;
+
+    if (!this.properties.chromeTitle || this.properties.chromeTitle.trim().length === 0) {
+      this.properties.chromeTitle = 'Universal HTML Viewer';
+    }
+
+    if (basePathPrefix) {
+      this.properties.allowedPathPrefixes = basePathPrefix;
+    }
+
+    switch (preset) {
+      case 'SharePointLibraryStrict':
+        this.properties.securityMode = 'StrictTenant';
+        this.properties.cacheBusterMode = 'FileLastModified';
+        this.properties.sandboxPreset = 'Strict';
+        break;
+      case 'SharePointLibraryRelaxed':
+        this.properties.securityMode = 'StrictTenant';
+        this.properties.cacheBusterMode = 'FileLastModified';
+        this.properties.sandboxPreset = 'Relaxed';
+        break;
+      case 'AllowlistCDN':
+        this.properties.securityMode = 'Allowlist';
+        this.properties.cacheBusterMode = 'Timestamp';
+        this.properties.sandboxPreset = 'Relaxed';
+        break;
+      case 'AnyHttps':
+        this.properties.securityMode = 'AnyHttps';
+        this.properties.cacheBusterMode = 'Timestamp';
+        this.properties.sandboxPreset = 'None';
+        break;
+      default:
+        break;
+    }
+  }
+
+  private normalizeBasePathForPrefix(value?: string): string {
+    const trimmed: string = (value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    let normalized: string = trimmed;
+    if (!normalized.startsWith('/')) {
+      normalized = `/${normalized}`;
+    }
+    if (!normalized.endsWith('/')) {
+      normalized = `${normalized}/`;
+    }
+    return normalized.toLowerCase();
   }
 
   private parseHosts(value?: string): string[] {
@@ -617,6 +819,8 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
       return;
     }
 
+    this.setLoadingVisible(true);
+
     const refreshedUrl: string = await this.resolveUrlWithCacheBuster(
       baseUrl,
       cacheBusterMode,
@@ -649,6 +853,7 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
 
     iframe.addEventListener('load', () => {
       this.clearIframeLoadTimeout();
+      this.setLoadingVisible(false);
     });
 
     this.iframeLoadTimeoutId = window.setTimeout(() => {
@@ -787,6 +992,128 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
     }
   }
 
+  private buildChromeHtml(
+    resolvedUrl: string,
+    validationOptions: UrlValidationOptions,
+    cacheBusterMode: CacheBusterMode,
+  ): string {
+    if (!this.properties.showChrome) {
+      return '';
+    }
+
+    const title: string =
+      (this.properties.chromeTitle || '').trim() ||
+      (this.properties.iframeTitle || '').trim() ||
+      'Universal HTML Viewer';
+    const subtitle: string = (this.properties.chromeSubtitle || '').trim();
+    const showOpenInNewTab: boolean = this.properties.showOpenInNewTab !== false;
+    const showRefreshButton: boolean = this.properties.showRefreshButton !== false;
+    const showStatus: boolean = this.properties.showStatus !== false;
+
+    const statusLabel: string = showStatus
+      ? this.getStatusLabel(validationOptions, cacheBusterMode)
+      : '';
+    const statusHtml: string = statusLabel
+      ? `<span class="${styles.status}">${escape(statusLabel)}</span>`
+      : '';
+
+    const openInNewTabHtml: string = showOpenInNewTab
+      ? `<a class="${styles.actionLink}" href="${escape(resolvedUrl)}" target="_blank" rel="noopener noreferrer">
+          Open in new tab
+        </a>`
+      : '';
+
+    const refreshHtml: string = showRefreshButton
+      ? `<button class="${styles.actionButton}" type="button" data-uhv-action="refresh">Refresh</button>`
+      : '';
+
+    const subtitleHtml: string = subtitle
+      ? `<div class="${styles.chromeSubtitle}">${escape(subtitle)}</div>`
+      : '';
+
+    return `
+      <div class="${styles.chrome}">
+        <div class="${styles.chromeLeft}">
+          <div class="${styles.chromeTitle}">${escape(title)}</div>
+          ${subtitleHtml}
+        </div>
+        <div class="${styles.chromeRight}">
+          ${statusHtml}
+          ${refreshHtml}
+          ${openInNewTabHtml}
+        </div>
+      </div>`;
+  }
+
+  private buildLoadingHtml(): string {
+    if (this.properties.showLoadingIndicator === false) {
+      return '';
+    }
+
+    return `<div class="${styles.loading}" data-uhv-loading>Loading…</div>`;
+  }
+
+  private attachChromeHandlers(
+    baseUrl: string,
+    cacheBusterMode: CacheBusterMode,
+    cacheBusterParamName: string,
+    pageUrl: string,
+  ): void {
+    const refreshButton: HTMLButtonElement | null = this.domElement.querySelector(
+      '[data-uhv-action="refresh"]',
+    );
+    if (refreshButton) {
+      refreshButton.addEventListener('click', () => {
+        this.setLoadingVisible(true);
+        this.refreshIframe(baseUrl, cacheBusterMode, cacheBusterParamName, pageUrl).catch(() => {
+          return undefined;
+        });
+      });
+    }
+
+    const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
+    if (iframe) {
+      iframe.addEventListener('load', () => {
+        this.setLoadingVisible(false);
+      });
+    }
+  }
+
+  private setLoadingVisible(visible: boolean): void {
+    const loadingElement: HTMLElement | null = this.domElement.querySelector('[data-uhv-loading]');
+    if (!loadingElement) {
+      return;
+    }
+
+    if (visible) {
+      loadingElement.classList.remove(styles.loadingHidden);
+    } else {
+      loadingElement.classList.add(styles.loadingHidden);
+    }
+  }
+
+  private getStatusLabel(
+    validationOptions: UrlValidationOptions,
+    cacheBusterMode: CacheBusterMode,
+  ): string {
+    const parts: string[] = [];
+
+    parts.push(validationOptions.securityMode);
+    if (validationOptions.securityMode === 'Allowlist') {
+      parts.push('Allowlist');
+    }
+
+    if (validationOptions.allowHttp) {
+      parts.push('HTTP allowed');
+    }
+
+    if (cacheBusterMode !== 'None') {
+      parts.push(`Cache: ${cacheBusterMode}`);
+    }
+
+    return parts.join(' • ');
+  }
+
   private buildMessageHtml(message: string, extraHtml?: string): string {
     const extra: string = extraHtml ? extraHtml : '';
     return `
@@ -824,6 +1151,7 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
     return {
       timestamp: new Date().toISOString(),
       ...values,
+      configurationPreset: this.properties.configurationPreset || 'Custom',
       allowHttp: !!this.properties.allowHttp,
       allowedHosts: this.parseHosts(this.properties.allowedHosts),
       allowedPathPrefixes: this.parsePathPrefixes(this.properties.allowedPathPrefixes),
@@ -833,6 +1161,8 @@ export default class UniversalHtmlViewerWebPart extends BaseClientSideWebPart<IU
       sandboxPreset: this.properties.sandboxPreset || 'None',
       iframeSandbox: this.properties.iframeSandbox || '',
       iframeLoadTimeoutSeconds: this.getIframeLoadTimeoutSeconds(),
+      showChrome: this.properties.showChrome !== false,
+      showLoadingIndicator: this.properties.showLoadingIndicator !== false,
     };
   }
 

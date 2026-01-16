@@ -4,6 +4,20 @@ The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-sid
 
 **SPFx solution location:** `spfx/UniversalHtmlViewer`
 
+## Quick Links
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Presets](#presets)
+- [Installation (site-scoped)](#installation-site-scoped-no-tenant-impact)
+- [Installation (tenant-wide)](#installation-tenant-wide-optional)
+- [Build and package](#build-and-package)
+- [Deployment scripts](#deployment-scripts)
+- [Client delivery checklist](#client-delivery-checklist)
+- [Property pane configuration](#property-pane-configuration)
+- [URL safety and validation](#url-safety-and-validation)
+- [Troubleshooting](#troubleshooting)
+
 ## Features
 
 - **Flexible source modes**: full URL, base path + relative path, or base path + dashboard ID from query string.
@@ -11,8 +25,35 @@ The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-sid
 - **Path controls**: optional allowed path prefixes + file extension allowlist.
 - **Cache-busting**: timestamp or SharePoint file modified time / ETag.
 - **Iframe controls**: sandbox presets, permissions policy, referrer policy, loading mode, title.
+- **UX chrome**: optional header with title/subtitle, status pill, refresh, and “Open in new tab”.
 - **Auto-refresh**: optional periodic reload for live dashboards.
 - **Diagnostics + fallback**: optional diagnostics panel and iframe load timeout with “Open in new tab”.
+- **Presets**: one-click profiles for SharePoint library hosting, allowlist CDN, or any HTTPS.
+
+## Architecture
+
+```text
+SharePoint Page
+   │
+   ▼
+UniversalHtmlViewer (SPFx Web Part)
+   │
+   ├─ iframe → HTML dashboards in SharePoint document library
+   └─ iframe → HTML dashboards in allowlisted CDN (optional)
+```
+
+## Presets
+
+Presets are optional one-click profiles that set **security**, **cache**, and **iframe** defaults. Selecting a preset in the property pane updates the related settings.
+If you want to keep manual overrides, switch to **Custom** after applying a preset.
+
+| Preset | Intended use | Key defaults |
+| --- | --- | --- |
+| SharePointLibraryRelaxed | HTML in SharePoint library with broad compatibility | StrictTenant, FileLastModified, sandbox preset = Relaxed |
+| SharePointLibraryStrict | HTML in SharePoint library with tighter sandbox | StrictTenant, FileLastModified, sandbox preset = Strict |
+| AllowlistCDN | External CDN hosting with allowlist | Allowlist, Timestamp, sandbox preset = Relaxed |
+| AnyHttps | Any HTTPS hosting (unsafe) | AnyHttps, Timestamp, sandbox preset = None |
+| Custom | Manual settings | No changes applied |
 
 ## HTML source modes
 
@@ -72,6 +113,14 @@ The web part supports two height modes for the iframe:
 
 The web part exposes the following properties in the property pane:
 
+- Group: **Presets & UX**
+  - `configurationPreset` – one-click profiles for recommended settings.
+  - `showChrome` – shows the header with title, actions, and status.
+  - `chromeTitle`, `chromeSubtitle` – header title/subtitle text.
+  - `showRefreshButton` – shows a manual refresh action.
+  - `showOpenInNewTab` – shows an “Open in new tab” action.
+  - `showStatus` – shows a status pill (security + cache mode).
+  - `showLoadingIndicator` – shows the loading overlay while iframe loads.
 - Group: **Source settings**
   - `htmlSourceMode` (dropdown) – selects one of `FullUrl`, `BasePathAndRelativePath`, or `BasePathAndDashboardId`.
   - `fullUrl` – used only when `htmlSourceMode = FullUrl`.
@@ -193,18 +242,63 @@ npm run bundle:ship
 npm run package-solution:ship
 ```
 
+Or use the helper script:
+
+```powershell
+.\scripts\Build-UHV.ps1
+```
+
 The package is generated at:
 
 ```text
 spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg
 ```
 
-## Deploy to SharePoint Online
+## Installation (site-scoped, no tenant impact)
 
-1) Upload the `.sppkg` to the **App Catalog**.  
+This is the recommended option for client deployments where you **must not impact other sites**.
+
+1) Ensure the **Site Collection App Catalog** feature is enabled for the target site collection.  
+2) Upload `spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg` to the **site app catalog**.  
+3) Approve and deploy the app.  
+4) Add the **Universal HTML Viewer** web part to a page.  
+5) Configure source + security settings in the property pane.  
+
+## Installation (tenant-wide, optional)
+
+Use this if a client wants the web part available across the tenant.
+
+1) Upload the `.sppkg` to the **Tenant App Catalog**.  
 2) Approve and deploy the app.  
-3) Add the **Universal HTML Viewer** web part to a page.  
-4) Configure source + security settings in the property pane.  
+3) (Optional) Enable tenant-wide deployment when publishing the app.  
+4) Add the web part to pages across sites.  
+
+## Deployment scripts
+
+Two helper scripts can standardize build + deploy:
+
+- `scripts/Build-UHV.ps1` – bundles and packages the `.sppkg`.
+- `scripts/Deploy-UHV.ps1` – uploads and deploys to a provided app catalog URL.
+
+Prerequisite:
+
+```powershell
+Install-Module PnP.PowerShell -Scope CurrentUser
+```
+
+Example:
+
+```powershell
+.\scripts\Build-UHV.ps1
+.\scripts\Deploy-UHV.ps1 -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" -TenantWide:$false
+```
+
+## Client delivery checklist
+
+- Provide the `.sppkg` package.
+- Specify the recommended deployment mode (site-scoped vs tenant-wide).
+- Provide the target library path (for `basePath` / `allowedPathPrefixes`).
+- Provide any CDN hostnames for `allowedHosts` (if using Allowlist).
 
 ## GitHub Actions (self-hosted runners)
 
@@ -226,3 +320,9 @@ Jest configuration is defined in `spfx/UniversalHtmlViewer/jest.config.js`. To r
 cd spfx/UniversalHtmlViewer
 npm test
 ```
+
+## Troubleshooting
+
+- **Iframe stays blank or times out**: The target HTML might send `X-Frame-Options` or a restrictive `Content-Security-Policy`. Use the “Open in new tab” action to verify direct access.  
+- **URL rejected**: Enable diagnostics and check the computed URL + validation options.  
+- **Allowlist mode**: Ensure the host is in `allowedHosts` and the path matches `allowedPathPrefixes`.  

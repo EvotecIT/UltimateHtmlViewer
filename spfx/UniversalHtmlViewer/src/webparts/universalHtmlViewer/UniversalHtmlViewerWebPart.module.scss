@@ -2,6 +2,91 @@
   width: 100%;
 }
 
+.chrome {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid #d8d8d8;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(135deg, #f8f9fb 0%, #eef3f8 100%);
+}
+
+.chromeLeft {
+  min-width: 0;
+}
+
+.chromeTitle {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1b1b1b;
+}
+
+.chromeSubtitle {
+  font-size: 12px;
+  color: #5a5a5a;
+  margin-top: 2px;
+}
+
+.chromeRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: #e7eef6;
+  color: #24406a;
+  border: 1px solid #c9d6e8;
+}
+
+.actionButton {
+  border: 1px solid #c9d6e8;
+  background: #ffffff;
+  color: #1b3a57;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.actionButton:hover {
+  background: #f2f6fb;
+}
+
+.actionLink {
+  color: #0b5cab;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.actionLink:hover {
+  text-decoration: underline;
+}
+
+.iframeContainer {
+  position: relative;
+  border: 1px solid #d8d8d8;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.iframeContainerNoChrome {
+  border-top: 1px solid #d8d8d8;
+  border-radius: 8px;
+}
+
 .iframe {
   border: 0;
   width: 100%;
@@ -19,6 +104,23 @@
 .fallbackLink {
   color: #0b5cab;
   text-decoration: underline;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  color: #3b3b3b;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  z-index: 1;
+}
+
+.loadingHidden {
+  display: none;
 }
 
 .diagnostics {

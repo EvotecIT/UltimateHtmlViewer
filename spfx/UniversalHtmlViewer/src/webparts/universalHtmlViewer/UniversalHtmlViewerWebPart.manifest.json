@@ -26,6 +26,7 @@
       },
       "officeFabricIconFontName": "Page",
       "properties": {
+        "configurationPreset": "SharePointLibraryRelaxed",
         "htmlSourceMode": "FullUrl",
         "fullUrl": "",
         "basePath": "/sites/Reports/Dashboards/",
@@ -40,9 +41,9 @@
         "allowedHosts": "",
         "allowedPathPrefixes": "",
         "allowedFileExtensions": ".html,.htm",
-        "cacheBusterMode": "None",
+        "cacheBusterMode": "FileLastModified",
         "cacheBusterParamName": "v",
-        "sandboxPreset": "None",
+        "sandboxPreset": "Relaxed",
         "iframeSandbox": "",
         "iframeAllow": "",
         "iframeReferrerPolicy": "",
@@ -50,7 +51,14 @@
         "iframeTitle": "Universal HTML Viewer",
         "iframeLoadTimeoutSeconds": 10,
         "refreshIntervalMinutes": 0,
-        "showDiagnostics": false
+        "showDiagnostics": false,
+        "showChrome": true,
+        "chromeTitle": "Universal HTML Viewer",
+        "chromeSubtitle": "",
+        "showOpenInNewTab": true,
+        "showRefreshButton": true,
+        "showStatus": true,
+        "showLoadingIndicator": true
       }
     }
   ]
