@@ -27,11 +27,13 @@
       "officeFabricIconFontName": "Page",
       "properties": {
         "configurationPreset": "SharePointLibraryRelaxed",
+        "lockPresetSettings": false,
         "htmlSourceMode": "FullUrl",
         "fullUrl": "",
         "basePath": "/sites/Reports/Dashboards/",
         "relativePath": "",
         "dashboardId": "",
+        "dashboardList": "",
         "defaultFileName": "index.html",
         "queryStringParamName": "dashboard",
         "heightMode": "Fixed",
@@ -41,6 +43,8 @@
         "allowedHosts": "",
         "allowedPathPrefixes": "",
         "allowedFileExtensions": ".html,.htm",
+        "tenantConfigUrl": "",
+        "tenantConfigMode": "Merge",
         "cacheBusterMode": "FileLastModified",
         "cacheBusterParamName": "v",
         "sandboxPreset": "Relaxed",
@@ -58,7 +62,11 @@
         "showOpenInNewTab": true,
         "showRefreshButton": true,
         "showStatus": true,
-        "showLoadingIndicator": true
+        "showLastUpdated": true,
+        "chromeDensity": "Comfortable",
+        "showLoadingIndicator": true,
+        "showConfigActions": false,
+        "showDashboardSelector": false
       }
     }
   ]

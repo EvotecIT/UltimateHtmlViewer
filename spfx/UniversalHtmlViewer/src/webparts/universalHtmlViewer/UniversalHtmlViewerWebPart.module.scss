@@ -14,6 +14,18 @@
   background: linear-gradient(135deg, #f8f9fb 0%, #eef3f8 100%);
 }
 
+.chromeCompact {
+  padding: 6px 8px;
+}
+
+.chromeCompact .chromeTitle {
+  font-size: 13px;
+}
+
+.chromeCompact .chromeSubtitle {
+  font-size: 11px;
+}
+
 .chromeLeft {
   min-width: 0;
 }
@@ -71,6 +83,46 @@
 
 .actionLink:hover {
   text-decoration: underline;
+}
+
+.dashboardBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #d8d8d8;
+  border-left: 1px solid #d8d8d8;
+  border-right: 1px solid #d8d8d8;
+  border-bottom: 1px solid #d8d8d8;
+  background: #f9fbfe;
+}
+
+.dashboardLabel {
+  font-size: 12px;
+  color: #2b2b2b;
+  font-weight: 600;
+}
+
+.dashboardInput {
+  flex: 1;
+  min-width: 160px;
+  border: 1px solid #cfd9e4;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.dashboardSelect {
+  min-width: 180px;
+  border: 1px solid #cfd9e4;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: #ffffff;
+}
+
+.hiddenInput {
+  display: none;
 }
 
 .iframeContainer {

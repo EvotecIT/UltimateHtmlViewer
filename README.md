@@ -9,13 +9,16 @@ The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-sid
 - [Features](#features)
 - [Architecture](#architecture)
 - [Presets](#presets)
+- [Tenant configuration](#tenant-configuration)
 - [Installation (site-scoped)](#installation-site-scoped-no-tenant-impact)
 - [Installation (tenant-wide)](#installation-tenant-wide-optional)
 - [Build and package](#build-and-package)
 - [Deployment scripts](#deployment-scripts)
+- [Release package](#release-package)
 - [Client delivery checklist](#client-delivery-checklist)
 - [Property pane configuration](#property-pane-configuration)
 - [URL safety and validation](#url-safety-and-validation)
+- [Configuration export/import](#configuration-exportimport)
 - [Troubleshooting](#troubleshooting)
 
 ## Features
@@ -26,6 +29,9 @@ The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-sid
 - **Cache-busting**: timestamp or SharePoint file modified time / ETag.
 - **Iframe controls**: sandbox presets, permissions policy, referrer policy, loading mode, title.
 - **UX chrome**: optional header with title/subtitle, status pill, refresh, and “Open in new tab”.
+- **Config actions**: export/import web part settings as JSON.
+- **Tenant config JSON**: central defaults per client with merge/override modes.
+- **Dashboard selector**: optional in-chrome search + selector for `BasePathAndDashboardId`.
 - **Auto-refresh**: optional periodic reload for live dashboards.
 - **Diagnostics + fallback**: optional diagnostics panel and iframe load timeout with “Open in new tab”.
 - **Presets**: one-click profiles for SharePoint library hosting, allowlist CDN, or any HTTPS.
@@ -46,6 +52,7 @@ UniversalHtmlViewer (SPFx Web Part)
 
 Presets are optional one-click profiles that set **security**, **cache**, and **iframe** defaults. Selecting a preset in the property pane updates the related settings.
 If you want to keep manual overrides, switch to **Custom** after applying a preset.
+Use **Lock preset settings** to enforce preset values and disable related fields.
 
 | Preset | Intended use | Key defaults |
 | --- | --- | --- |
@@ -54,6 +61,28 @@ If you want to keep manual overrides, switch to **Custom** after applying a pres
 | AllowlistCDN | External CDN hosting with allowlist | Allowlist, Timestamp, sandbox preset = Relaxed |
 | AnyHttps | Any HTTPS hosting (unsafe) | AnyHttps, Timestamp, sandbox preset = None |
 | Custom | Manual settings | No changes applied |
+
+## Tenant configuration
+
+You can host a JSON configuration file inside a client’s SharePoint tenant and have UHV merge or override local settings.
+
+Example JSON (`/SiteAssets/uhv-config.json`):
+
+```json
+{
+  "securityMode": "StrictTenant",
+  "allowedPathPrefixes": "/sites/Reports/Dashboards/",
+  "allowedFileExtensions": ".html,.htm",
+  "cacheBusterMode": "FileLastModified",
+  "sandboxPreset": "Relaxed",
+  "showChrome": true,
+  "showRefreshButton": true
+}
+```
+
+Use `tenantConfigMode`:
+- **Merge**: apply values only when the web part field is empty.
+- **Override**: tenant config wins for matching keys.
 
 ## HTML source modes
 
@@ -93,6 +122,7 @@ finalUrl = basePath + dashboardId + '/' + defaultFileName
 ```
 
 If no dashboard ID can be determined, the web part renders a friendly message instead of an iframe.
+You can optionally enable the dashboard selector and provide `dashboardList` to allow in-page filtering.
 
 ## Height modes
 
@@ -115,12 +145,18 @@ The web part exposes the following properties in the property pane:
 
 - Group: **Presets & UX**
   - `configurationPreset` – one-click profiles for recommended settings.
+  - `lockPresetSettings` – enforces preset values and disables related fields.
   - `showChrome` – shows the header with title, actions, and status.
+  - `chromeDensity` – `Comfortable` or `Compact`.
   - `chromeTitle`, `chromeSubtitle` – header title/subtitle text.
   - `showRefreshButton` – shows a manual refresh action.
   - `showOpenInNewTab` – shows an “Open in new tab” action.
   - `showStatus` – shows a status pill (security + cache mode).
+  - `showLastUpdated` – shows last updated time in the status pill.
   - `showLoadingIndicator` – shows the loading overlay while iframe loads.
+  - `showConfigActions` – shows Export/Import actions in the chrome.
+  - `showDashboardSelector` – shows a dashboard selector for `BasePathAndDashboardId`.
+  - `dashboardList` – comma-separated dashboard list (e.g. `Sales|sales, Ops|ops`).
 - Group: **Source settings**
   - `htmlSourceMode` (dropdown) – selects one of `FullUrl`, `BasePathAndRelativePath`, or `BasePathAndDashboardId`.
   - `fullUrl` – used only when `htmlSourceMode = FullUrl`.
@@ -133,6 +169,9 @@ The web part exposes the following properties in the property pane:
   - `allowedHosts` – comma-separated hostnames used when `securityMode = Allowlist`.
   - `allowedPathPrefixes` – optional site-relative path prefixes that URLs must start with.
   - `allowedFileExtensions` – optional file extensions allowlist (e.g. `.html, .htm`). Leave blank to allow any.
+- Group: **Tenant configuration**
+  - `tenantConfigUrl` – optional JSON config file (site-relative or same-tenant absolute URL).
+  - `tenantConfigMode` – `Merge` or `Override`.
 - Group: **Cache & refresh**
   - `cacheBusterMode` (dropdown) – `None`, `Timestamp`, or `FileLastModified`.
   - `cacheBusterParamName` – query string parameter name (defaults to `v`).
@@ -191,6 +230,10 @@ Optional iframe controls allow you to lock down or tune behavior:
 - `allow` permissions policy (e.g., `fullscreen; clipboard-read; clipboard-write`)
 - `referrerpolicy`, `loading`, and `title`
 
+## Configuration export/import
+
+Enable **Show config export/import** to download the current web part settings as JSON or import a JSON file to apply settings on another page or client. Imported settings are applied immediately; save the page to persist them.
+
 ## Styling
 
 The web part uses minimal styling to keep the iframe clean:
@@ -248,6 +291,14 @@ Or use the helper script:
 .\scripts\Build-UHV.ps1
 ```
 
+## Release package
+
+Create a client-ready zip with the `.sppkg`, README, and deploy script:
+
+```powershell
+.\scripts\Package-UHV.ps1 -RunBuild
+```
+
 The package is generated at:
 
 ```text
@@ -279,6 +330,7 @@ Two helper scripts can standardize build + deploy:
 
 - `scripts/Build-UHV.ps1` – bundles and packages the `.sppkg`.
 - `scripts/Deploy-UHV.ps1` – uploads and deploys to a provided app catalog URL.
+- `scripts/Package-UHV.ps1` – creates a client-ready zip with the `.sppkg` and docs.
 
 Prerequisite:
 
@@ -299,6 +351,7 @@ Example:
 - Specify the recommended deployment mode (site-scoped vs tenant-wide).
 - Provide the target library path (for `basePath` / `allowedPathPrefixes`).
 - Provide any CDN hostnames for `allowedHosts` (if using Allowlist).
+- Provide a tenant config JSON (optional) if you want centralized defaults.
 
 ## GitHub Actions (self-hosted runners)
 
