@@ -130,6 +130,10 @@ export function isUrlAllowed(
     try {
       const target: URL = new URL(trimmedUrl);
       const current: URL = new URL(options.currentPageUrl);
+      const rawAbsolutePath: string = getRawAbsolutePath(trimmedUrl);
+      if (rawAbsolutePath && hasDotSegments(normalizePath(rawAbsolutePath))) {
+        return false;
+      }
       const targetHost: string = target.hostname.toLowerCase();
       const currentHost: string = current.hostname.toLowerCase();
 
@@ -275,7 +279,18 @@ function normalizePath(pathname: string): string {
 
 function hasDotSegments(pathname: string): boolean {
   const segments = pathname.split('/').filter((segment) => segment.length > 0);
-  return segments.some((segment) => segment === '.' || segment === '..');
+  return segments.some((segment) => {
+    const decodedSegment: string = decodePathSegment(segment);
+    return decodedSegment === '.' || decodedSegment === '..';
+  });
+}
+
+function decodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
 
 function stripQueryAndHash(value: string): string {
@@ -294,6 +309,20 @@ function stripQueryAndHash(value: string): string {
         : Math.min(hashIndex, queryIndex);
 
   return value.substring(0, cutIndex);
+}
+
+function getRawAbsolutePath(url: string): string {
+  const matched = url.match(/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\/[^/]+(.*)$/);
+  if (!matched) {
+    return '';
+  }
+
+  const remainder: string = matched[1] || '/';
+  if (remainder.startsWith('?') || remainder.startsWith('#')) {
+    return '/';
+  }
+
+  return stripQueryAndHash(remainder);
 }
 
 function isExtensionAllowed(pathname: string, allowedExtensions: string[]): boolean {

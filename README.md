@@ -251,14 +251,14 @@ The web part uses minimal styling to keep the iframe clean:
 
 ## Prerequisites
 
-- Node.js **22.14+** (SPFx 1.21.1 requirement)
+- Node.js **>=22.14.0 <23.0.0** (recommended for this repo)
 - npm
 
 ## Install dependencies
 
 ```bash
 cd spfx/UniversalHtmlViewer
-npm install
+npm ci
 ```
 
 ## Local development
@@ -290,6 +290,10 @@ Or use the helper script:
 ```powershell
 .\scripts\Build-UHV.ps1
 ```
+
+`Build-UHV.ps1` auto-detects unsupported global Node.js versions and bootstraps a local Node.js `22.14.0` runtime into `.tools/` when needed.
+The downloaded archive is SHA256-verified against the official Node.js `SHASUMS256.txt` before extraction.
+Use `.\scripts\Build-UHV.ps1 -ForceBootstrap` to force a fresh local runtime download.
 
 ## Release package
 
@@ -379,3 +383,4 @@ npm test
 - **Iframe stays blank or times out**: The target HTML might send `X-Frame-Options` or a restrictive `Content-Security-Policy`. Use the “Open in new tab” action to verify direct access.  
 - **URL rejected**: Enable diagnostics and check the computed URL + validation options.  
 - **Allowlist mode**: Ensure the host is in `allowedHosts` and the path matches `allowedPathPrefixes`.  
+- **Build fails with Node version error**: run `.\scripts\Build-UHV.ps1`; it will automatically use a compatible local Node.js runtime for the packaging steps.

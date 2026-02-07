@@ -140,9 +140,8 @@ module.exports = {
         'for-direction': 1,
         // RATIONALE:         Catches a common coding mistake.
         'guard-for-in': 2,
-        // RATIONALE:         If you have more than 2,000 lines in a single source file, it's probably time
-        //                    to split up your code.
-        'max-lines': ['warn', { max: 2000 }],
+        // RATIONALE:         Keep files small and maintainable.
+        'max-lines': ['error', { max: 700 }],
         // STANDARDIZED BY:   eslint\conf\eslint-recommended.js
         'no-async-promise-executor': 2,
         // RATIONALE:         Deprecated language feature.

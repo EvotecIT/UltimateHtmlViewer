@@ -3,6 +3,7 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
+.tools/
 
 spfx/UniversalHtmlViewer/node_modules/
 spfx/UniversalHtmlViewer/lib/

@@ -14,7 +14,7 @@
     "bundle:ship": "gulp bundle --ship",
     "package-solution": "gulp package-solution",
     "package-solution:ship": "gulp package-solution --ship",
-    "lint": "gulp lint",
+    "lint": "eslint --ext .ts,.tsx src",
     "test": "jest",
     "test:gulp": "gulp test"
   },
