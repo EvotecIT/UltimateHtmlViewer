@@ -3,7 +3,7 @@
   "id": "b5e51af1-1d0c-4b57-9b90-4f2af5120a4d",
   "alias": "UniversalHtmlViewerWebPart",
   "componentType": "WebPart",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "manifestVersion": 2,
   "requiresCustomScript": false,
   "supportsFullBleed": true,
