@@ -26,9 +26,17 @@ import {
   validateTenantConfigUrl,
 } from './ValidationHelper';
 import { UniversalHtmlViewerWebPartUiBase } from './UniversalHtmlViewerWebPartUiBase';
-import { ConfigurationPreset } from './UniversalHtmlViewerTypes';
+import { applyInlineModeBehaviors } from './InlineModeBehaviorHelper';
+import { loadSharePointFileContentForInline } from './SharePointInlineContentHelper';
+import {
+  ConfigurationPreset,
+  ContentDeliveryMode,
+  IUniversalHtmlViewerWebPartProps,
+} from './UniversalHtmlViewerTypes';
 
 export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPartUiBase {
+  private nestedIframeHydrationCleanup: (() => void) | undefined;
+
   public render(): void {
     this.renderAsync().catch((error) => {
       this.clearRefreshTimer();
@@ -81,6 +89,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
     if (
       propertyPath === 'htmlSourceMode' ||
+      propertyPath === 'contentDeliveryMode' ||
       propertyPath === 'securityMode' ||
       propertyPath === 'sandboxPreset' ||
       propertyPath === 'cacheBusterMode' ||
@@ -127,6 +136,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   options: [
                     { key: 'Custom', text: 'Custom (manual settings)' },
                     { key: 'SharePointLibraryRelaxed', text: 'SharePoint library (relaxed)' },
+                    { key: 'SharePointLibraryFullPage', text: 'SharePoint library (full page)' },
                     { key: 'SharePointLibraryStrict', text: 'SharePoint library (strict)' },
                     { key: 'AllowlistCDN', text: 'Allowlist CDN' },
                     { key: 'AnyHttps', text: 'Any HTTPS (unsafe)' },
@@ -219,6 +229,16 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                     { key: 'FullUrl', text: 'Full URL' },
                     { key: 'BasePathAndRelativePath', text: 'Base path + relative path' },
                     { key: 'BasePathAndDashboardId', text: 'Base path + dashboard ID' },
+                  ],
+                }),
+                PropertyPaneDropdown('contentDeliveryMode', {
+                  label: 'Content delivery mode',
+                  options: [
+                    { key: 'DirectUrl', text: 'Direct URL in iframe' },
+                    {
+                      key: 'SharePointFileContent',
+                      text: 'SharePoint file API (inline iframe)',
+                    },
                   ],
                 }),
                 PropertyPaneTextField('fullUrl', {
@@ -452,12 +472,16 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
   private async renderAsync(): Promise<void> {
     this.clearIframeLoadTimeout();
+    this.clearNestedIframeHydration();
     const pageUrl: string = this.getCurrentPageUrl();
     const { effectiveProps, tenantConfig } = await this.getEffectiveProperties(pageUrl);
     this.lastEffectiveProps = effectiveProps;
     this.lastTenantConfig = tenantConfig;
 
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
+    const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
+      effectiveProps,
+    );
     const currentDashboardId: string | undefined = this.getEffectiveDashboardId(
       effectiveProps,
       pageUrl,
@@ -482,6 +506,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         this.buildDiagnosticsHtml(
           this.buildDiagnosticsData({
             htmlSourceMode,
+            contentDeliveryMode,
             pageUrl,
             finalUrl,
             tenantConfigLoaded: !!tenantConfig,
@@ -508,6 +533,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         this.buildDiagnosticsHtml(
           this.buildDiagnosticsData({
             htmlSourceMode,
+            contentDeliveryMode,
             pageUrl,
             finalUrl,
             validationOptions,
@@ -533,6 +559,41 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       cacheBusterParamName,
       pageUrl,
     );
+    let inlineHtml: string | undefined;
+    if (contentDeliveryMode === 'SharePointFileContent') {
+      try {
+        inlineHtml = await loadSharePointFileContentForInline(
+          this.context.spHttpClient,
+          this.context.pageContext.web.absoluteUrl,
+          resolvedUrl,
+          finalUrl,
+          pageUrl,
+        );
+      } catch (error) {
+        this.clearRefreshTimer();
+        this.clearIframeLoadTimeout();
+        this.domElement.innerHTML = buildMessageHtml(
+          'UniversalHtmlViewer: Failed to load HTML from SharePoint file API.',
+          this.buildDiagnosticsHtml(
+            this.buildDiagnosticsData({
+              htmlSourceMode,
+              contentDeliveryMode,
+              pageUrl,
+              finalUrl,
+              resolvedUrl,
+              validationOptions,
+              cacheBusterMode,
+              tenantConfigLoaded: !!tenantConfig,
+              error: String(error),
+            }, effectiveProps),
+            effectiveProps,
+          ),
+          styles.universalHtmlViewer,
+          styles.message,
+        );
+        return;
+      }
+    }
 
     this.renderIframe(
       resolvedUrl,
@@ -540,6 +601,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.buildDiagnosticsHtml(
         this.buildDiagnosticsData({
           htmlSourceMode,
+          contentDeliveryMode,
           pageUrl,
           finalUrl,
           resolvedUrl,
@@ -556,6 +618,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       validationOptions,
       effectiveProps,
       currentDashboardId,
+      inlineHtml,
     );
     this.currentBaseUrl = finalUrl;
     this.setupIframeLoadFallback(resolvedUrl, effectiveProps);
@@ -566,5 +629,72 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       pageUrl,
       effectiveProps,
     );
+    this.clearNestedIframeHydration();
+    this.nestedIframeHydrationCleanup = applyInlineModeBehaviors({
+      contentDeliveryMode,
+      domElement: this.domElement,
+      pageUrl,
+      validationOptions,
+      cacheBusterParamName,
+      cacheBusterMode,
+      onNavigate: (targetUrl: string, inlineCacheBusterMode: CacheBusterMode) => {
+        this.currentBaseUrl = targetUrl;
+        this.setLoadingVisible(true);
+        this.lastCacheBusterMode = inlineCacheBusterMode;
+        this.refreshIframe(
+          targetUrl,
+          inlineCacheBusterMode,
+          cacheBusterParamName,
+          pageUrl,
+        ).catch(() => {
+          return undefined;
+        });
+      },
+      loadInlineHtml: async (
+        sourceUrl: string,
+        baseUrlForRelativeLinks: string,
+      ): Promise<string | undefined> => {
+        try {
+          return await loadSharePointFileContentForInline(
+            this.context.spHttpClient,
+            this.context.pageContext.web.absoluteUrl,
+            sourceUrl,
+            baseUrlForRelativeLinks,
+            pageUrl,
+          );
+        } catch { return undefined; }
+      },
+    });
+  }
+  protected async trySetIframeSrcDocFromSource(
+    iframe: HTMLIFrameElement,
+    sourceUrl: string,
+    pageUrl: string,
+    props: IUniversalHtmlViewerWebPartProps,
+  ): Promise<boolean> {
+    if (this.getContentDeliveryMode(props) !== 'SharePointFileContent') {
+      return false;
+    }
+    try {
+      const inlineHtml = await loadSharePointFileContentForInline(
+        this.context.spHttpClient,
+        this.context.pageContext.web.absoluteUrl,
+        sourceUrl,
+        this.currentBaseUrl || sourceUrl,
+        pageUrl,
+      );
+      iframe.srcdoc = inlineHtml;
+      return true;
+    } catch { return false; }
+  }
+  private clearNestedIframeHydration(): void {
+    if (this.nestedIframeHydrationCleanup) {
+      this.nestedIframeHydrationCleanup();
+      this.nestedIframeHydrationCleanup = undefined;
+    }
+  }
+  protected onDispose(): void {
+    this.clearNestedIframeHydration();
+    super.onDispose();
   }
 }

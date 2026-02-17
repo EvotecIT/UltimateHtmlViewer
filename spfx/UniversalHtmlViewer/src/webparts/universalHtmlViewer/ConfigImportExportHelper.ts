@@ -4,10 +4,12 @@ const enumValues: Record<string, string[]> = {
   configurationPreset: [
     'Custom',
     'SharePointLibraryRelaxed',
+    'SharePointLibraryFullPage',
     'SharePointLibraryStrict',
     'AllowlistCDN',
     'AnyHttps',
   ],
+  contentDeliveryMode: ['DirectUrl', 'SharePointFileContent'],
   htmlSourceMode: ['FullUrl', 'BasePathAndRelativePath', 'BasePathAndDashboardId'],
   heightMode: ['Fixed', 'Viewport'],
   securityMode: ['StrictTenant', 'Allowlist', 'AnyHttps'],
@@ -57,6 +59,7 @@ const numberKeys = new Set<string>([
 
 const stringKeys = new Set<string>([
   'configurationPreset',
+  'contentDeliveryMode',
   'htmlSourceMode',
   'fullUrl',
   'basePath',
@@ -205,6 +208,7 @@ export function buildConfigExport(
   return {
     configurationPreset: props.configurationPreset || 'Custom',
     lockPresetSettings: !!props.lockPresetSettings,
+    contentDeliveryMode: props.contentDeliveryMode || 'DirectUrl',
     htmlSourceMode: props.htmlSourceMode,
     fullUrl: props.fullUrl || '',
     basePath: props.basePath || '',

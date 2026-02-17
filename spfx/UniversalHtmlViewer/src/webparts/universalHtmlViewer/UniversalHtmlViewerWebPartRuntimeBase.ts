@@ -3,7 +3,10 @@ import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import styles from './UniversalHtmlViewerWebPart.module.scss';
 import { buildOpenInNewTabHtml, buildMessageHtml } from './MarkupHelper';
 import { CacheBusterMode, UrlValidationOptions } from './UrlHelper';
-import { IUniversalHtmlViewerWebPartProps } from './UniversalHtmlViewerTypes';
+import {
+  ContentDeliveryMode,
+  IUniversalHtmlViewerWebPartProps,
+} from './UniversalHtmlViewerTypes';
 import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPartConfigBase';
 
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
@@ -59,8 +62,42 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       pageUrl,
     );
 
+    const effectiveProps: IUniversalHtmlViewerWebPartProps =
+      this.lastEffectiveProps || this.properties;
+    const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
+      effectiveProps,
+    );
+
+    if (contentDeliveryMode === 'SharePointFileContent') {
+      const updatedFromContent: boolean = await this.trySetIframeSrcDocFromSource(
+        iframe,
+        refreshedUrl,
+        pageUrl,
+        effectiveProps,
+      );
+      if (updatedFromContent) {
+        this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
+        return;
+      }
+    }
+
     iframe.src = refreshedUrl;
     this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
+  }
+
+  protected getContentDeliveryMode(
+    props: IUniversalHtmlViewerWebPartProps,
+  ): ContentDeliveryMode {
+    return props.contentDeliveryMode || 'DirectUrl';
+  }
+
+  protected async trySetIframeSrcDocFromSource(
+    _iframe: HTMLIFrameElement,
+    _sourceUrl: string,
+    _pageUrl: string,
+    _props: IUniversalHtmlViewerWebPartProps,
+  ): Promise<boolean> {
+    return false;
   }
 
   protected clearRefreshTimer(): void {
@@ -325,6 +362,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       ...values,
       configurationPreset: props.configurationPreset || 'Custom',
       lockPresetSettings: !!props.lockPresetSettings,
+      contentDeliveryMode: this.getContentDeliveryMode(props),
       allowHttp: !!props.allowHttp,
       allowedHosts: this.parseHosts(props.allowedHosts),
       allowedPathPrefixes: this.parsePathPrefixes(props.allowedPathPrefixes),

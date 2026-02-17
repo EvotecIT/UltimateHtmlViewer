@@ -39,6 +39,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     validationOptions: UrlValidationOptions,
     effectiveProps: IUniversalHtmlViewerWebPartProps,
     currentDashboardId?: string,
+    srcDocHtml?: string,
   ): void {
     const iframeTitle: string =
       (effectiveProps.iframeTitle || '').trim() || 'Universal HTML Viewer';
@@ -80,7 +81,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
         <div class="${iframeContainerClass}">
           ${loadingHtml}
         <iframe class="${styles.iframe}"
-          src="${escape(url)}"
+          src="${escape(srcDocHtml ? 'about:blank' : url)}"
           title="${escape(iframeTitle)}"
           style="${iframeHeightStyle}border:0;"
           width="100%"
@@ -88,6 +89,13 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
         ></iframe>
         </div>
       </div>${diagnosticsHtml}`;
+
+    if (srcDocHtml) {
+      const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
+      if (iframe) {
+        iframe.srcdoc = srcDocHtml;
+      }
+    }
 
     this.attachChromeHandlers(
       baseUrl,

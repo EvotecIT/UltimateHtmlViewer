@@ -24,6 +24,8 @@ The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-sid
 ## Features
 
 - **Flexible source modes**: full URL, base path + relative path, or base path + dashboard ID from query string.
+- **Content delivery modes**: direct URL iframe loading or SharePoint file API inline rendering (`srcdoc`) for tenants where `.html` files download/block in iframe mode.
+- **Nested iframe support (SharePoint mode)**: wrapper pages that embed local report HTML in inner iframes are auto-inlined via SharePoint API, including runtime `iframe.src` changes.
 - **Security profiles**: strict tenant, allowlist, or any HTTPS (opt-in).
 - **Path controls**: optional allowed path prefixes + file extension allowlist.
 - **Cache-busting**: timestamp or SharePoint file modified time / ETag.
@@ -57,6 +59,7 @@ Use **Lock preset settings** to enforce preset values and disable related fields
 | Preset | Intended use | Key defaults |
 | --- | --- | --- |
 | SharePointLibraryRelaxed | HTML in SharePoint library with broad compatibility | StrictTenant, FileLastModified, sandbox preset = Relaxed |
+| SharePointLibraryFullPage | HTML in SharePoint library with edge-to-edge layout | StrictTenant, FileLastModified, sandbox preset = Relaxed, Viewport height, chrome off |
 | SharePointLibraryStrict | HTML in SharePoint library with tighter sandbox | StrictTenant, FileLastModified, sandbox preset = Strict |
 | AllowlistCDN | External CDN hosting with allowlist | Allowlist, Timestamp, sandbox preset = Relaxed |
 | AnyHttps | Any HTTPS hosting (unsafe) | AnyHttps, Timestamp, sandbox preset = None |
@@ -158,6 +161,9 @@ The web part exposes the following properties in the property pane:
   - `showDashboardSelector` – shows a dashboard selector for `BasePathAndDashboardId`.
   - `dashboardList` – comma-separated dashboard list (e.g. `Sales|sales, Ops|ops`).
 - Group: **Source settings**
+  - `contentDeliveryMode` (dropdown) – `DirectUrl` (default) or `SharePointFileContent`.
+    - `DirectUrl`: sets iframe `src` directly to the resolved URL.
+    - `SharePointFileContent`: reads same-tenant file content via SharePoint REST and renders it inline via iframe `srcdoc`.
   - `htmlSourceMode` (dropdown) – selects one of `FullUrl`, `BasePathAndRelativePath`, or `BasePathAndDashboardId`.
   - `fullUrl` – used only when `htmlSourceMode = FullUrl`.
   - `basePath` – used when `htmlSourceMode` is not `FullUrl`.
@@ -335,6 +341,12 @@ Two helper scripts can standardize build + deploy:
 - `scripts/Build-UHV.ps1` – bundles and packages the `.sppkg`.
 - `scripts/Deploy-UHV.ps1` – uploads and deploys to a provided app catalog URL.
 - `scripts/Package-UHV.ps1` – creates a client-ready zip with the `.sppkg` and docs.
+- `scripts/Deploy-UHV-Wrapper.ps1` – one-command wrapper that runs build + deploy.
+- `scripts/deploy-uhv.cmd` – convenience entrypoint for the wrapper (works well on Windows).
+- `scripts/Add-UHVPage.ps1` – creates a page, adds UHV, and preconfigures its URL.
+- `scripts/Update-UHVSiteApp.ps1` – installs/updates UHV app across one or more sites.
+
+SharePoint Online deployment guide: `docs/Deploy-SharePointOnline.md`
 
 Prerequisite:
 
@@ -342,11 +354,84 @@ Prerequisite:
 Install-Module PnP.PowerShell -Scope CurrentUser
 ```
 
+PnP authentication note (PnP.PowerShell 3.x):
+- `Connect-PnPOnline -Interactive` / `-DeviceLogin` requires an Entra ID App Registration `ClientId`.
+- See: `docs/Deploy-SharePointOnline.md` (Step 0).
+
 Example:
 
 ```powershell
 .\scripts\Build-UHV.ps1
-.\scripts\Deploy-UHV.ps1 -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" -TenantWide:$false
+.\scripts\Deploy-UHV.ps1 -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" -Scope Tenant -TenantWide:$false -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
+```
+
+Note:
+- Tenant-wide deployment requires `"skipFeatureDeployment": true` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
+- This project currently ships with `"skipFeatureDeployment": false`, so published apps are typically installed per-site.
+
+Or as a single command:
+
+```powershell
+.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
+```
+
+Tested tenant-app-catalog publish (no tenant-wide skip-feature deploy):
+
+```powershell
+.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "https://evotecpoland.sharepoint.com/sites/appcatalog" -Scope Tenant -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com" -TenantAdminUrl "https://evotecpoland-admin.sharepoint.com" -SkipBuild
+```
+
+Build only (no SharePoint login):
+
+```powershell
+.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "https://example.invalid" -NoDeploy
+```
+
+Create and configure a UHV page directly from PowerShell:
+
+```powershell
+.\scripts\Add-UHVPage.ps1 `
+  -SiteUrl "https://evotecpoland.sharepoint.com/sites/TestUHV1" `
+  -PageName "Dashboard" `
+  -PageTitle "Dashboard" `
+  -PageLayoutType "Article" `
+  -FullUrl "https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Index.html" `
+  -ConfigurationPreset "SharePointLibraryFullPage" `
+  -ContentDeliveryMode "SharePointFileContent" `
+  -Publish `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin
+```
+
+Safe isolate mode (add UHV but skip property write):
+
+```powershell
+.\scripts\Add-UHVPage.ps1 `
+  -SiteUrl "https://evotecpoland.sharepoint.com/sites/TestUHV1" `
+  -PageName "Dashboard-UHV-Minimal" `
+  -PageTitle "Dashboard UHV Minimal" `
+  -PageLayoutType "Article" `
+  -SkipConfigureWebPartProperties `
+  -Publish `
+  -ForceOverwrite `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin
+```
+
+Upgrade UHV app on existing sites after publishing a new `.sppkg`:
+
+```powershell
+.\scripts\Update-UHVSiteApp.ps1 `
+  -SiteUrls @(
+    "https://evotecpoland.sharepoint.com/sites/TestUHV1",
+    "https://evotecpoland.sharepoint.com/sites/TestUHV2"
+  ) `
+  -InstallIfMissing `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin
 ```
 
 ## Client delivery checklist
@@ -381,6 +466,15 @@ npm test
 ## Troubleshooting
 
 - **Iframe stays blank or times out**: The target HTML might send `X-Frame-Options` or a restrictive `Content-Security-Policy`. Use the “Open in new tab” action to verify direct access.  
+- **File downloads instead of rendering**: Switch `contentDeliveryMode` to `SharePointFileContent` and keep the URL within the same tenant (or use a site-relative path). This mode fetches the file via SharePoint API and renders inline.
+- **Linked HTML files do not open inside UHV**: Upload the whole report folder tree, keep links relative (`./`, `../`), and use `contentDeliveryMode = SharePointFileContent`. For link-heavy report packs, use `SharePointLibraryRelaxed` preset.
+- **Wrapper dashboards with inner iframes fail**: keep `contentDeliveryMode = SharePointFileContent` and use `SharePointLibraryRelaxed` or `SharePointLibraryFullPage` (both include `allow-same-origin`, needed for nested iframe API loading).
+- **`about:srcdoc` CSP inline-script warnings in browser console**: report-only warnings are expected in some tenants and do not necessarily block rendering. If scripts are truly blocked, convert inline `<script>` blocks to external script files hosted in SharePoint and referenced via `src`.
+- **Custom script (`DenyAddAndCustomizePages`) concerns**: for dashboard sites, UHV works with custom script disabled when `contentDeliveryMode = SharePointFileContent`; App Catalog deployment prompts about no-script apply to the catalog site, not your business report sites.
+- **SharePoint page editor fails with `SavePageCoAuth 400`**: if page edit exits after a few seconds even on empty new pages, that is typically a SharePoint authoring/coauthoring issue (not UHV). Temporary workaround on affected site:
+  `Set-PnPList -Identity "Site Pages" -ForceCheckout:$true`
+- **`Can't edit this page` + Fluid schema error (`com.fluidframework.leaf.string`) on script-created page**: recreate the page using the latest `scripts/Add-UHVPage.ps1` with `-ForceOverwrite`; the script now sets web part properties via `Set-PnPPageWebPart -PropertiesJson` for safer payloads.
+- **Still seeing Fluid schema errors on a script-created page**: create page-only first (`-SkipAddWebPart`), verify edit works, then rerun without `-SkipAddWebPart`. Prefer `-PageLayoutType Article` for stability.
 - **URL rejected**: Enable diagnostics and check the computed URL + validation options.  
 - **Allowlist mode**: Ensure the host is in `allowedHosts` and the path matches `allowedPathPrefixes`.  
 - **Build fails with Node version error**: run `.\scripts\Build-UHV.ps1`; it will automatically use a compatible local Node.js runtime for the packaging steps.

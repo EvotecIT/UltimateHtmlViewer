@@ -236,21 +236,33 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
 
     switch (preset) {
       case 'SharePointLibraryStrict':
+        props.contentDeliveryMode = 'SharePointFileContent';
         props.securityMode = 'StrictTenant';
         props.cacheBusterMode = 'FileLastModified';
         props.sandboxPreset = 'Strict';
         break;
       case 'SharePointLibraryRelaxed':
+        props.contentDeliveryMode = 'SharePointFileContent';
         props.securityMode = 'StrictTenant';
         props.cacheBusterMode = 'FileLastModified';
         props.sandboxPreset = 'Relaxed';
         break;
+      case 'SharePointLibraryFullPage':
+        props.contentDeliveryMode = 'SharePointFileContent';
+        props.securityMode = 'StrictTenant';
+        props.cacheBusterMode = 'FileLastModified';
+        props.sandboxPreset = 'Relaxed';
+        props.heightMode = 'Viewport';
+        props.showChrome = false;
+        break;
       case 'AllowlistCDN':
+        props.contentDeliveryMode = 'DirectUrl';
         props.securityMode = 'Allowlist';
         props.cacheBusterMode = 'Timestamp';
         props.sandboxPreset = 'Relaxed';
         break;
       case 'AnyHttps':
+        props.contentDeliveryMode = 'DirectUrl';
         props.securityMode = 'AnyHttps';
         props.cacheBusterMode = 'Timestamp';
         props.sandboxPreset = 'None';

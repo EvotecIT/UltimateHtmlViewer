@@ -3,6 +3,7 @@ import { CacheBusterMode, HeightMode, HtmlSourceMode, UrlSecurityMode } from './
 export type ConfigurationPreset =
   | 'Custom'
   | 'SharePointLibraryRelaxed'
+  | 'SharePointLibraryFullPage'
   | 'SharePointLibraryStrict'
   | 'AllowlistCDN'
   | 'AnyHttps';
@@ -10,10 +11,12 @@ export type ConfigurationPreset =
 export type TenantConfigMode = 'Merge' | 'Override';
 
 export type ChromeDensity = 'Comfortable' | 'Compact';
+export type ContentDeliveryMode = 'DirectUrl' | 'SharePointFileContent';
 
 export interface IUniversalHtmlViewerWebPartProps {
   configurationPreset?: ConfigurationPreset;
   lockPresetSettings?: boolean;
+  contentDeliveryMode?: ContentDeliveryMode;
   htmlSourceMode: HtmlSourceMode;
   fullUrl?: string;
   basePath?: string;
@@ -58,6 +61,7 @@ export interface IUniversalHtmlViewerWebPartProps {
 export interface ITenantConfig {
   configurationPreset?: ConfigurationPreset;
   lockPresetSettings?: boolean;
+  contentDeliveryMode?: ContentDeliveryMode;
   htmlSourceMode?: HtmlSourceMode;
   fullUrl?: string;
   basePath?: string;
