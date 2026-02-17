@@ -1,5 +1,6 @@
-import { CacheBusterMode, UrlValidationOptions } from './UrlHelper';
+import { CacheBusterMode, HeightMode, UrlValidationOptions } from './UrlHelper';
 import { ContentDeliveryMode } from './UniversalHtmlViewerTypes';
+import { wireInlineFrameLayout } from './InlineFrameLayoutHelper';
 import { wireInlineIframeNavigation } from './InlineNavigationHelper';
 import { wireNestedIframeHydration } from './NestedIframeHydrationHelper';
 
@@ -10,6 +11,9 @@ export interface IInlineModeBehaviorOptions {
   validationOptions: UrlValidationOptions;
   cacheBusterParamName: string;
   cacheBusterMode: CacheBusterMode;
+  heightMode: HeightMode;
+  fixedHeightPx: number;
+  fitContentWidth: boolean;
   onNavigate: (targetUrl: string, cacheBusterMode: CacheBusterMode) => void;
   loadInlineHtml: (
     sourceUrl: string,
@@ -39,11 +43,23 @@ export function applyInlineModeBehaviors(
     },
   });
 
-  return wireNestedIframeHydration({
+  const hydrationCleanup = wireNestedIframeHydration({
     iframe,
     currentPageUrl: options.pageUrl,
     validationOptions: options.validationOptions,
     cacheBusterParamName: options.cacheBusterParamName,
     loadInlineHtml: options.loadInlineHtml,
   });
+
+  const layoutCleanup = wireInlineFrameLayout({
+    iframe,
+    heightMode: options.heightMode,
+    fixedHeightPx: options.fixedHeightPx,
+    fitContentWidth: options.fitContentWidth,
+  });
+
+  return (): void => {
+    hydrationCleanup();
+    layoutCleanup();
+  };
 }

@@ -16,14 +16,18 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
   protected getIframeHeightStyle(props: IUniversalHtmlViewerWebPartProps): string {
     const heightMode: HeightMode = props.heightMode || 'Fixed';
 
-    if (heightMode === 'Viewport') {
-      return 'height:100vh;';
-    }
-
     const fixedHeightPx: number =
       typeof props.fixedHeightPx === 'number' && props.fixedHeightPx > 0
         ? props.fixedHeightPx
         : 800;
+
+    if (heightMode === 'Auto') {
+      return `height:${fixedHeightPx}px;`;
+    }
+
+    if (heightMode === 'Viewport') {
+      return 'height:100vh;';
+    }
 
     return `height:${fixedHeightPx}px;`;
   }

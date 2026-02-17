@@ -266,6 +266,7 @@ For enterprise tenants where direct `.html` iframe loading is blocked or downloa
 2. In the Universal HTML Viewer web part settings:
    - Set `Content delivery mode` to `SharePoint file API (inline iframe)`.
    - Set source mode/URL to the target HTML file.
+   - For better fit on report bundles: set `Height mode` to `Auto` and enable `Fit content to width (inline mode)`.
    - Optional for edge-to-edge layout: set `Configuration preset` to `SharePoint library (full page)`.
    - Keep URL same-tenant (or site-relative).
 

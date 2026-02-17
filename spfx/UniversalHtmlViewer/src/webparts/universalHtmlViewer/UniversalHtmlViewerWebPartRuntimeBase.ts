@@ -377,6 +377,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       iframeLoadTimeoutSeconds: this.getIframeLoadTimeoutSeconds(props),
       showChrome: props.showChrome !== false,
       showLoadingIndicator: props.showLoadingIndicator !== false,
+      fitContentWidth: props.fitContentWidth === true,
       showLastUpdated: props.showLastUpdated !== false,
       chromeDensity: props.chromeDensity || 'Comfortable',
       showConfigActions: props.showConfigActions === true,

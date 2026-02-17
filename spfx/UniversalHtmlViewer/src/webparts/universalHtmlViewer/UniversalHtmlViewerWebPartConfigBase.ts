@@ -223,6 +223,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.showLoadingIndicator = true;
     props.showConfigActions = true;
     props.showDashboardSelector = false;
+    props.fitContentWidth = false;
     props.chromeDensity = 'Comfortable';
     props.iframeLoadTimeoutSeconds = 10;
 
@@ -240,12 +241,14 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
         props.securityMode = 'StrictTenant';
         props.cacheBusterMode = 'FileLastModified';
         props.sandboxPreset = 'Strict';
+        props.fitContentWidth = true;
         break;
       case 'SharePointLibraryRelaxed':
         props.contentDeliveryMode = 'SharePointFileContent';
         props.securityMode = 'StrictTenant';
         props.cacheBusterMode = 'FileLastModified';
         props.sandboxPreset = 'Relaxed';
+        props.fitContentWidth = true;
         break;
       case 'SharePointLibraryFullPage':
         props.contentDeliveryMode = 'SharePointFileContent';
@@ -254,6 +257,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
         props.sandboxPreset = 'Relaxed';
         props.heightMode = 'Viewport';
         props.showChrome = false;
+        props.fitContentWidth = true;
         break;
       case 'AllowlistCDN':
         props.contentDeliveryMode = 'DirectUrl';

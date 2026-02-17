@@ -39,6 +39,7 @@
         "queryStringParamName": "dashboard",
         "heightMode": "Fixed",
         "fixedHeightPx": 800,
+        "fitContentWidth": false,
         "securityMode": "StrictTenant",
         "allowHttp": false,
         "allowedHosts": "",

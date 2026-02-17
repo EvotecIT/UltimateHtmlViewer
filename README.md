@@ -129,7 +129,7 @@ You can optionally enable the dashboard selector and provide `dashboardList` to 
 
 ## Height modes
 
-The web part supports two height modes for the iframe:
+The web part supports three height modes for the iframe:
 
 ### Fixed
 
@@ -141,6 +141,12 @@ The web part supports two height modes for the iframe:
 
 - Property: `heightMode = "Viewport"`
 - The iframe height is set to fill the viewport: `height: 100vh;`.
+
+### Auto
+
+- Property: `heightMode = "Auto"`
+- Uses `fixedHeightPx` as the starting/minimum height, then auto-resizes the iframe to the inline HTML content height (SharePoint file API mode).
+- Helps avoid inner vertical scrollbars for dashboard-style pages that grow/shrink after load.
 
 ## Property pane configuration
 
@@ -183,8 +189,9 @@ The web part exposes the following properties in the property pane:
   - `cacheBusterParamName` – query string parameter name (defaults to `v`).
   - `refreshIntervalMinutes` – auto-refresh interval (0 disables).
 - Group: **Layout**
-  - `heightMode` (dropdown) – `Fixed` or `Viewport`.
-  - `fixedHeightPx` – numeric value used when `heightMode = Fixed`.
+  - `heightMode` (dropdown) – `Fixed`, `Viewport`, or `Auto`.
+  - `fitContentWidth` (toggle) – scales inline content down to fit container width in SharePoint file API mode.
+  - `fixedHeightPx` – numeric value used for fixed height, and as minimum/initial height in auto mode.
 - Group: **Iframe**
   - `iframeTitle` – accessibility title (defaults to `Universal HTML Viewer`).
   - `iframeLoading` – `lazy`, `eager`, or browser default.

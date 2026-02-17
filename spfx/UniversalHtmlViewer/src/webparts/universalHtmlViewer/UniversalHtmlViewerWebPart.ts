@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { Version } from '@microsoft/sp-core-library';
 import {
   IPropertyPaneConfiguration,
@@ -12,6 +13,7 @@ import { buildMessageHtml } from './MarkupHelper';
 import {
   buildFinalUrl,
   CacheBusterMode,
+  HeightMode,
   HtmlSourceMode,
   isUrlAllowed,
   UrlSecurityMode,
@@ -93,6 +95,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       propertyPath === 'securityMode' ||
       propertyPath === 'sandboxPreset' ||
       propertyPath === 'cacheBusterMode' ||
+      propertyPath === 'heightMode' ||
       propertyPath === 'showChrome' ||
       propertyPath === 'configurationPreset' ||
       propertyPath === 'lockPresetSettings' ||
@@ -112,6 +115,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const isDashboardId: boolean = htmlSourceMode === 'BasePathAndDashboardId';
     const securityMode: UrlSecurityMode = this.properties.securityMode || 'StrictTenant';
     const isAllowlistMode: boolean = securityMode === 'Allowlist';
+    const heightMode: HeightMode = this.properties.heightMode || 'Fixed';
+    const isInlineContentMode: boolean =
+      (this.properties.contentDeliveryMode || 'DirectUrl') === 'SharePointFileContent';
     const cacheBusterMode: CacheBusterMode = this.properties.cacheBusterMode || 'None';
     const sandboxPreset: string = this.properties.sandboxPreset || 'None';
     const isCustomSandbox: boolean = sandboxPreset === 'Custom';
@@ -385,14 +391,23 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   options: [
                     { key: 'Fixed', text: 'Fixed' },
                     { key: 'Viewport', text: 'Viewport (100vh)' },
+                    { key: 'Auto', text: 'Auto (content height)' },
                   ],
                 }),
+                PropertyPaneToggle('fitContentWidth', {
+                  label: 'Fit content to width (inline mode)',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !isInlineContentMode,
+                }),
                 PropertyPaneSlider('fixedHeightPx', {
-                  label: 'Fixed height (px)',
+                  label:
+                    heightMode === 'Auto' ? 'Minimum height (px)' : 'Fixed height (px)',
                   min: 200,
                   max: 2000,
                   step: 50,
-                }),
+                  disabled: heightMode === 'Viewport',
+                })
               ],
             },
             {
@@ -637,6 +652,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       validationOptions,
       cacheBusterParamName,
       cacheBusterMode,
+      heightMode: effectiveProps.heightMode || 'Fixed',
+      fixedHeightPx:
+        typeof effectiveProps.fixedHeightPx === 'number' && effectiveProps.fixedHeightPx > 0
+          ? effectiveProps.fixedHeightPx
+          : 800,
+      fitContentWidth: effectiveProps.fitContentWidth === true,
       onNavigate: (targetUrl: string, inlineCacheBusterMode: CacheBusterMode) => {
         this.currentBaseUrl = targetUrl;
         this.setLoadingVisible(true);

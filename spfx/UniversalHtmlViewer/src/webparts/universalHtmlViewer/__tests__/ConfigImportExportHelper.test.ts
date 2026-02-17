@@ -7,7 +7,9 @@ describe('applyImportedConfigToProps', () => {
       configurationPreset: 'sharepointlibraryfullpage',
       contentDeliveryMode: 'sharepointfilecontent',
       htmlSourceMode: 'basepathandrelativepath',
+      heightMode: 'auto',
       fixedHeightPx: '700',
+      fitContentWidth: 'yes',
       refreshIntervalMinutes: 10,
       showChrome: 'true',
       iframeLoading: 'LAZY',
@@ -18,7 +20,9 @@ describe('applyImportedConfigToProps', () => {
     expect(propsRecord.configurationPreset).toBe('SharePointLibraryFullPage');
     expect(propsRecord.contentDeliveryMode).toBe('SharePointFileContent');
     expect(propsRecord.htmlSourceMode).toBe('BasePathAndRelativePath');
+    expect(propsRecord.heightMode).toBe('Auto');
     expect(propsRecord.fixedHeightPx).toBe(700);
+    expect(propsRecord.fitContentWidth).toBe(true);
     expect(propsRecord.refreshIntervalMinutes).toBe(10);
     expect(propsRecord.showChrome).toBe(true);
     expect(propsRecord.iframeLoading).toBe('lazy');

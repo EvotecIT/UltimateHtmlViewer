@@ -2,7 +2,7 @@ import { getQueryStringParam } from './QueryStringHelper';
 
 export type HtmlSourceMode = 'FullUrl' | 'BasePathAndRelativePath' | 'BasePathAndDashboardId';
 
-export type HeightMode = 'Fixed' | 'Viewport';
+export type HeightMode = 'Fixed' | 'Viewport' | 'Auto';
 
 export type UrlSecurityMode = 'StrictTenant' | 'Allowlist' | 'AnyHttps';
 

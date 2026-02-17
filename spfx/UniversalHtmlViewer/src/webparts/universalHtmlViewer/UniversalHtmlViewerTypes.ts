@@ -27,6 +27,7 @@ export interface IUniversalHtmlViewerWebPartProps {
   queryStringParamName?: string;
   heightMode: HeightMode;
   fixedHeightPx: number;
+  fitContentWidth?: boolean;
   securityMode?: UrlSecurityMode;
   allowHttp?: boolean;
   allowedHosts?: string;
@@ -72,6 +73,7 @@ export interface ITenantConfig {
   queryStringParamName?: string;
   heightMode?: HeightMode;
   fixedHeightPx?: number;
+  fitContentWidth?: boolean;
   securityMode?: UrlSecurityMode;
   allowHttp?: boolean;
   allowedHosts?: string;
