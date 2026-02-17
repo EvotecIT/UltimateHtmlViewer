@@ -152,47 +152,49 @@ The web part supports three height modes for the iframe:
 
 The web part exposes the following properties in the property pane:
 
-- Group: **Presets & UX**
+- Group: **Quick setup (Most used)**
   - `configurationPreset` – one-click profiles for recommended settings.
   - `lockPresetSettings` – enforces preset values and disables related fields.
   - `showChrome` – shows the header with title, actions, and status.
-  - `chromeDensity` – `Comfortable` or `Compact`.
-  - `chromeTitle`, `chromeSubtitle` – header title/subtitle text.
   - `showRefreshButton` – shows a manual refresh action.
   - `showOpenInNewTab` – shows an “Open in new tab” action.
+- Group: **Source (Required)**
+  - `htmlSourceMode` (dropdown) – selects one of `FullUrl`, `BasePathAndRelativePath`, or `BasePathAndDashboardId`.
+  - `contentDeliveryMode` (dropdown) – `DirectUrl` (default) or `SharePointFileContent`.
+    - `DirectUrl`: sets iframe `src` directly to the resolved URL.
+    - `SharePointFileContent`: reads same-tenant file content via SharePoint REST and renders it inline via iframe `srcdoc`.
+  - `fullUrl` – used only when `htmlSourceMode = FullUrl`.
+  - `basePath` – used when `htmlSourceMode` is not `FullUrl`.
+  - `relativePath` – used when `htmlSourceMode = BasePathAndRelativePath`.
+  - `dashboardId`, `defaultFileName`, `queryStringParamName` – used when `htmlSourceMode = BasePathAndDashboardId`.
+- Group: **Layout (Recommended)**
+  - `heightMode` (dropdown) – `Fixed`, `Viewport`, or `Auto`.
+  - `fitContentWidth` (toggle) – scales inline content down to fit container width in SharePoint file API mode.
+  - `fixedHeightPx` – numeric value used for fixed height, and as minimum/initial height in auto mode.
+- Group: **Display & UX (Advanced)**
+  - `showChrome` – shows the header with title, actions, and status.
+  - `chromeDensity` – `Comfortable` or `Compact`.
+  - `chromeTitle`, `chromeSubtitle` – header title/subtitle text.
   - `showStatus` – shows a status pill (security + cache mode).
   - `showLastUpdated` – shows last updated time in the status pill.
   - `showLoadingIndicator` – shows the loading overlay while iframe loads.
   - `showConfigActions` – shows Export/Import actions in the chrome.
   - `showDashboardSelector` – shows a dashboard selector for `BasePathAndDashboardId`.
   - `dashboardList` – comma-separated dashboard list (e.g. `Sales|sales, Ops|ops`).
-- Group: **Source settings**
-  - `contentDeliveryMode` (dropdown) – `DirectUrl` (default) or `SharePointFileContent`.
-    - `DirectUrl`: sets iframe `src` directly to the resolved URL.
-    - `SharePointFileContent`: reads same-tenant file content via SharePoint REST and renders it inline via iframe `srcdoc`.
-  - `htmlSourceMode` (dropdown) – selects one of `FullUrl`, `BasePathAndRelativePath`, or `BasePathAndDashboardId`.
-  - `fullUrl` – used only when `htmlSourceMode = FullUrl`.
-  - `basePath` – used when `htmlSourceMode` is not `FullUrl`.
-  - `relativePath` – used when `htmlSourceMode = BasePathAndRelativePath`.
-  - `dashboardId`, `defaultFileName`, `queryStringParamName` – used when `htmlSourceMode = BasePathAndDashboardId`.
-- Group: **Security**
+- Group: **Security (Advanced)**
   - `securityMode` (dropdown) – `StrictTenant` (default), `Allowlist`, or `AnyHttps`.
   - `allowHttp` (toggle) – allows HTTP when explicitly enabled.
   - `allowedHosts` – comma-separated hostnames used when `securityMode = Allowlist`.
   - `allowedPathPrefixes` – optional site-relative path prefixes that URLs must start with.
   - `allowedFileExtensions` – optional file extensions allowlist (e.g. `.html, .htm`). Leave blank to allow any.
-- Group: **Tenant configuration**
+- Group: **Tenant configuration (Advanced)**
   - `tenantConfigUrl` – optional JSON config file (site-relative or same-tenant absolute URL).
   - `tenantConfigMode` – `Merge` or `Override`.
-- Group: **Cache & refresh**
+- Group: **Cache & refresh (Advanced)**
   - `cacheBusterMode` (dropdown) – `None`, `Timestamp`, or `FileLastModified`.
   - `cacheBusterParamName` – query string parameter name (defaults to `v`).
   - `refreshIntervalMinutes` – auto-refresh interval (0 disables).
-- Group: **Layout**
-  - `heightMode` (dropdown) – `Fixed`, `Viewport`, or `Auto`.
-  - `fitContentWidth` (toggle) – scales inline content down to fit container width in SharePoint file API mode.
-  - `fixedHeightPx` – numeric value used for fixed height, and as minimum/initial height in auto mode.
-- Group: **Iframe**
+- Group: **Iframe (Advanced)**
   - `iframeTitle` – accessibility title (defaults to `Universal HTML Viewer`).
   - `iframeLoading` – `lazy`, `eager`, or browser default.
   - `sandboxPreset` – `None`, `Relaxed`, `Strict`, or `Custom`.

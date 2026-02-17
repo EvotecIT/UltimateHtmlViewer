@@ -131,11 +131,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       pages: [
         {
           header: {
-            description: 'Configure the HTML source and layout.',
+            description: 'Start with Quick setup. Advanced options are lower.',
           },
           groups: [
             {
-              groupName: 'Presets & UX',
+              groupName: 'Quick setup (Most used)',
               groupFields: [
                 PropertyPaneDropdown('configurationPreset', {
                   label: 'Configuration preset',
@@ -160,24 +160,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   offText: 'Off',
                   disabled: isPresetLocked,
                 }),
-                PropertyPaneDropdown('chromeDensity', {
-                  label: 'Chrome density',
-                  options: [
-                    { key: 'Comfortable', text: 'Comfortable' },
-                    { key: 'Compact', text: 'Compact' },
-                  ],
-                  disabled: !showChrome || isPresetLocked,
-                }),
-                PropertyPaneTextField('chromeTitle', {
-                  label: 'Chrome title',
-                  description: 'Shown above the iframe.',
-                  disabled: !showChrome,
-                }),
-                PropertyPaneTextField('chromeSubtitle', {
-                  label: 'Chrome subtitle',
-                  description: 'Optional helper text under the title.',
-                  disabled: !showChrome,
-                }),
                 PropertyPaneToggle('showRefreshButton', {
                   label: 'Show refresh button',
                   onText: 'On',
@@ -190,44 +172,10 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   offText: 'Off',
                   disabled: !showChrome || isPresetLocked,
                 }),
-                PropertyPaneToggle('showStatus', {
-                  label: 'Show status pill',
-                  onText: 'On',
-                  offText: 'Off',
-                  disabled: !showChrome || isPresetLocked,
-                }),
-                PropertyPaneToggle('showLastUpdated', {
-                  label: 'Show last updated time',
-                  onText: 'On',
-                  offText: 'Off',
-                  disabled: !showChrome || isPresetLocked,
-                }),
-                PropertyPaneToggle('showLoadingIndicator', {
-                  label: 'Show loading indicator',
-                  onText: 'On',
-                  offText: 'Off',
-                  disabled: isPresetLocked,
-                }),
-                PropertyPaneToggle('showConfigActions', {
-                  label: 'Show config export/import',
-                  onText: 'On',
-                  offText: 'Off',
-                  disabled: !showChrome,
-                }),
-                PropertyPaneToggle('showDashboardSelector', {
-                  label: 'Show dashboard selector',
-                  onText: 'On',
-                  offText: 'Off',
-                }),
-                PropertyPaneTextField('dashboardList', {
-                  label: 'Dashboard list (comma-separated)',
-                  description: 'Optional list, e.g. Sales|sales, Ops|ops',
-                  disabled: !showDashboardSelector,
-                }),
               ],
             },
             {
-              groupName: 'Source settings',
+              groupName: 'Source (Required)',
               groupFields: [
                 PropertyPaneDropdown('htmlSourceMode', {
                   label: 'HTML source mode',
@@ -290,7 +238,91 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
               ],
             },
             {
-              groupName: 'Security',
+              groupName: 'Layout (Recommended)',
+              groupFields: [
+                PropertyPaneDropdown('heightMode', {
+                  label: 'Height mode',
+                  options: [
+                    { key: 'Fixed', text: 'Fixed' },
+                    { key: 'Viewport', text: 'Viewport (100vh)' },
+                    { key: 'Auto', text: 'Auto (content height)' },
+                  ],
+                }),
+                PropertyPaneToggle('fitContentWidth', {
+                  label: 'Fit content to width (inline mode)',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !isInlineContentMode,
+                }),
+                PropertyPaneSlider('fixedHeightPx', {
+                  label:
+                    heightMode === 'Auto' ? 'Minimum height (px)' : 'Fixed height (px)',
+                  min: 200,
+                  max: 2000,
+                  step: 50,
+                  disabled: heightMode === 'Viewport',
+                }),
+              ],
+            },
+            {
+              groupName: 'Display & UX (Advanced)',
+              groupFields: [
+                PropertyPaneDropdown('chromeDensity', {
+                  label: 'Chrome density',
+                  options: [
+                    { key: 'Comfortable', text: 'Comfortable' },
+                    { key: 'Compact', text: 'Compact' },
+                  ],
+                  disabled: !showChrome || isPresetLocked,
+                }),
+                PropertyPaneTextField('chromeTitle', {
+                  label: 'Chrome title',
+                  description: 'Shown above the iframe.',
+                  disabled: !showChrome,
+                }),
+                PropertyPaneTextField('chromeSubtitle', {
+                  label: 'Chrome subtitle',
+                  description: 'Optional helper text under the title.',
+                  disabled: !showChrome,
+                }),
+                PropertyPaneToggle('showStatus', {
+                  label: 'Show status pill',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !showChrome || isPresetLocked,
+                }),
+                PropertyPaneToggle('showLastUpdated', {
+                  label: 'Show last updated time',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !showChrome || isPresetLocked,
+                }),
+                PropertyPaneToggle('showLoadingIndicator', {
+                  label: 'Show loading indicator',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: isPresetLocked,
+                }),
+                PropertyPaneToggle('showConfigActions', {
+                  label: 'Show config export/import',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !showChrome,
+                }),
+                PropertyPaneToggle('showDashboardSelector', {
+                  label: 'Show dashboard selector',
+                  onText: 'On',
+                  offText: 'Off',
+                }),
+                PropertyPaneTextField('dashboardList', {
+                  label: 'Dashboard list (comma-separated)',
+                  description: 'Optional list, e.g. Sales|sales, Ops|ops',
+                  disabled: !showDashboardSelector,
+                }),
+              ],
+            },
+            {
+              groupName: 'Security (Advanced)',
               groupFields: [
                 PropertyPaneDropdown('securityMode', {
                   label: 'Security mode',
@@ -335,7 +367,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
               ],
             },
             {
-              groupName: 'Tenant configuration',
+              groupName: 'Tenant configuration (Advanced)',
               groupFields: [
                 PropertyPaneTextField('tenantConfigUrl', {
                   label: 'Tenant config JSON URL',
@@ -359,7 +391,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
               ],
             },
             {
-              groupName: 'Cache & refresh',
+              groupName: 'Cache & refresh (Advanced)',
               groupFields: [
                 PropertyPaneDropdown('cacheBusterMode', {
                   label: 'Cache-busting mode',
@@ -384,34 +416,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
               ],
             },
             {
-              groupName: 'Layout',
-              groupFields: [
-                PropertyPaneDropdown('heightMode', {
-                  label: 'Height mode',
-                  options: [
-                    { key: 'Fixed', text: 'Fixed' },
-                    { key: 'Viewport', text: 'Viewport (100vh)' },
-                    { key: 'Auto', text: 'Auto (content height)' },
-                  ],
-                }),
-                PropertyPaneToggle('fitContentWidth', {
-                  label: 'Fit content to width (inline mode)',
-                  onText: 'On',
-                  offText: 'Off',
-                  disabled: !isInlineContentMode,
-                }),
-                PropertyPaneSlider('fixedHeightPx', {
-                  label:
-                    heightMode === 'Auto' ? 'Minimum height (px)' : 'Fixed height (px)',
-                  min: 200,
-                  max: 2000,
-                  step: 50,
-                  disabled: heightMode === 'Viewport',
-                })
-              ],
-            },
-            {
-              groupName: 'Iframe',
+              groupName: 'Iframe (Advanced)',
               groupFields: [
                 PropertyPaneTextField('iframeTitle', {
                   label: 'Iframe title',
