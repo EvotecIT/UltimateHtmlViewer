@@ -12,6 +12,7 @@ export function wireInlineFrameLayout(options: IInlineFrameLayoutOptions): () =>
   let resizeObserver: ResizeObserver | undefined;
   let resizeFallbackTimer: number | undefined;
   let rafId: number | undefined;
+  let lastAppliedHeight = 0;
 
   const clearObservers = (): void => {
     if (mutationObserver) {
@@ -36,6 +37,7 @@ export function wireInlineFrameLayout(options: IInlineFrameLayoutOptions): () =>
 
     const root = iframeDocument.documentElement;
     const body = iframeDocument.body;
+    let appliedScale = 1;
 
     if (options.fitContentWidth) {
       root.style.removeProperty('zoom');
@@ -50,6 +52,7 @@ export function wireInlineFrameLayout(options: IInlineFrameLayoutOptions): () =>
       if (frameWidth > 0 && naturalWidth > frameWidth) {
         const scale = frameWidth / naturalWidth;
         root.style.setProperty('zoom', scale.toString());
+        appliedScale = scale;
       }
       root.style.setProperty('overflow-x', 'hidden');
       body.style.setProperty('overflow-x', 'hidden');
@@ -64,12 +67,19 @@ export function wireInlineFrameLayout(options: IInlineFrameLayoutOptions): () =>
     }
 
     const minHeightPx = normalizeMinimumHeight(options.fixedHeightPx);
-    const renderedHeight = Math.max(
-      root.getBoundingClientRect().height,
-      body.getBoundingClientRect().height,
+    const measuredHeight = Math.max(
+      measureDocumentContentHeight(root, body, appliedScale),
       minHeightPx,
     );
-    options.iframe.style.height = `${Math.ceil(renderedHeight)}px`;
+    const targetHeight = stabilizeHeight(measuredHeight, lastAppliedHeight);
+    if (targetHeight <= 0) {
+      return;
+    }
+
+    if (targetHeight !== lastAppliedHeight) {
+      options.iframe.style.height = `${targetHeight}px`;
+      lastAppliedHeight = targetHeight;
+    }
   };
 
   const scheduleLayout = (): void => {
@@ -159,6 +169,43 @@ function normalizeMinimumHeight(value: number): number {
     return Math.floor(value);
   }
   return 600;
+}
+
+function measureDocumentContentHeight(
+  root: HTMLElement,
+  body: HTMLElement,
+  scale: number,
+): number {
+  const scrollBased = Math.max(
+    root.scrollHeight,
+    body.scrollHeight,
+    root.offsetHeight,
+    body.offsetHeight,
+    root.clientHeight,
+    body.clientHeight,
+  );
+  const rectBased = Math.max(
+    root.getBoundingClientRect().height,
+    body.getBoundingClientRect().height,
+  );
+  const scaledScroll = Math.ceil(scrollBased * (scale > 0 ? scale : 1));
+  return Math.ceil(Math.max(scaledScroll, rectBased));
+}
+
+function stabilizeHeight(nextHeight: number, previousHeight: number): number {
+  const rounded = Math.ceil(nextHeight);
+  if (previousHeight <= 0) {
+    return rounded;
+  }
+
+  const increaseThreshold = 4;
+  const decreaseThreshold = 24;
+
+  if (rounded > previousHeight) {
+    return rounded - previousHeight >= increaseThreshold ? rounded : previousHeight;
+  }
+
+  return previousHeight - rounded >= decreaseThreshold ? rounded : previousHeight;
 }
 
 function tryGetIframeDocument(iframe: HTMLIFrameElement): Document | undefined {
