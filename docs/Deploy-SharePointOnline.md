@@ -16,6 +16,8 @@ Notes:
 - You do not need a global Node.js installation if you use `scripts/Build-UHV.ps1`. It will use a local, known-good Node runtime under `.tools/`.
 - If you do have Node installed globally, SPFx in this repo expects Node 22.14+ (Node 24+ is not supported by this project).
 - PnP.PowerShell 3.x requires an Entra ID App Registration `ClientId` for `Connect-PnPOnline -Interactive` and `-DeviceLogin`.
+- For repeat packaging runs, use `.\scripts\Build-UHV.ps1 -SkipInstall` to avoid reinstalling npm packages each time.
+- To reduce npm warning noise during install, use `.\scripts\Build-UHV.ps1 -QuietNpm`.
 
 ## Evotec Quick Start (Your Test Tenant)
 
@@ -113,6 +115,13 @@ From the repo root:
 
 ```powershell
 .\scripts\Build-UHV.ps1
+```
+
+Optional fast/quiet variants:
+
+```powershell
+.\scripts\Build-UHV.ps1 -SkipInstall
+.\scripts\Build-UHV.ps1 -QuietNpm
 ```
 
 Expected output package:

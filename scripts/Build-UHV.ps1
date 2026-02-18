@@ -1,7 +1,9 @@
 param(
     [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")),
     [string]$RequiredNodeVersion = "22.14.0",
-    [switch]$ForceBootstrap
+    [switch]$ForceBootstrap,
+    [switch]$SkipInstall,
+    [switch]$QuietNpm
 )
 
 Set-StrictMode -Version Latest
@@ -172,13 +174,22 @@ Write-Host "Active Node.js version: $activeNodeVersion"
 
 Push-Location $solutionPath
 try {
-    if (Test-Path (Join-Path $solutionPath "package-lock.json")) {
-        & $runtimeNpmCmd ci
-    } else {
-        & $runtimeNpmCmd install
+    $installArgs = @()
+    if ($QuietNpm) {
+        $installArgs = @("--loglevel=error", "--no-fund", "--no-audit")
     }
-    if ($LASTEXITCODE -ne 0) {
-        throw "Dependency installation failed."
+
+    if ($SkipInstall) {
+        Write-Host "Skipping dependency installation (-SkipInstall specified)."
+    } else {
+        if (Test-Path (Join-Path $solutionPath "package-lock.json")) {
+            & $runtimeNpmCmd ci @installArgs
+        } else {
+            & $runtimeNpmCmd install @installArgs
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "Dependency installation failed."
+        }
     }
 
     & $runtimeNpmCmd run bundle:ship

@@ -309,6 +309,8 @@ Or use the helper script:
 `Build-UHV.ps1` auto-detects unsupported global Node.js versions and bootstraps a local Node.js `22.14.0` runtime into `.tools/` when needed.
 The downloaded archive is SHA256-verified against the official Node.js `SHASUMS256.txt` before extraction.
 Use `.\scripts\Build-UHV.ps1 -ForceBootstrap` to force a fresh local runtime download.
+Use `.\scripts\Build-UHV.ps1 -SkipInstall` to skip `npm ci/install` when dependencies are already present.
+Use `.\scripts\Build-UHV.ps1 -QuietNpm` to reduce npm deprecation/audit/funding warning noise during install.
 
 ## Release package
 
@@ -487,3 +489,4 @@ npm test
 - **URL rejected**: Enable diagnostics and check the computed URL + validation options.  
 - **Allowlist mode**: Ensure the host is in `allowedHosts` and the path matches `allowedPathPrefixes`.  
 - **Build fails with Node version error**: run `.\scripts\Build-UHV.ps1`; it will automatically use a compatible local Node.js runtime for the packaging steps.
+- **Too many npm deprecation warnings during build**: these are mostly transitive SPFx toolchain warnings. Use `.\scripts\Build-UHV.ps1 -SkipInstall` for repeat builds or `.\scripts\Build-UHV.ps1 -QuietNpm` to reduce install noise.
