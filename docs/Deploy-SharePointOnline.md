@@ -1,51 +1,49 @@
-# Deploy UniversalHtmlViewer To SharePoint Online
+# UniversalHtmlViewer - SharePoint Online Deployment Guide
 
-This repo contains a SharePoint Framework (SPFx) package (`.sppkg`) and PowerShell scripts to build and deploy it.
+This guide shows how to build, publish, install, update, and rollback UniversalHtmlViewer (UHV) in SharePoint Online using the repository scripts.
+
+📦 Workflow Status
+
+[![SPFx Tests](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/spfx-tests.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/spfx-tests.yml)
+[![Release SPPKG](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml)
+
+## What this guide covers
+
+- One-time authentication setup for PnP.PowerShell 3.x.
+- App catalog discovery/registration.
+- Build and deploy flows (site scope and tenant app catalog).
+- Site onboarding and page provisioning scripts.
+- Update and rollback operations.
+- Troubleshooting for real-world SharePoint behavior.
 
 ## Prerequisites
 
-- Permission to upload/publish apps to the target App Catalog (site app catalog or tenant app catalog).
 - PowerShell 7+ recommended.
-- PnP.PowerShell:
+- Permission to publish apps to your target app catalog.
+- PnP.PowerShell installed:
 
 ```powershell
 Install-Module PnP.PowerShell -Scope CurrentUser
 ```
 
 Notes:
-- You do not need a global Node.js installation if you use `scripts/Build-UHV.ps1`. It will use a local, known-good Node runtime under `.tools/`.
-- If you do have Node installed globally, SPFx in this repo expects Node 22.14+ (Node 24+ is not supported by this project).
-- PnP.PowerShell 3.x requires an Entra ID App Registration `ClientId` for `Connect-PnPOnline -Interactive` and `-DeviceLogin`.
-- For repeat packaging runs, use `.\scripts\Build-UHV.ps1 -SkipInstall` to avoid reinstalling npm packages each time.
-- To reduce npm warning noise during install, use `.\scripts\Build-UHV.ps1 -QuietNpm`.
-- SharePoint Online does not require cryptographic signing of `.sppkg`; trust is managed through App Catalog governance and permissions.
 
-## Quick Start Variables (Example)
+- `Build-UHV.ps1` can bootstrap a local compatible Node runtime in `.tools/` when global Node is unsupported.
+- Supported Node for this project is `>=22.14.0 <23.0.0`.
+- SharePoint Online does not require cryptographic signing of `.sppkg`; trust is controlled via App Catalog governance.
 
-- Tenant domain: `<tenant>.sharepoint.com`
-- Tenant admin URL: `https://<tenant>-admin.sharepoint.com`
-- Candidate tenant app catalog URL: `https://<tenant>.sharepoint.com/sites/appcatalog` (verify via SharePoint Admin Center or `Get-PnPTenantAppCatalogUrl`)
-- Entra app registration display name: `UniversalHtmlViewer Deploy`
-- Entra app registration `ClientId`: `<client-guid>`
-
-Suggested session variables:
+## Quick start variables
 
 ```powershell
 $clientId = "<client-guid>"
-$tenant = "<tenant>.onmicrosoft.com"   # use your initial domain or tenant GUID
+$tenant = "<tenant>.onmicrosoft.com"      # or tenant GUID
 $appCatalogUrl = "https://<tenant>.sharepoint.com/sites/appcatalog"
 $tenantAdminUrl = "https://<tenant>-admin.sharepoint.com"
 ```
 
-## Step 0 (one-time): Create A ClientId For PnP Authentication
+## 1) One-time auth setup (ClientId for PnP.PowerShell)
 
-This creates an Entra ID app registration suitable for PnP interactive/device login and prints its `ClientId` (Application Id).
-
-Pick your tenant identifier:
-- Preferred: your initial domain like `yourtenant.onmicrosoft.com`
-- Or: the tenant GUID
-
-Example (Device Login is the most reliable):
+PnP.PowerShell 3.x requires a registered Entra ID app (`ClientId`) for interactive/device login.
 
 ```powershell
 Register-PnPEntraIDAppForInteractiveLogin `
@@ -55,147 +53,97 @@ Register-PnPEntraIDAppForInteractiveLogin `
   -SharePointDelegatePermissions "AllSites.FullControl"
 ```
 
-App UniversalHtmlViewer Deploy with id <client-guid> created.
+Keep the returned app id (`ClientId`) and tenant identifier.
 
-Keep the returned `ClientId` and `Tenant` values; you will pass them to the deploy script.
+Permission guidance:
 
-### What permissions do we need?
+- Simplest working delegated permission for this deployment flow is `AllSites.FullControl`.
+- The signed-in user still needs proper SharePoint/App Catalog role permissions.
 
-For this repo's deployment flow (`Add-PnPApp` + `Publish-PnPApp` to an App Catalog), the simplest working permission is:
-- SharePoint Delegated: `AllSites.FullControl`
+## 2) Find or configure app catalog
 
-This is a broad delegated permission (the signed-in user still needs the appropriate SharePoint/App Catalog roles). If your tenant has stricter policies, ask an M365/Entra admin to create the app registration and grant only the permissions your organization allows.
-
-### Does Register-PnPEntraIDAppForInteractiveLogin require Connect-PnPOnline first?
-
-No. `Register-PnPEntraIDAppForInteractiveLogin` performs its own sign-in flow (browser/device code) to create the app registration.
-It does require that your account is allowed to create app registrations in Entra ID (many tenants restrict this to admins).
-
-## Step 1: Determine Your App Catalog URL
-
-`scripts/Deploy-UHV.ps1` needs the URL of the site that hosts the App Catalog.
-
-Common examples (verify in your tenant):
-- Tenant app catalog site: `https://<tenant>.sharepoint.com/sites/appcatalog`
-- Site app catalog: the URL of the site collection where the "Site Collection App Catalog" feature is enabled
-
-The URL will typically start with:
-- `https://<tenant>.sharepoint.com/`
-
-How to verify you have the right URL:
-- Open the URL in a browser.
-- You should see an App Catalog site with an app library (often "Apps for SharePoint").
-
-Optional PowerShell check (requires SharePoint admin access):
+Check tenant app catalog URL:
 
 ```powershell
-Connect-PnPOnline -Url "https://<tenant>-admin.sharepoint.com" -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
+Connect-PnPOnline -Url "https://<tenant>-admin.sharepoint.com" -DeviceLogin -ClientId $clientId -Tenant $tenant
 Get-PnPTenantAppCatalogUrl
 ```
 
-If `Get-PnPTenantAppCatalogUrl` returns blank, no tenant app catalog is configured yet.
-Create one (admin permissions required):
+If blank, create/register one:
 
 ```powershell
-# Find timezone id, e.g. for Warsaw
 Get-PnPTimeZoneId -Match "Warsaw"
-
-# Create and register tenant app catalog
 Register-PnPAppCatalogSite -Url "https://<tenant>.sharepoint.com/sites/appcatalog" -Owner "<admin@tenant>" -TimeZoneId <id>
 ```
 
-If the site already exists and just needs registration:
+If site already exists but is not linked:
 
 ```powershell
 Set-PnPTenantAppCatalogUrl -Url "https://<tenant>.sharepoint.com/sites/appcatalog"
 ```
 
-## Step 2: Build The SPFx Package (.sppkg)
-
-From the repo root:
+## 3) Build package
 
 ```powershell
 .\scripts\Build-UHV.ps1
 ```
 
-Optional fast/quiet variants:
+Useful build variants:
 
 ```powershell
 .\scripts\Build-UHV.ps1 -SkipInstall
 .\scripts\Build-UHV.ps1 -QuietNpm
 ```
 
-Expected output package:
+Expected package:
 
 ```text
 spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg
 ```
 
-## Step 3: Deploy
+## 4) Deploy package
 
-### Option A: Site-scoped (recommended for isolated testing)
-
-Uploads and publishes to a site app catalog.
+### Option A: Site app catalog scope
 
 ```powershell
-.\scripts\Deploy-UHV.ps1 -AppCatalogUrl "<site-app-catalog-site-url>" -Scope Site -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
+.\scripts\Deploy-UHV.ps1 `
+  -AppCatalogUrl "<site-app-catalog-url>" `
+  -Scope Site `
+  -DeviceLogin `
+  -ClientId $clientId `
+  -Tenant $tenant
 ```
 
-After publishing, go to the target site and add/install the app as needed so the web part appears in the web part picker.
-
-### Option B: Tenant app catalog (tenant-wide optional)
-
-Uploads and publishes to the tenant app catalog.
-
-Tenant-wide (Skip Feature Deployment):
+### Option B: Tenant app catalog publish
 
 ```powershell
-.\scripts\Deploy-UHV.ps1 -AppCatalogUrl "<tenant-app-catalog-site-url>" -Scope Tenant -TenantWide -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
+.\scripts\Deploy-UHV.ps1 `
+  -AppCatalogUrl $appCatalogUrl `
+  -Scope Tenant `
+  -DeviceLogin `
+  -ClientId $clientId `
+  -Tenant $tenant `
+  -TenantAdminUrl $tenantAdminUrl
 ```
 
-Example (common pattern, verify the actual app catalog site first):
+Important package behavior:
+
+- `spfx/UniversalHtmlViewer/config/package-solution.json` currently has `"skipFeatureDeployment": false`.
+- This means true tenant-wide skip-feature rollout is not supported by current package metadata.
+- Publishing to tenant app catalog still works, but site-level app installation is typically required.
+
+### One-command wrapper
+
+Build + deploy:
 
 ```powershell
-.\scripts\Deploy-UHV.ps1 -AppCatalogUrl "https://<tenant>.sharepoint.com/sites/appcatalog" -Scope Tenant -TenantWide -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
+.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl $appCatalogUrl -Scope Tenant -DeviceLogin -ClientId $clientId -Tenant $tenant -TenantAdminUrl $tenantAdminUrl
 ```
 
-If you do not use `-TenantWide`, the solution is still published to the tenant app catalog, but typically must be installed per-site before the web part is available there.
-
-Important:
-- For `-Scope Tenant`, the script connects to the tenant admin URL (`https://<tenant>-admin.sharepoint.com`) to avoid the PnP device-login context-switch limitation.
-- For `-Scope Site`, it connects directly to `-AppCatalogUrl`.
-- The deploy script uses `-Force` for app catalog operations, so you should not get repeated no-script confirmation prompts.
-
-Tenant-wide note for this project:
-- Current file `spfx/UniversalHtmlViewer/config/package-solution.json` has `"skipFeatureDeployment": false`.
-- That means true tenant-wide rollout (`-SkipFeatureDeployment`) is not allowed by the package.
-- If you pass `-TenantWide`, the script now falls back to normal publish and prints a warning.
-- Result: solution is published to tenant app catalog, but each site may still need app installation.
-
-Example command (skip rebuild):
-
-```powershell
-.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl $appCatalogUrl -Scope Tenant -TenantWide -DeviceLogin -ClientId $clientId -Tenant $tenant -TenantAdminUrl $tenantAdminUrl -SkipBuild
-```
-
-Example command (recommended with current package, no tenant-wide skip-feature deploy):
+Deploy only (skip build):
 
 ```powershell
 .\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl $appCatalogUrl -Scope Tenant -DeviceLogin -ClientId $clientId -Tenant $tenant -TenantAdminUrl $tenantAdminUrl -SkipBuild
-```
-
-## One-command Wrapper (deploy-uhv)
-
-If you prefer a single command that builds and deploys:
-
-```powershell
-.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "<app-catalog-site-url>" -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
-```
-
-Tenant-wide:
-
-```powershell
-.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "<tenant-app-catalog-site-url>" -TenantWide -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
 ```
 
 Build only (no SharePoint login):
@@ -204,51 +152,57 @@ Build only (no SharePoint login):
 .\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "https://example.invalid" -NoDeploy
 ```
 
-Windows shortcut command (same wrapper):
+## 5) Install app on target site
 
-```powershell
-.\scripts\deploy-uhv.cmd -AppCatalogUrl "<app-catalog-site-url>"
-```
+When not using true tenant-wide skip-feature deployment, install app on each target site:
 
-## One-command Site Onboarding
+1. Open `Site contents`.
+2. Select `Add an app` and install `universal-html-viewer-client-side-solution` from organization apps.
+3. Refresh page editor and add `Universal HTML Viewer` web part.
 
-Install/update UHV on a site and create a configured dashboard page in one run:
+## 6) Recommended UHV config for SharePoint-hosted dashboards
+
+For dashboard/report bundles in `SiteAssets` or another SharePoint library:
+
+- `Configuration preset`: `SharePointLibraryRelaxed`
+- `Content delivery mode`: `SharePoint file API (inline iframe)`
+- `HTML source mode`: `Full URL`
+- `Full URL`: your `.../SiteAssets/Index.html`
+- `Height mode`: `Auto`
+- `Fit content to width`: `On`
+
+Why this works:
+
+- Avoids direct `.html` iframe download/header behavior.
+- Preserves linked-file navigation for same-tenant report bundles.
+- Supports nested iframe hydration in wrapper dashboards.
+
+## 7) Site onboarding and page provisioning
+
+### Full onboarding in one command
 
 ```powershell
 .\scripts\Setup-UHVSite.ps1 `
-  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
+  -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
   -SiteRelativeDashboardPath "SiteAssets/Index.html" `
   -PageName "Dashboard" `
   -PageTitle "Dashboard" `
   -ConfigurationPreset "SharePointLibraryRelaxed" `
   -ContentDeliveryMode "SharePointFileContent" `
-  -ClientId "<client-guid>" `
-  -Tenant "<tenant>.onmicrosoft.com" `
+  -ClientId $clientId `
+  -Tenant $tenant `
   -DeviceLogin
 ```
 
-Install/update app only (no page creation):
-
-```powershell
-.\scripts\Setup-UHVSite.ps1 `
-  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
-  -InstallOnly `
-  -ClientId "<client-guid>" `
-  -Tenant "<tenant>.onmicrosoft.com" `
-  -DeviceLogin
-```
-
-## Step 3.6: Create A UHV Page Directly From PowerShell (Optional)
-
-If SharePoint page editing is unstable in the browser, create and configure the page via script:
+### Add/configure page directly
 
 ```powershell
 .\scripts\Add-UHVPage.ps1 `
-  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
+  -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
   -PageName "Dashboard" `
   -PageTitle "Dashboard" `
   -PageLayoutType "Article" `
-  -FullUrl "https://contoso.sharepoint.com/sites/Reports/SiteAssets/Index.html" `
+  -FullUrl "https://<tenant>.sharepoint.com/sites/Reports/SiteAssets/Index.html" `
   -ConfigurationPreset "SharePointLibraryFullPage" `
   -ContentDeliveryMode "SharePointFileContent" `
   -Publish `
@@ -258,24 +212,22 @@ If SharePoint page editing is unstable in the browser, create and configure the 
 ```
 
 Useful switches:
-- `-SetAsHomePage` sets the created page as the site home page.
-- `-ForceOverwrite` deletes an existing page with the same name and recreates it.
-- `-EnsureSitePagesForceCheckout` applies the Site Pages workaround (`ForceCheckout = true`) before creating the page.
-- `-SkipEnsureUhvAppOnSite` skips automatic app install/update check before adding the web part.
-- `-PageLayoutType` defaults to `Article` (recommended for stability); supports `SingleWebPartAppPage` and `Home`.
-- `-SkipAddWebPart` creates the page only (useful for isolating SharePoint page-authoring issues from web part issues).
-- `-SkipConfigureWebPartProperties` adds UHV but leaves default properties untouched (useful when isolating page schema/write issues).
 
-## Step 3.7: Upgrade Existing Sites After Publishing A New Package
+- `-ForceOverwrite`
+- `-EnsureSitePagesForceCheckout`
+- `-SkipAddWebPart`
+- `-SkipConfigureWebPartProperties`
+- `-SetAsHomePage`
 
-After you upload/publish a new UHV package in App Catalog, you do not need to reupload per site.
-You may still need to update the installed app instance on each site:
+## 8) Update existing sites after publishing new package
+
+You do not reupload per site; you update site app instances:
 
 ```powershell
 .\scripts\Update-UHVSiteApp.ps1 `
   -SiteUrls @(
-    "https://contoso.sharepoint.com/sites/Reports",
-    "https://contoso.sharepoint.com/sites/Operations"
+    "https://<tenant>.sharepoint.com/sites/Reports",
+    "https://<tenant>.sharepoint.com/sites/Operations"
   ) `
   -InstallIfMissing `
   -ClientId $clientId `
@@ -283,86 +235,56 @@ You may still need to update the installed app instance on each site:
   -DeviceLogin
 ```
 
-This script:
-- Finds UHV in app catalog (tenant first, then site catalog fallback).
-- Installs it if missing on each site (`-InstallIfMissing`).
-- Runs update so each site picks up the latest published package.
-
-## Step 3.5: Install On The Target Site (Required When Not Tenant-Wide)
-
-After publish to tenant app catalog, open the target site and ensure the app is installed there:
-
-1. Go to `Site contents` on the target site.
-2. If you do not see `universal-html-viewer-client-side-solution`, choose `Add an app` and install it from `From Your Organization`.
-3. Refresh the page editor and add the `Universal HTML Viewer` web part.
-
-## Step 4: Configure UHV For SharePoint-Hosted HTML
-
-For enterprise tenants where direct `.html` iframe loading is blocked or downloaded:
-
-1. Upload your HTML file to SharePoint (for example `Site Assets/Index.html`).
-2. In the Universal HTML Viewer web part settings:
-   - Set `Content delivery mode` to `SharePoint file API (inline iframe)`.
-   - Set source mode/URL to the target HTML file.
-   - For better fit on report bundles: set `Height mode` to `Auto` and enable `Fit content to width (inline mode)`.
-   - Optional for edge-to-edge layout: set `Configuration preset` to `SharePoint library (full page)`.
-   - Keep URL same-tenant (or site-relative).
-
-This mode fetches file content via SharePoint REST and renders it inside the iframe using `srcdoc`, avoiding direct file-response header issues.
-It also supports wrapper dashboards that contain inner iframes pointing to same-tenant `.html/.htm/.aspx` files (common for TheDashboard-style outputs).
-Nested iframe targets that change at runtime (`iframe.src = ...`) are also auto-resolved in this mode.
-
-For report bundles with many linked files:
-- Upload the whole folder tree (not just `index.html`) to the same SharePoint library/folder.
-- Keep links relative (for example `./details/report1.html`, `../index.html`).
-- Keep links in the same tenant and same allowed path prefix.
-- Use `.html`/`.htm`/`.aspx` links for in-place navigation in this mode.
-- If a linked `.aspx` page must be server-rendered by SharePoint (not loaded as file text), use `Direct URL in iframe` mode for that scenario.
-
-## Troubleshooting
-
-- "PnP.PowerShell module not found": run the `Install-Module` command above.
-- "Access denied" or app catalog errors: the account used in the interactive login must have App Catalog permissions.
-- Package missing: run `.\scripts\Build-UHV.ps1` first.
-- `Add-PnPApp : Value cannot be null. (Parameter 'webFullUrl')`: tenant app catalog is not configured. Run `Get-PnPTenantAppCatalogUrl`; if blank, register/set the tenant app catalog URL as shown above.
-- `Publish-PnPApp ... Package does not have SkipFeatureDeployment set to true`: this package cannot be tenant-wide deployed in its current configuration (`skipFeatureDeployment=false`). Publish without tenant-wide and install per site, or change package config and rebuild.
-- "Do we need scripting?": App Catalog operations may temporarily require toggling no-script on the catalog site. This does not mean you need to enable custom scripting across normal SharePoint sites.
-- Direct file URL opens as download / iframe times out: use UHV `Content delivery mode = SharePoint file API (inline iframe)`.
-- Linked HTML pages do not open inside the web part: use `Content delivery mode = SharePoint file API (inline iframe)`, keep links relative to the same library/folder tree, and prefer preset `SharePointLibraryRelaxed` (strict sandbox can prevent inline link interception).
-- Wrapper pages with inner iframes do not load: use `SharePoint file API (inline iframe)` plus preset `SharePointLibraryRelaxed` or `SharePointLibraryFullPage` (strict sandbox blocks same-origin API access for nested iframe hydration).
-- Browser console shows `about:srcdoc` inline-script CSP warnings: in many tenants this is currently report-only telemetry. If enforcement is enabled, move inline scripts to external `.js` files and reference them with `<script src="...">`.
-- "Custom script is being retired / resets every 24h": UHV does not require enabling custom script on dashboard sites when using `Content delivery mode = SharePoint file API (inline iframe)`. Keep `DenyAddAndCustomizePages` enabled on business sites; only App Catalog maintenance may temporarily toggle no-script on the catalog site.
-- `SavePageCoAuth` returns `400 Bad Request` and page edit exits after a few seconds: this is a SharePoint authoring/coauthoring issue (not UHV). Temporary workaround per affected site:
-
-```powershell
-Connect-PnPOnline -Url "https://<tenant>.sharepoint.com/sites/<site>" -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
-Set-PnPList -Identity "Site Pages" -ForceCheckout:$true
-```
-
-If multiple test sites are affected, apply the same setting per site collection.
-- `Can't edit this page` with message about `com.fluidframework.leaf.string` on a script-created page: recreate that page with the latest `scripts/Add-UHVPage.ps1` and `-ForceOverwrite` (script uses safer `Set-PnPPageWebPart -PropertiesJson` flow).
-
-## Rollback Procedure
-
-Use `scripts/Rollback-UHV.ps1` to publish an older known-good package and then update target site app instances:
+## 9) Rollback
 
 ```powershell
 .\scripts\Rollback-UHV.ps1 `
-  -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" `
+  -AppCatalogUrl $appCatalogUrl `
   -RollbackSppkgPath "C:\Releases\universal-html-viewer-1.0.11.sppkg" `
   -Scope Tenant `
   -SiteUrls @(
-    "https://contoso.sharepoint.com/sites/Reports",
-    "https://contoso.sharepoint.com/sites/Operations"
+    "https://<tenant>.sharepoint.com/sites/Reports",
+    "https://<tenant>.sharepoint.com/sites/Operations"
   ) `
   -AppCatalogScope Tenant `
   -InstallIfMissing `
-  -ClientId "<client-guid>" `
-  -Tenant "<tenant>.onmicrosoft.com" `
+  -ClientId $clientId `
+  -Tenant $tenant `
   -DeviceLogin `
-  -TenantAdminUrl "https://contoso-admin.sharepoint.com"
+  -TenantAdminUrl $tenantAdminUrl
 ```
 
-If you only need to republish the older package without site updates, add `-SkipSiteUpdate`.
-- If the same error persists: run once with `-SkipAddWebPart` and confirm the page can be edited; then rerun without `-SkipAddWebPart` to isolate whether corruption occurs in page creation or web part insertion.
-- If page creation works but adding/configuring UHV fails: rerun with `-SkipConfigureWebPartProperties`; if that page is editable, the issue is property-write payload and you can configure UHV in UI afterward.
+Use `-SkipSiteUpdate` if you only need to republish the old package.
+
+## Troubleshooting
+
+- `Connect-PnPOnline` interactive/device prompts fail:
+  ensure valid `ClientId` app registration and allowed tenant policy.
+- `Add-PnPApp ... webFullUrl null`:
+  tenant app catalog URL is not configured.
+- `Package does not have SkipFeatureDeployment set to true`:
+  current package metadata blocks true tenant-wide skip-feature deployment.
+- Direct file URL downloads or iframe times out:
+  switch to `SharePoint file API (inline iframe)` mode.
+- Linked pages or wrapper iframes fail:
+  use `SharePointLibraryRelaxed`/`SharePointLibraryFullPage`, keep links relative and same-tenant.
+- `SavePageCoAuth 400` while editing pages:
+  usually SharePoint page authoring issue, not UHV. Temporary workaround:
+
+```powershell
+Connect-PnPOnline -Url "https://<tenant>.sharepoint.com/sites/<site>" -DeviceLogin -ClientId $clientId -Tenant $tenant
+Set-PnPList -Identity "Site Pages" -ForceCheckout:$true
+```
+
+- `Can't edit this page` + `com.fluidframework.leaf.string` on script-created page:
+  recreate page with latest `Add-UHVPage.ps1 -ForceOverwrite`.
+
+## Security and governance note
+
+UHV is an SPFx app-catalog-governed deployment model.  
+Enterprise control is achieved through:
+
+- App Catalog approval/governance,
+- admin/site-owner role boundaries,
+- tenant policies and SharePoint permissions.
+
