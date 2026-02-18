@@ -25,6 +25,7 @@ In practical terms: UHV lets you keep static HTML dashboard hosting inside Share
 - [Property pane configuration](#property-pane-configuration)
 - [URL safety and validation](#url-safety-and-validation)
 - [Configuration export/import](#configuration-exportimport)
+- [Signing and Trust Model](#signing-and-trust-model)
 - [Troubleshooting](#troubleshooting)
 
 ## Features
@@ -468,6 +469,8 @@ Two helper scripts can standardize build + deploy:
 - `scripts/deploy-uhv.cmd` – convenience entrypoint for the wrapper (works well on Windows).
 - `scripts/Add-UHVPage.ps1` – creates a page, adds UHV, and preconfigures its URL.
 - `scripts/Update-UHVSiteApp.ps1` – installs/updates UHV app across one or more sites.
+- `scripts/Setup-UHVSite.ps1` – one-command site onboarding (install/update app + create configured dashboard page).
+- `scripts/Rollback-UHV.ps1` – rollback helper (publish older `.sppkg` and update selected sites).
 
 SharePoint Online deployment guide: `docs/Deploy-SharePointOnline.md`
 
@@ -527,6 +530,40 @@ Create and configure a UHV page directly from PowerShell:
   -DeviceLogin
 ```
 
+One-command site onboarding (install/update app + create page):
+
+```powershell
+.\scripts\Setup-UHVSite.ps1 `
+  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
+  -SiteRelativeDashboardPath "SiteAssets/Index.html" `
+  -PageName "Dashboard" `
+  -PageTitle "Dashboard" `
+  -ConfigurationPreset "SharePointLibraryRelaxed" `
+  -ContentDeliveryMode "SharePointFileContent" `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin
+```
+
+Rollback to a previous package and update target sites:
+
+```powershell
+.\scripts\Rollback-UHV.ps1 `
+  -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" `
+  -RollbackSppkgPath "C:\Releases\universal-html-viewer-1.0.11.sppkg" `
+  -Scope Tenant `
+  -SiteUrls @(
+    "https://contoso.sharepoint.com/sites/Reports",
+    "https://contoso.sharepoint.com/sites/Operations"
+  ) `
+  -AppCatalogScope Tenant `
+  -InstallIfMissing `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin `
+  -TenantAdminUrl "https://contoso-admin.sharepoint.com"
+```
+
 Safe isolate mode (add UHV but skip property write):
 
 ```powershell
@@ -572,6 +609,32 @@ Workflow: `/.github/workflows/spfx-tests.yml`
 - Uses `runs-on: [self-hosted, windows]` and `runs-on: [self-hosted, linux]`
 - Runs `npm ci`, `npm test`, and `npm run bundle` inside `spfx/UniversalHtmlViewer`
 - Packages a ship build on Linux and uploads `universal-html-viewer-sppkg` as a workflow artifact
+
+Workflow: `/.github/workflows/release-sppkg.yml`
+
+- Builds a ship package (`bundle:ship`, `package-solution:ship`) and runs lint/tests.
+- Produces a release artifact bundle with:
+  - `.sppkg`
+  - `SHA256SUMS.txt`
+  - deploy/onboarding/rollback scripts
+  - deployment docs
+- Creates a GitHub release automatically on `v*` tags, or manually via `workflow_dispatch`.
+
+## Signing and Trust Model
+
+SharePoint Online does not require Authenticode-style signing of the `.sppkg` file.
+Trust is based on:
+
+- App Catalog governance (who can upload/publish apps),
+- tenant/site admin consent and app installation,
+- SharePoint permissions and tenant policies.
+
+Recommended enterprise controls:
+
+- Use App Catalog approval/governance and least-privileged deployment roles.
+- Verify package integrity with `SHA256SUMS.txt` from CI artifacts/releases.
+- Optionally sign PowerShell deployment scripts in your internal distribution process.
+- Tag releases and deploy by immutable versioned artifacts (not local ad-hoc builds).
 
 ## Running tests
 

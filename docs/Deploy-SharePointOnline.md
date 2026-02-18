@@ -18,6 +18,7 @@ Notes:
 - PnP.PowerShell 3.x requires an Entra ID App Registration `ClientId` for `Connect-PnPOnline -Interactive` and `-DeviceLogin`.
 - For repeat packaging runs, use `.\scripts\Build-UHV.ps1 -SkipInstall` to avoid reinstalling npm packages each time.
 - To reduce npm warning noise during install, use `.\scripts\Build-UHV.ps1 -QuietNpm`.
+- SharePoint Online does not require cryptographic signing of `.sppkg`; trust is managed through App Catalog governance and permissions.
 
 ## Evotec Quick Start (Your Test Tenant)
 
@@ -209,6 +210,34 @@ Windows shortcut command (same wrapper):
 .\scripts\deploy-uhv.cmd -AppCatalogUrl "<app-catalog-site-url>"
 ```
 
+## One-command Site Onboarding
+
+Install/update UHV on a site and create a configured dashboard page in one run:
+
+```powershell
+.\scripts\Setup-UHVSite.ps1 `
+  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
+  -SiteRelativeDashboardPath "SiteAssets/Index.html" `
+  -PageName "Dashboard" `
+  -PageTitle "Dashboard" `
+  -ConfigurationPreset "SharePointLibraryRelaxed" `
+  -ContentDeliveryMode "SharePointFileContent" `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin
+```
+
+Install/update app only (no page creation):
+
+```powershell
+.\scripts\Setup-UHVSite.ps1 `
+  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
+  -InstallOnly `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin
+```
+
 ## Step 3.6: Create A UHV Page Directly From PowerShell (Optional)
 
 If SharePoint page editing is unstable in the browser, create and configure the page via script:
@@ -312,5 +341,28 @@ Set-PnPList -Identity "Site Pages" -ForceCheckout:$true
 
 If multiple test sites are affected, apply the same setting per site collection.
 - `Can't edit this page` with message about `com.fluidframework.leaf.string` on a script-created page: recreate that page with the latest `scripts/Add-UHVPage.ps1` and `-ForceOverwrite` (script uses safer `Set-PnPPageWebPart -PropertiesJson` flow).
+
+## Rollback Procedure
+
+Use `scripts/Rollback-UHV.ps1` to publish an older known-good package and then update target site app instances:
+
+```powershell
+.\scripts\Rollback-UHV.ps1 `
+  -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" `
+  -RollbackSppkgPath "C:\Releases\universal-html-viewer-1.0.11.sppkg" `
+  -Scope Tenant `
+  -SiteUrls @(
+    "https://contoso.sharepoint.com/sites/Reports",
+    "https://contoso.sharepoint.com/sites/Operations"
+  ) `
+  -AppCatalogScope Tenant `
+  -InstallIfMissing `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin `
+  -TenantAdminUrl "https://contoso-admin.sharepoint.com"
+```
+
+If you only need to republish the older package without site updates, add `-SkipSiteUpdate`.
 - If the same error persists: run once with `-SkipAddWebPart` and confirm the page can be edited; then rerun without `-SkipAddWebPart` to isolate whether corruption occurs in page creation or web part insertion.
 - If page creation works but adding/configuring UHV fails: rerun with `-SkipConfigureWebPartProperties`; if that page is editable, the issue is property-write payload and you can configure UHV in UI afterward.
