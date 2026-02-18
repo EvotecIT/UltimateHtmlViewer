@@ -246,11 +246,12 @@ describe('isUrlAllowed', () => {
     const options = {
       securityMode: 'StrictTenant' as UrlSecurityMode,
       currentPageUrl,
-      allowedFileExtensions: ['.html', '.htm'],
+      allowedFileExtensions: ['.html', '.htm', '.aspx'],
     };
 
     expect(isUrlAllowed('/sites/Reports/Dashboards/a.html', options)).toBe(true);
     expect(isUrlAllowed('/sites/Reports/Dashboards/a.HTM', options)).toBe(true);
+    expect(isUrlAllowed('/sites/Reports/Dashboards/a.aspx', options)).toBe(true);
     expect(isUrlAllowed('/sites/Reports/Dashboards/a.js', options)).toBe(false);
     expect(isUrlAllowed('/sites/Reports/Dashboards/', options)).toBe(false);
   });

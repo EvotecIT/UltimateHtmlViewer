@@ -214,7 +214,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const basePathPrefix: string = this.normalizeBasePathForPrefix(props.basePath);
 
     props.allowHttp = false;
-    props.allowedFileExtensions = '.html,.htm';
+    props.allowedFileExtensions = '.html,.htm,.aspx';
     props.showChrome = true;
     props.showOpenInNewTab = true;
     props.showRefreshButton = true;

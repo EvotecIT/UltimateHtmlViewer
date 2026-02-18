@@ -3,7 +3,7 @@
   "solution": {
     "name": "universal-html-viewer-client-side-solution",
     "id": "15fe766e-03e4-4543-8129-c5e260b0b9e9",
-    "version": "1.0.11.0",
+    "version": "1.0.12.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": false,
     "isDomainIsolated": false,

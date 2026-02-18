@@ -358,7 +358,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                 }),
                 PropertyPaneTextField('allowedFileExtensions', {
                   label: 'Allowed file extensions (comma-separated)',
-                  description: 'Optional file extensions, e.g. .html, .htm',
+                  description: 'Optional file extensions, e.g. .html, .htm, .aspx',
                   disabled: isPresetLocked,
                   onGetErrorMessage: (value?: string): string =>
                     validateAllowedFileExtensions(value),

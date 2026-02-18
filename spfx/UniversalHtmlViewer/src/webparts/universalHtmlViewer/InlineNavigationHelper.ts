@@ -83,7 +83,12 @@ export function resolveInlineNavigationTarget(
     return undefined;
   }
 
-  if (!isHtmlFilePath(absoluteUrl.pathname)) {
+  if (
+    !isInlineNavigablePath(
+      absoluteUrl.pathname,
+      options.validationOptions.allowedFileExtensions,
+    )
+  ) {
     return undefined;
   }
 
@@ -144,9 +149,35 @@ function isSameHostAsCurrentPage(targetUrl: URL, currentPageUrl: string): boolea
   }
 }
 
-function isHtmlFilePath(pathname: string): boolean {
+function isInlineNavigablePath(
+  pathname: string,
+  allowedExtensions?: string[],
+): boolean {
+  const extension = getPathExtension(pathname);
+  if (!extension) {
+    return false;
+  }
+
+  const normalizedAllowed: string[] = (allowedExtensions || [])
+    .map((entry) => (entry.startsWith('.') ? entry.toLowerCase() : `.${entry.toLowerCase()}`))
+    .filter((entry) => entry.length > 1);
+
+  if (normalizedAllowed.length > 0) {
+    return normalizedAllowed.includes(extension);
+  }
+
+  return extension === '.html' || extension === '.htm' || extension === '.aspx';
+}
+
+function getPathExtension(pathname: string): string {
   const normalized = (pathname || '').toLowerCase();
-  return normalized.endsWith('.html') || normalized.endsWith('.htm');
+  const lastSlash = normalized.lastIndexOf('/');
+  const lastDot = normalized.lastIndexOf('.');
+  if (lastDot === -1 || lastDot < lastSlash) {
+    return '';
+  }
+
+  return normalized.substring(lastDot);
 }
 
 function stripQueryParam(url: string, paramName: string): string {

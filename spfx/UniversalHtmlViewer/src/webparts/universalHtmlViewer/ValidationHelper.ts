@@ -115,7 +115,7 @@ export function validateAllowedFileExtensions(value?: string): string {
   for (const entry of entries) {
     const normalized = entry.startsWith('.') ? entry : `.${entry}`;
     if (!/^\.[a-z0-9]+$/i.test(normalized)) {
-      return `Invalid extension: "${entry}". Use values like .html, .htm.`;
+      return `Invalid extension: "${entry}". Use values like .html, .htm, .aspx.`;
     }
   }
 

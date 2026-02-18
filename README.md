@@ -31,6 +31,7 @@ In practical terms: UHV lets you keep static HTML dashboard hosting inside Share
 
 - **Flexible source modes**: full URL, base path + relative path, or base path + dashboard ID from query string.
 - **Content delivery modes**: direct URL iframe loading or SharePoint file API inline rendering (`srcdoc`) for tenants where `.html` files download/block in iframe mode.
+- **Extension-aware inline navigation**: in SharePoint file API mode, in-frame links and nested iframes can follow allowed extensions (default: `.html`, `.htm`, `.aspx`).
 - **Nested iframe support (SharePoint mode)**: wrapper pages that embed local report HTML in inner iframes are auto-inlined via SharePoint API, including runtime `iframe.src` changes.
 - **Security profiles**: strict tenant, allowlist, or any HTTPS (opt-in).
 - **Path controls**: optional allowed path prefixes + file extension allowlist.
@@ -186,7 +187,7 @@ Example JSON (`/SiteAssets/uhv-config.json`):
 {
   "securityMode": "StrictTenant",
   "allowedPathPrefixes": "/sites/Reports/Dashboards/",
-  "allowedFileExtensions": ".html,.htm",
+  "allowedFileExtensions": ".html,.htm,.aspx",
   "cacheBusterMode": "FileLastModified",
   "sandboxPreset": "Relaxed",
   "showChrome": true,
@@ -297,7 +298,7 @@ The web part exposes the following properties in the property pane:
   - `allowHttp` (toggle) – allows HTTP when explicitly enabled.
   - `allowedHosts` – comma-separated hostnames used when `securityMode = Allowlist`.
   - `allowedPathPrefixes` – optional site-relative path prefixes that URLs must start with.
-  - `allowedFileExtensions` – optional file extensions allowlist (e.g. `.html, .htm`). Leave blank to allow any.
+  - `allowedFileExtensions` – optional file extensions allowlist (e.g. `.html, .htm, .aspx`). Leave blank to allow any.
 - Group: **Tenant configuration (Advanced)**
   - `tenantConfigUrl` – optional JSON config file (site-relative or same-tenant absolute URL).
   - `tenantConfigMode` – `Merge` or `Override`.

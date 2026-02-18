@@ -280,14 +280,15 @@ For enterprise tenants where direct `.html` iframe loading is blocked or downloa
    - Keep URL same-tenant (or site-relative).
 
 This mode fetches file content via SharePoint REST and renders it inside the iframe using `srcdoc`, avoiding direct file-response header issues.
-It also supports wrapper dashboards that contain inner iframes pointing to same-tenant `.html/.htm` files (common for TheDashboard-style outputs).
+It also supports wrapper dashboards that contain inner iframes pointing to same-tenant `.html/.htm/.aspx` files (common for TheDashboard-style outputs).
 Nested iframe targets that change at runtime (`iframe.src = ...`) are also auto-resolved in this mode.
 
 For report bundles with many linked files:
 - Upload the whole folder tree (not just `index.html`) to the same SharePoint library/folder.
 - Keep links relative (for example `./details/report1.html`, `../index.html`).
 - Keep links in the same tenant and same allowed path prefix.
-- Use `.html`/`.htm` links for in-place navigation in this mode.
+- Use `.html`/`.htm`/`.aspx` links for in-place navigation in this mode.
+- If a linked `.aspx` page must be server-rendered by SharePoint (not loaded as file text), use `Direct URL in iframe` mode for that scenario.
 
 ## Troubleshooting
 
