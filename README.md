@@ -13,6 +13,7 @@ In practical terms: UHV lets you keep static HTML dashboard hosting inside Share
 - [Architecture](#architecture)
 - [End-to-End Dashboard Flow (Your Scenario)](#end-to-end-dashboard-flow-your-scenario)
 - [How UHV Mitigates Custom-Script Restrictions](#how-uhv-mitigates-custom-script-restrictions)
+- [Known Good Config (SharePoint Dashboard)](#known-good-config-sharepoint-dashboard)
 - [Presets](#presets)
 - [Tenant configuration](#tenant-configuration)
 - [Installation (site-scoped)](#installation-site-scoped-no-tenant-impact)
@@ -117,6 +118,48 @@ Instead, it uses supported modern SharePoint components:
 - It does not disable tenant/browser security policies.
 - If a dashboard requires blocked inline scripting patterns, you may still need to externalize scripts or adjust dashboard build output.
 - SharePoint page canvas/layout limits still apply (UHV can improve fit, but SharePoint controls the outer container).
+
+## Known Good Config (SharePoint Dashboard)
+
+Use this when your dashboard files are in a SharePoint library (for example `SiteAssets`) and include linked assets/child pages.
+
+### Recommended values
+
+| Setting | Value |
+| --- | --- |
+| Configuration preset | `SharePointLibraryRelaxed` |
+| HTML source mode | `Full URL` |
+| Content delivery mode | `SharePoint file API (inline iframe)` |
+| Full URL to HTML page | `https://<tenant>.sharepoint.com/sites/<site>/SiteAssets/Index.html` |
+| Height mode | `Auto (content height)` |
+| Fit content to width (inline mode) | `On` |
+| Minimum height (px) | `800` to `1000` |
+| Show chrome | `On` (optional) |
+| Show open in new tab | `On` |
+| Security mode | `StrictTenant` |
+
+### Why this combo works
+
+- SharePoint file API mode avoids direct `.html` iframe/download behavior issues.
+- Relative links (`./`, `../`) continue to resolve in the same folder tree.
+- Auto height + fit-to-width gives a dashboard-like page experience with fewer inner scrollbars.
+
+### 1-minute validation checklist
+
+1. Open dashboard page in edit mode.
+2. Confirm `contentDeliveryMode = SharePointFileContent`.
+3. Confirm `fullUrl` points to your `SiteAssets/Index.html`.
+4. Save/Publish and test:
+   - top-level dashboard renders,
+   - in-dashboard navigation works,
+   - linked child pages load.
+5. If layout is still tight, increase minimum height or switch to fixed height for that page.
+
+### Optional fast commands (repeat builds)
+
+```powershell
+.\scripts\Build-UHV.ps1 -SkipInstall -QuietNpm
+```
 
 ## Presets
 
