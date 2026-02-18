@@ -501,10 +501,10 @@ Or as a single command:
 .\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
 ```
 
-Tested tenant-app-catalog publish (no tenant-wide skip-feature deploy):
+Tenant app catalog publish example (no tenant-wide skip-feature deploy):
 
 ```powershell
-.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "https://evotecpoland.sharepoint.com/sites/appcatalog" -Scope Tenant -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com" -TenantAdminUrl "https://evotecpoland-admin.sharepoint.com" -SkipBuild
+.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "https://contoso.sharepoint.com/sites/appcatalog" -Scope Tenant -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com" -TenantAdminUrl "https://contoso-admin.sharepoint.com" -SkipBuild
 ```
 
 Build only (no SharePoint login):
@@ -517,11 +517,11 @@ Create and configure a UHV page directly from PowerShell:
 
 ```powershell
 .\scripts\Add-UHVPage.ps1 `
-  -SiteUrl "https://evotecpoland.sharepoint.com/sites/TestUHV1" `
+  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
   -PageName "Dashboard" `
   -PageTitle "Dashboard" `
   -PageLayoutType "Article" `
-  -FullUrl "https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Index.html" `
+  -FullUrl "https://contoso.sharepoint.com/sites/Reports/SiteAssets/Index.html" `
   -ConfigurationPreset "SharePointLibraryFullPage" `
   -ContentDeliveryMode "SharePointFileContent" `
   -Publish `
@@ -568,7 +568,7 @@ Safe isolate mode (add UHV but skip property write):
 
 ```powershell
 .\scripts\Add-UHVPage.ps1 `
-  -SiteUrl "https://evotecpoland.sharepoint.com/sites/TestUHV1" `
+  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
   -PageName "Dashboard-UHV-Minimal" `
   -PageTitle "Dashboard UHV Minimal" `
   -PageLayoutType "Article" `
@@ -585,8 +585,8 @@ Upgrade UHV app on existing sites after publishing a new `.sppkg`:
 ```powershell
 .\scripts\Update-UHVSiteApp.ps1 `
   -SiteUrls @(
-    "https://evotecpoland.sharepoint.com/sites/TestUHV1",
-    "https://evotecpoland.sharepoint.com/sites/TestUHV2"
+    "https://contoso.sharepoint.com/sites/Reports",
+    "https://contoso.sharepoint.com/sites/Operations"
   ) `
   -InstallIfMissing `
   -ClientId "<client-guid>" `

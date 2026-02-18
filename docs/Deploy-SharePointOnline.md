@@ -20,21 +20,21 @@ Notes:
 - To reduce npm warning noise during install, use `.\scripts\Build-UHV.ps1 -QuietNpm`.
 - SharePoint Online does not require cryptographic signing of `.sppkg`; trust is managed through App Catalog governance and permissions.
 
-## Evotec Quick Start (Your Test Tenant)
+## Quick Start Variables (Example)
 
-- Tenant domain: `evotecpoland.sharepoint.com`
-- Tenant admin URL: `https://evotecpoland-admin.sharepoint.com`
-- Candidate tenant app catalog URL: `https://evotecpoland.sharepoint.com/sites/appcatalog` (verify via SharePoint Admin Center or `Get-PnPTenantAppCatalogUrl`)
-- Entra app registration (created): `UniversalHtmlViewer Deploy`
-- ClientId: `f34fe56f-d9e7-4e0e-bd04-d62a0cdb2c1c`
+- Tenant domain: `<tenant>.sharepoint.com`
+- Tenant admin URL: `https://<tenant>-admin.sharepoint.com`
+- Candidate tenant app catalog URL: `https://<tenant>.sharepoint.com/sites/appcatalog` (verify via SharePoint Admin Center or `Get-PnPTenantAppCatalogUrl`)
+- Entra app registration display name: `UniversalHtmlViewer Deploy`
+- Entra app registration `ClientId`: `<client-guid>`
 
 Suggested session variables:
 
 ```powershell
-$clientId = "f34fe56f-d9e7-4e0e-bd04-d62a0cdb2c1c"
-$tenant = "evotecpoland.onmicrosoft.com"   # if your initial domain differs, replace this value
-$appCatalogUrl = "https://evotecpoland.sharepoint.com/sites/appcatalog"
-$tenantAdminUrl = "https://evotecpoland-admin.sharepoint.com"
+$clientId = "<client-guid>"
+$tenant = "<tenant>.onmicrosoft.com"   # use your initial domain or tenant GUID
+$appCatalogUrl = "https://<tenant>.sharepoint.com/sites/appcatalog"
+$tenantAdminUrl = "https://<tenant>-admin.sharepoint.com"
 ```
 
 ## Step 0 (one-time): Create A ClientId For PnP Authentication
@@ -50,12 +50,12 @@ Example (Device Login is the most reliable):
 ```powershell
 Register-PnPEntraIDAppForInteractiveLogin `
   -ApplicationName "UniversalHtmlViewer Deploy" `
-  -Tenant "evotecpoland.onmicrosoft.com" `
+  -Tenant "<tenant>.onmicrosoft.com" `
   -DeviceLogin `
   -SharePointDelegatePermissions "AllSites.FullControl"
 ```
 
-App UniversalHtmlViewer Deploy with id f34fe56f-d9e7-4e0e-bd04-d62a0cdb2c1c created.
+App UniversalHtmlViewer Deploy with id <client-guid> created.
 
 Keep the returned `ClientId` and `Tenant` values; you will pass them to the deploy script.
 
@@ -79,8 +79,8 @@ Common examples (verify in your tenant):
 - Tenant app catalog site: `https://<tenant>.sharepoint.com/sites/appcatalog`
 - Site app catalog: the URL of the site collection where the "Site Collection App Catalog" feature is enabled
 
-For your tenant, the URL will typically start with:
-- `https://evotecpoland.sharepoint.com/`
+The URL will typically start with:
+- `https://<tenant>.sharepoint.com/`
 
 How to verify you have the right URL:
 - Open the URL in a browser.
@@ -89,7 +89,7 @@ How to verify you have the right URL:
 Optional PowerShell check (requires SharePoint admin access):
 
 ```powershell
-Connect-PnPOnline -Url "https://evotecpoland-admin.sharepoint.com" -DeviceLogin -ClientId "<client-guid>" -Tenant "<yourtenant>.onmicrosoft.com"
+Connect-PnPOnline -Url "https://<tenant>-admin.sharepoint.com" -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
 Get-PnPTenantAppCatalogUrl
 ```
 
@@ -101,13 +101,13 @@ Create one (admin permissions required):
 Get-PnPTimeZoneId -Match "Warsaw"
 
 # Create and register tenant app catalog
-Register-PnPAppCatalogSite -Url "https://evotecpoland.sharepoint.com/sites/appcatalog" -Owner "<admin@tenant>" -TimeZoneId <id>
+Register-PnPAppCatalogSite -Url "https://<tenant>.sharepoint.com/sites/appcatalog" -Owner "<admin@tenant>" -TimeZoneId <id>
 ```
 
 If the site already exists and just needs registration:
 
 ```powershell
-Set-PnPTenantAppCatalogUrl -Url "https://evotecpoland.sharepoint.com/sites/appcatalog"
+Set-PnPTenantAppCatalogUrl -Url "https://<tenant>.sharepoint.com/sites/appcatalog"
 ```
 
 ## Step 2: Build The SPFx Package (.sppkg)
@@ -153,10 +153,10 @@ Tenant-wide (Skip Feature Deployment):
 .\scripts\Deploy-UHV.ps1 -AppCatalogUrl "<tenant-app-catalog-site-url>" -Scope Tenant -TenantWide -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
 ```
 
-Example (common pattern, verify the actual app catalog site in your tenant first):
+Example (common pattern, verify the actual app catalog site first):
 
 ```powershell
-.\scripts\Deploy-UHV.ps1 -AppCatalogUrl "https://evotecpoland.sharepoint.com/sites/appcatalog" -Scope Tenant -TenantWide -DeviceLogin -ClientId "<client-guid>" -Tenant "<yourtenant>.onmicrosoft.com"
+.\scripts\Deploy-UHV.ps1 -AppCatalogUrl "https://<tenant>.sharepoint.com/sites/appcatalog" -Scope Tenant -TenantWide -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
 ```
 
 If you do not use `-TenantWide`, the solution is still published to the tenant app catalog, but typically must be installed per-site before the web part is available there.
@@ -172,13 +172,13 @@ Tenant-wide note for this project:
 - If you pass `-TenantWide`, the script now falls back to normal publish and prints a warning.
 - Result: solution is published to tenant app catalog, but each site may still need app installation.
 
-Evotec command (skip rebuild):
+Example command (skip rebuild):
 
 ```powershell
 .\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl $appCatalogUrl -Scope Tenant -TenantWide -DeviceLogin -ClientId $clientId -Tenant $tenant -TenantAdminUrl $tenantAdminUrl -SkipBuild
 ```
 
-Evotec command (recommended with current package, no tenant-wide skip-feature deploy):
+Example command (recommended with current package, no tenant-wide skip-feature deploy):
 
 ```powershell
 .\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl $appCatalogUrl -Scope Tenant -DeviceLogin -ClientId $clientId -Tenant $tenant -TenantAdminUrl $tenantAdminUrl -SkipBuild
@@ -244,11 +244,11 @@ If SharePoint page editing is unstable in the browser, create and configure the 
 
 ```powershell
 .\scripts\Add-UHVPage.ps1 `
-  -SiteUrl "https://evotecpoland.sharepoint.com/sites/TestUHV1" `
+  -SiteUrl "https://contoso.sharepoint.com/sites/Reports" `
   -PageName "Dashboard" `
   -PageTitle "Dashboard" `
   -PageLayoutType "Article" `
-  -FullUrl "https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Index.html" `
+  -FullUrl "https://contoso.sharepoint.com/sites/Reports/SiteAssets/Index.html" `
   -ConfigurationPreset "SharePointLibraryFullPage" `
   -ContentDeliveryMode "SharePointFileContent" `
   -Publish `
@@ -274,8 +274,8 @@ You may still need to update the installed app instance on each site:
 ```powershell
 .\scripts\Update-UHVSiteApp.ps1 `
   -SiteUrls @(
-    "https://evotecpoland.sharepoint.com/sites/TestUHV1",
-    "https://evotecpoland.sharepoint.com/sites/TestUHV2"
+    "https://contoso.sharepoint.com/sites/Reports",
+    "https://contoso.sharepoint.com/sites/Operations"
   ) `
   -InstallIfMissing `
   -ClientId $clientId `
