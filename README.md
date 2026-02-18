@@ -4,10 +4,15 @@ The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-sid
 
 **SPFx solution location:** `spfx/UniversalHtmlViewer`
 
+In practical terms: UHV lets you keep static HTML dashboard hosting inside SharePoint sites without depending on legacy custom-script patterns.
+
 ## Quick Links
 
 - [Features](#features)
+- [What Problem UHV Solves](#what-problem-uhv-solves)
 - [Architecture](#architecture)
+- [End-to-End Dashboard Flow (Your Scenario)](#end-to-end-dashboard-flow-your-scenario)
+- [How UHV Mitigates Custom-Script Restrictions](#how-uhv-mitigates-custom-script-restrictions)
 - [Presets](#presets)
 - [Tenant configuration](#tenant-configuration)
 - [Installation (site-scoped)](#installation-site-scoped-no-tenant-impact)
@@ -38,17 +43,80 @@ The **UniversalHtmlViewer** web part is a SharePoint Framework (SPFx) client-sid
 - **Diagnostics + fallback**: optional diagnostics panel and iframe load timeout with “Open in new tab”.
 - **Presets**: one-click profiles for SharePoint library hosting, allowlist CDN, or any HTTPS.
 
+## What Problem UHV Solves
+
+SharePoint Online increasingly restricts direct browser rendering of `.html` files from document libraries and reduces support for custom-script-dependent approaches.
+This creates common enterprise pain points:
+
+- Opening `.html` often downloads instead of rendering inline.
+- Direct iframe embedding may fail due to SharePoint headers/policies.
+- Classic custom-script approaches (`Script Editor`, loose inline script hosting) are not future-safe.
+
+UHV addresses this by using a supported SPFx web part and two delivery modes:
+
+- `DirectUrl` for cases where normal iframe loading works.
+- `SharePointFileContent` for SharePoint-hosted HTML where direct iframe behavior is blocked/unreliable.
+
 ## Architecture
 
-```text
-SharePoint Page
-   │
-   ▼
-UniversalHtmlViewer (SPFx Web Part)
-   │
-   ├─ iframe → HTML dashboards in SharePoint document library
-   └─ iframe → HTML dashboards in allowlisted CDN (optional)
+```mermaid
+flowchart LR
+  A[Modern SharePoint Page] --> B[UniversalHtmlViewer SPFx Web Part]
+  B --> C{Content delivery mode}
+  C -->|DirectUrl| D[iframe src -> target URL]
+  C -->|SharePointFileContent| E[Read HTML via SharePoint REST API]
+  E --> F[Inject HTML into iframe srcdoc]
+  D --> G[Dashboard rendered]
+  F --> G[Dashboard rendered]
 ```
+
+## End-to-End Dashboard Flow (Your Scenario)
+
+The flow below maps to your setup (`TheDashboard` output uploaded to `SiteAssets`, UHV page on a modern SharePoint page):
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant P as SharePoint Page
+  participant W as UHV Web Part
+  participant S as SharePoint SiteAssets
+  participant I as UHV iframe
+
+  U->>P: Open Dashboard.aspx
+  P->>W: Initialize SPFx web part
+  W->>S: GET Index.html (SharePoint REST, same tenant)
+  S-->>W: HTML content + metadata
+  W->>I: Render via srcdoc (inline iframe)
+  I->>S: Load linked JS/CSS/images/HTML from same folder tree
+  S-->>I: Asset responses
+  I-->>U: Dashboard UI rendered
+```
+
+For report packs where files link to each other (and nested folders), keep links relative (`./`, `../`) and set:
+
+- `contentDeliveryMode = SharePointFileContent`
+- `configurationPreset = SharePointLibraryRelaxed` (or `SharePointLibraryFullPage` for page-focused layout)
+
+## How UHV Mitigates Custom-Script Restrictions
+
+UHV does **not** rely on classic custom-script site customization patterns.
+Instead, it uses supported modern SharePoint components:
+
+- SPFx client-side web part (deployed from App Catalog).
+- SharePoint REST file reads (same-tenant).
+- iframe sandboxing and explicit allowlist/security controls.
+
+### Why this helps
+
+- Works on modern pages where custom script is disabled (`DenyAddAndCustomizePages = Enabled`).
+- Keeps dashboard hosting inside SharePoint libraries instead of external web servers.
+- Avoids requiring Script Editor / master page customization for dashboard rendering.
+
+### What it does not bypass
+
+- It does not disable tenant/browser security policies.
+- If a dashboard requires blocked inline scripting patterns, you may still need to externalize scripts or adjust dashboard build output.
+- SharePoint page canvas/layout limits still apply (UHV can improve fit, but SharePoint controls the outer container).
 
 ## Presets
 
