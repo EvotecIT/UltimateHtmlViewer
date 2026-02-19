@@ -9,6 +9,11 @@ UniversalHtmlViewer (UHV) is an SPFx web part for rendering HTML dashboards insi
 [![license](https://img.shields.io/github/license/EvotecIT/UltimateHtmlViewer.svg)](https://github.com/EvotecIT/UltimateHtmlViewer)
 [![top language](https://img.shields.io/github/languages/top/EvotecIT/UltimateHtmlViewer.svg)](https://github.com/EvotecIT/UltimateHtmlViewer)
 
+## Documentation map
+
+- Overview and product behavior: `README.md`
+- SharePoint deployment and operations: `docs/Deploy-SharePointOnline.md`
+
 🛠️ Tech Stack
 
 - SharePoint Framework (SPFx)
@@ -244,4 +249,3 @@ Recommended operational controls:
 [![Share on hacker news](https://img.shields.io/badge/share%20on-hacker%20news-orange?logo=ycombinator)](https://news.ycombinator.com/submitlink?u=https://github.com/EvotecIT/UltimateHtmlViewer)
 [![Share on twitter](https://img.shields.io/badge/share%20on-twitter-03A9F4?logo=twitter)](https://twitter.com/share?url=https://github.com/EvotecIT/UltimateHtmlViewer&t=UniversalHtmlViewer)
 [![Share on linkedin](https://img.shields.io/badge/share%20on-linkedin-3949AB?logo=linkedin)](https://www.linkedin.com/shareArticle?url=https://github.com/EvotecIT/UltimateHtmlViewer&title=UniversalHtmlViewer)
-

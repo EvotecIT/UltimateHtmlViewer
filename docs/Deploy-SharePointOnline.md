@@ -7,6 +7,11 @@ This guide shows how to build, publish, install, update, and rollback UniversalH
 [![SPFx Tests](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/spfx-tests.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/spfx-tests.yml)
 [![Release SPPKG](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml)
 
+## Documentation map
+
+- Product overview and capabilities: `README.md`
+- Deployment and operations (this guide): `docs/Deploy-SharePointOnline.md`
+
 ## What this guide covers
 
 - One-time authentication setup for PnP.PowerShell 3.x.
@@ -287,4 +292,3 @@ Enterprise control is achieved through:
 - App Catalog approval/governance,
 - admin/site-owner role boundaries,
 - tenant policies and SharePoint permissions.
-
