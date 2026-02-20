@@ -1,4 +1,5 @@
 import { isUrlAllowed, UrlValidationOptions } from './UrlHelper';
+import { resolveInlineNavigationTarget } from './InlineNavigationHelper';
 
 export interface INestedIframeHydrationOptions {
   iframe: HTMLIFrameElement;
@@ -15,6 +16,7 @@ export function wireNestedIframeHydration(
   options: INestedIframeHydrationOptions,
 ): () => void {
   let observer: MutationObserver | undefined;
+  const frameCleanupMap = new Map<HTMLIFrameElement, () => void>();
 
   const scanFrames = (): void => {
     const iframeDocument = tryGetIframeDocument(options.iframe);
@@ -24,6 +26,11 @@ export function wireNestedIframeHydration(
 
     const nestedFrames = iframeDocument.querySelectorAll('iframe[src]');
     nestedFrames.forEach((frame) => {
+      ensureNestedFrameNavigationWired(
+        frame as HTMLIFrameElement,
+        options,
+        frameCleanupMap,
+      );
       hydrateNestedFrame(
         frame as HTMLIFrameElement,
         iframeDocument.baseURI || options.currentPageUrl,
@@ -86,6 +93,10 @@ export function wireNestedIframeHydration(
       observer.disconnect();
       observer = undefined;
     }
+    frameCleanupMap.forEach((cleanup) => {
+      cleanup();
+    });
+    frameCleanupMap.clear();
   };
 }
 
@@ -135,6 +146,74 @@ function hydrateNestedFrame(
         frame.setAttribute('data-uhv-nested-state', 'failed');
       }
     });
+}
+
+function ensureNestedFrameNavigationWired(
+  frame: HTMLIFrameElement,
+  options: INestedIframeHydrationOptions,
+  frameCleanupMap: Map<HTMLIFrameElement, () => void>,
+): void {
+  if (frameCleanupMap.has(frame)) {
+    return;
+  }
+
+  const onFrameLoad = (): void => {
+    const frameDocument = tryGetIframeDocument(frame);
+    if (!frameDocument || !frameDocument.documentElement) {
+      return;
+    }
+
+    const root = frameDocument.documentElement;
+    if (root.getAttribute('data-uhv-inline-nav') === '1') {
+      return;
+    }
+
+    root.setAttribute('data-uhv-inline-nav', '1');
+    frameDocument.addEventListener('click', (event) => {
+      const currentPageUrl =
+        frame.getAttribute('data-uhv-nested-src') ||
+        frameDocument.baseURI ||
+        options.currentPageUrl;
+
+      const targetUrl: string | undefined = resolveInlineNavigationTarget(
+        event as MouseEvent,
+        {
+          currentPageUrl,
+          validationOptions: options.validationOptions,
+          cacheBusterParamName: options.cacheBusterParamName,
+        },
+      );
+      if (!targetUrl) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      frame.setAttribute('data-uhv-nested-state', 'processing');
+      frame.setAttribute('data-uhv-nested-src', targetUrl);
+
+      options
+        .loadInlineHtml(targetUrl, targetUrl)
+        .then((inlineHtml) => {
+          if (!inlineHtml || inlineHtml.trim().length === 0) {
+            frame.setAttribute('data-uhv-nested-state', 'failed');
+            return;
+          }
+          frame.srcdoc = inlineHtml;
+          frame.setAttribute('data-uhv-nested-state', 'done');
+        })
+        .catch(() => {
+          frame.setAttribute('data-uhv-nested-state', 'failed');
+        });
+    }, true);
+  };
+
+  frame.addEventListener('load', onFrameLoad);
+  onFrameLoad();
+
+  frameCleanupMap.set(frame, () => {
+    frame.removeEventListener('load', onFrameLoad);
+  });
 }
 
 function resolveNestedFrameUrl(

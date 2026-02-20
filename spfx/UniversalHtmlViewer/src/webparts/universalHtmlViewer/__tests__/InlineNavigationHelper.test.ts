@@ -1,5 +1,5 @@
 import { resolveInlineNavigationTarget } from '../InlineNavigationHelper';
-import { UrlValidationOptions } from '../UrlHelper';
+import { isUrlAllowed, UrlValidationOptions } from '../UrlHelper';
 
 describe('InlineNavigationHelper', () => {
   const validationOptions: UrlValidationOptions = {
@@ -128,7 +128,7 @@ describe('InlineNavigationHelper', () => {
     expect(result).toBeUndefined();
   });
 
-  it('does not intercept links targeting a new tab', () => {
+  it('intercepts same-site html links even when target is _blank', () => {
     const anchor = document.createElement('a');
     anchor.href = 'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html';
     anchor.setAttribute(
@@ -146,6 +146,128 @@ describe('InlineNavigationHelper', () => {
       currentPageUrl:
         'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/start.html',
       validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html',
+    );
+  });
+
+  it('intercepts same-site html links even when download attribute is present', () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html';
+    anchor.setAttribute(
+      'href',
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html',
+    );
+    anchor.setAttribute('download', 'report.html');
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html',
+    );
+  });
+
+  it('still resolves when event is already defaultPrevented', () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html';
+    anchor.setAttribute(
+      'href',
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html',
+    );
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor,
+      configurable: true,
+    });
+    Object.defineProperty(clickEvent, 'defaultPrevented', {
+      value: true,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html',
+    );
+  });
+
+  it('allows relative same-host html links even when allowedPathPrefixes do not match', () => {
+    const anchor = document.createElement('a');
+    anchor.setAttribute('href', 'GPO_Blocked_Inheritance.html');
+    Object.defineProperty(anchor, 'href', {
+      value:
+        'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/GPO_Blocked_Inheritance.html',
+      configurable: true,
+    });
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/start.html',
+      validationOptions: {
+        ...validationOptions,
+        allowedPathPrefixes: ['/sites/testuhv1/siteassets/reports/subfolder/'],
+      },
+      cacheBusterParamName: 'v',
+    });
+
+    expect(
+      isUrlAllowed(
+        'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/GPO_Blocked_Inheritance.html',
+        {
+          ...validationOptions,
+          allowedPathPrefixes: undefined,
+        },
+      ),
+    ).toBe(true);
+
+    expect(result).toBe(
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/GPO_Blocked_Inheritance.html',
+    );
+  });
+
+  it('does not relax path-prefix checks for absolute links', () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/GPO_Blocked_Inheritance.html';
+    anchor.setAttribute(
+      'href',
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/GPO_Blocked_Inheritance.html',
+    );
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/start.html',
+      validationOptions: {
+        ...validationOptions,
+        allowedPathPrefixes: ['/sites/testuhv1/siteassets/reports/subfolder/'],
+      },
       cacheBusterParamName: 'v',
     });
 

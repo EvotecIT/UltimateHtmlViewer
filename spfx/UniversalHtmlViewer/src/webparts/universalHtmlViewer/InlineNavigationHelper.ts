@@ -30,7 +30,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): v
       event.preventDefault();
       event.stopPropagation();
       options.onNavigate(targetUrl);
-    });
+    }, true);
   };
 
   options.iframe.addEventListener('load', attachHandler);
@@ -63,15 +63,6 @@ export function resolveInlineNavigationTarget(
     return undefined;
   }
 
-  const target = (anchor.getAttribute('target') || '').trim().toLowerCase();
-  if (target && target !== '_self') {
-    return undefined;
-  }
-
-  if (anchor.hasAttribute('download')) {
-    return undefined;
-  }
-
   let absoluteUrl: URL;
   try {
     absoluteUrl = new URL(rawHref, anchor.href || options.currentPageUrl);
@@ -98,7 +89,18 @@ export function resolveInlineNavigationTarget(
   );
 
   if (!isUrlAllowed(normalizedAbsoluteUrl, options.validationOptions)) {
-    return undefined;
+    // Safe fallback for relative links inside trusted inline reports:
+    // keep host and extension restrictions, but relax path-prefix checks
+    // to avoid false negatives on generated relative navigation menus.
+    if (
+      !isRelativePathReference(rawHref) ||
+      !isUrlAllowed(normalizedAbsoluteUrl, {
+        ...options.validationOptions,
+        allowedPathPrefixes: undefined,
+      })
+    ) {
+      return undefined;
+    }
   }
 
   return normalizedAbsoluteUrl;
@@ -106,7 +108,6 @@ export function resolveInlineNavigationTarget(
 
 function isPrimaryClick(event: MouseEvent): boolean {
   return (
-    !event.defaultPrevented &&
     event.button === 0 &&
     !event.metaKey &&
     !event.ctrlKey &&
@@ -138,6 +139,23 @@ function isNonHttpProtocol(value: string): boolean {
 
   const protocol: string = (protocolMatch[1] || '').toLowerCase();
   return protocol === 'javascript' || protocol === 'data' || protocol === 'mailto' || protocol === 'tel';
+}
+
+function isRelativePathReference(value: string): boolean {
+  const normalized = (value || '').trim();
+  if (!normalized) {
+    return false;
+  }
+  if (
+    normalized.startsWith('/') ||
+    normalized.startsWith('#') ||
+    normalized.startsWith('?') ||
+    normalized.startsWith('//')
+  ) {
+    return false;
+  }
+
+  return !/^[a-z][a-z0-9+\-.]*:/i.test(normalized);
 }
 
 function isSameHostAsCurrentPage(targetUrl: URL, currentPageUrl: string): boolean {

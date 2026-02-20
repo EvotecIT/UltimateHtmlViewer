@@ -1,4 +1,5 @@
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
+import { prepareInlineHtmlForSrcDoc } from './InlineHtmlTransformHelper';
 
 export async function loadSharePointFileContentForInline(
   spHttpClient: SPHttpClient,
@@ -41,7 +42,7 @@ export async function loadSharePointFileContentForInline(
     throw new Error('SharePoint API returned empty HTML content.');
   }
 
-  return withBaseHrefForSrcDoc(html, baseUrlForRelativeLinks, pageUrl);
+  return prepareInlineHtmlForSrcDoc(html, baseUrlForRelativeLinks, pageUrl);
 }
 
 function getServerRelativePathForSharePointFile(
@@ -64,41 +65,6 @@ function getServerRelativePathForSharePointFile(
   }
 }
 
-function withBaseHrefForSrcDoc(
-  html: string,
-  baseUrlForRelativeLinks: string,
-  pageUrl: string,
-): string {
-  if (/<base\s+/i.test(html)) {
-    return html;
-  }
-
-  const baseHref = getAbsoluteUrlWithoutQuery(baseUrlForRelativeLinks, pageUrl);
-  const baseTag = `<base href="${escapeHtmlAttribute(baseHref)}">`;
-
-  if (/<head[\s>]/i.test(html)) {
-    return html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`);
-  }
-
-  if (/<html[\s>]/i.test(html)) {
-    return html.replace(/<html([^>]*)>/i, `<html$1><head>${baseTag}</head>`);
-  }
-
-  return `<head>${baseTag}</head>${html}`;
-}
-
-function getAbsoluteUrlWithoutQuery(url: string, pageUrl: string): string {
-  try {
-    const current = new URL(pageUrl);
-    const absolute = url.startsWith('/') ? new URL(url, current.origin) : new URL(url);
-    absolute.search = '';
-    absolute.hash = '';
-    return absolute.toString();
-  } catch {
-    return url;
-  }
-}
-
 function stripQueryAndHashFromPath(value: string): string {
   const hashIndex = value.indexOf('#');
   const queryIndex = value.indexOf('?');
@@ -115,13 +81,4 @@ function stripQueryAndHashFromPath(value: string): string {
         : Math.min(hashIndex, queryIndex);
 
   return value.substring(0, cutIndex);
-}
-
-function escapeHtmlAttribute(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }

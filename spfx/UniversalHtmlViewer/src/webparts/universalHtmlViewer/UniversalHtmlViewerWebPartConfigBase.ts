@@ -367,7 +367,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const normalizedPreset: string = (preset || '').trim().toLowerCase();
     if (normalizedPreset && normalizedPreset !== 'custom') {
       if (normalizedPreset === 'relaxed') {
-        return 'allow-same-origin allow-scripts allow-forms allow-popups';
+        return 'allow-same-origin allow-scripts allow-forms allow-popups allow-downloads';
       }
       if (normalizedPreset === 'strict') {
         return 'allow-scripts';
