@@ -32,7 +32,9 @@ param(
 
     [string]$ClientId,
     [string]$Tenant,
-    [switch]$DeviceLogin
+    [switch]$DeviceLogin,
+    [bool]$PersistLogin = $true,
+    [switch]$ForceAuthentication
 )
 
 Set-StrictMode -Version Latest
@@ -233,15 +235,18 @@ if ($DeviceLogin.IsPresent) {
     if (-not $Tenant) {
         throw "Tenant is required with -DeviceLogin."
     }
-    Connect-PnPOnline -Url $SiteUrl -DeviceLogin -ClientId $ClientId -Tenant $Tenant
+    if ($ForceAuthentication.IsPresent) {
+        Write-Warning "-ForceAuthentication is only supported with -Interactive login; ignoring it for -DeviceLogin."
+    }
+    Connect-PnPOnline -Url $SiteUrl -DeviceLogin -ClientId $ClientId -Tenant $Tenant -PersistLogin:$PersistLogin
 } else {
     if (-not $ClientId) {
         throw "ClientId is required with -Interactive on PnP.PowerShell 3.x."
     }
     if ($Tenant) {
-        Connect-PnPOnline -Url $SiteUrl -Interactive -ClientId $ClientId -Tenant $Tenant
+        Connect-PnPOnline -Url $SiteUrl -Interactive -ClientId $ClientId -Tenant $Tenant -PersistLogin:$PersistLogin -ForceAuthentication:$ForceAuthentication.IsPresent
     } else {
-        Connect-PnPOnline -Url $SiteUrl -Interactive -ClientId $ClientId
+        Connect-PnPOnline -Url $SiteUrl -Interactive -ClientId $ClientId -PersistLogin:$PersistLogin -ForceAuthentication:$ForceAuthentication.IsPresent
     }
 }
 

@@ -1,7 +1,9 @@
+/* eslint-disable max-lines */
 import { escape } from '@microsoft/sp-lodash-subset';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import styles from './UniversalHtmlViewerWebPart.module.scss';
 import { buildOpenInNewTabHtml, buildMessageHtml } from './MarkupHelper';
+import { getQueryStringParam } from './QueryStringHelper';
 import { CacheBusterMode, UrlValidationOptions } from './UrlHelper';
 import {
   ContentDeliveryMode,
@@ -47,11 +49,17 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     cacheBusterMode: CacheBusterMode,
     cacheBusterParamName: string,
     pageUrl: string,
+    resetInlineScrollToTop: boolean = false,
+    preserveHostScrollPosition: boolean = false,
   ): Promise<void> {
     const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
     if (!iframe) {
       return;
     }
+
+    const hostScrollPosition = preserveHostScrollPosition
+      ? this.captureHostScrollPosition()
+      : undefined;
 
     this.setLoadingVisible(true);
 
@@ -76,13 +84,450 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
         effectiveProps,
       );
       if (updatedFromContent) {
+        if (resetInlineScrollToTop) {
+          this.resetIframeScrollPosition(iframe, refreshedUrl);
+        }
+        if (hostScrollPosition) {
+          this.restoreHostScrollPosition(hostScrollPosition);
+        }
         this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
         return;
       }
+
+      // Keep the current inline content when refresh fails to avoid direct SharePoint file
+      // navigation, which can trigger browser downloads instead of rendering.
+      this.setLoadingVisible(false);
+      if (hostScrollPosition) {
+        this.restoreHostScrollPosition(hostScrollPosition);
+      }
+      return;
     }
 
-    iframe.src = refreshedUrl;
+    const activeIframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
+    if (!activeIframe || activeIframe !== iframe) {
+      return;
+    }
+
+    if (hostScrollPosition) {
+      const restoreAfterLoad = (): void => {
+        activeIframe.removeEventListener('load', restoreAfterLoad);
+        this.restoreHostScrollPosition(hostScrollPosition);
+      };
+      activeIframe.addEventListener('load', restoreAfterLoad);
+    }
+
+    activeIframe.src = refreshedUrl;
     this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
+  }
+
+  protected resetIframeScrollPosition(iframe: HTMLIFrameElement, targetUrl?: string): void {
+    if (hasUrlHash(targetUrl)) {
+      return;
+    }
+
+    const applyReset = (): void => {
+      try {
+        const iframeWindow = iframe.contentWindow;
+        if (iframeWindow) {
+          iframeWindow.scrollTo(0, 0);
+        }
+
+        const iframeDocument = iframe.contentDocument;
+        if (iframeDocument?.documentElement) {
+          iframeDocument.documentElement.scrollTop = 0;
+          iframeDocument.documentElement.scrollLeft = 0;
+        }
+        if (iframeDocument?.body) {
+          iframeDocument.body.scrollTop = 0;
+          iframeDocument.body.scrollLeft = 0;
+        }
+        this.resetIframeDeepScrollPosition(iframe);
+      } catch {
+        return;
+      }
+    };
+
+    applyReset();
+    if (typeof window !== 'undefined') {
+      window.setTimeout(applyReset, 0);
+      window.setTimeout(applyReset, 120);
+      window.setTimeout(applyReset, 350);
+      window.setTimeout(applyReset, 800);
+    }
+  }
+  protected getIframeDeepMaxScrollTop(iframe: HTMLIFrameElement): number {
+    let maxTop = 0;
+
+    try {
+      const iframeWindow = iframe.contentWindow;
+      const windowTop = iframeWindow?.scrollY || 0;
+      if (windowTop > maxTop) {
+        maxTop = windowTop;
+      }
+    } catch {
+      return maxTop;
+    }
+
+    try {
+      const iframeDocument = iframe.contentDocument;
+      const documentMaxTop = this.getDocumentDeepMaxScrollTop(iframeDocument);
+      if (documentMaxTop > maxTop) {
+        maxTop = documentMaxTop;
+      }
+    } catch {
+      return maxTop;
+    }
+
+    return maxTop;
+  }
+  protected resetIframeDeepScrollPosition(iframe: HTMLIFrameElement): void {
+    try {
+      this.resetDocumentDeepScrollPosition(iframe.contentDocument);
+    } catch {
+      return;
+    }
+  }
+
+  protected captureHostScrollPosition(): { x: number; y: number } | undefined {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const hostScrollContainers = this.getPotentialHostScrollContainers();
+    const activeHostScrollContainer = hostScrollContainers.find(
+      (container) => container.scrollTop !== 0 || container.scrollLeft !== 0,
+    );
+    const hostScrollContainer = activeHostScrollContainer || hostScrollContainers[0];
+    if (hostScrollContainer) {
+      return {
+        x: hostScrollContainer.scrollLeft || 0,
+        y: hostScrollContainer.scrollTop || 0,
+      };
+    }
+
+    const scrollingElement = document.scrollingElement as HTMLElement | null;
+    if (scrollingElement) {
+      return {
+        x: scrollingElement.scrollLeft || 0,
+        y: scrollingElement.scrollTop || 0,
+      };
+    }
+
+    return {
+      x: window.scrollX || 0,
+      y: window.scrollY || 0,
+    };
+  }
+
+  protected restoreHostScrollPosition(position: { x: number; y: number }): void {
+    if (!position || typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    const applyRestore = (): void => {
+      const hostScrollContainers = this.getPotentialHostScrollContainers();
+      hostScrollContainers.forEach((hostScrollContainer) => {
+        hostScrollContainer.scrollLeft = position.x;
+        hostScrollContainer.scrollTop = position.y;
+      });
+
+      const scrollingElement = document.scrollingElement as HTMLElement | null;
+      if (scrollingElement) {
+        scrollingElement.scrollLeft = position.x;
+        scrollingElement.scrollTop = position.y;
+      }
+
+      if (document.documentElement) {
+        document.documentElement.scrollLeft = position.x;
+        document.documentElement.scrollTop = position.y;
+      }
+      if (document.body) {
+        document.body.scrollLeft = position.x;
+        document.body.scrollTop = position.y;
+      }
+
+      window.scrollTo(position.x, position.y);
+    };
+
+    applyRestore();
+    window.setTimeout(applyRestore, 0);
+    window.setTimeout(applyRestore, 120);
+    window.setTimeout(applyRestore, 350);
+    window.setTimeout(applyRestore, 800);
+  }
+  protected forceHostScrollTop(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    const touched = new Set<HTMLElement>();
+    const setTop = (element?: HTMLElement | null): void => {
+      if (!element || touched.has(element)) {
+        return;
+      }
+
+      touched.add(element);
+      element.scrollTop = 0;
+      element.scrollLeft = 0;
+    };
+
+    setTop(document.scrollingElement as HTMLElement | null);
+    setTop(document.documentElement);
+    setTop(document.body);
+
+    this.getPotentialHostScrollContainers().forEach((container) => {
+      setTop(container);
+    });
+
+    // Try common SharePoint scroll containers explicitly.
+    const sharePointScrollSelectors = [
+      '#spPageChromeAppDiv',
+      '[data-automationid="contentScrollRegion"]',
+      '.SPPageChrome',
+      '.CanvasZoneContainer',
+      '.CanvasZone',
+      '.CanvasComponent',
+      '[role="main"]',
+      'main',
+    ];
+    const sharePointCandidates = document.querySelectorAll<HTMLElement>(
+      sharePointScrollSelectors.join(','),
+    );
+    sharePointCandidates.forEach((element) => {
+      setTop(element);
+    });
+
+    // Active element ancestry can include hidden scroll wrappers.
+    let current = document.activeElement as HTMLElement | null;
+    while (current) {
+      setTop(current);
+      current = current.parentElement;
+    }
+
+    const topMarker = this.ensureHostTopMarker();
+    if (topMarker) {
+      try {
+        topMarker.scrollIntoView({
+          block: 'start',
+          inline: 'nearest',
+          behavior: 'auto',
+        });
+      } catch {
+        try {
+          topMarker.scrollIntoView(true);
+        } catch {
+          return;
+        }
+      }
+    }
+
+    window.scrollTo(0, 0);
+  }
+  protected ensureHostTopMarker(): HTMLElement | undefined {
+    if (typeof document === 'undefined' || !document.body) {
+      return undefined;
+    }
+
+    const markerId = 'uhv-scroll-top-marker';
+    let marker = document.getElementById(markerId) as HTMLElement | undefined;
+    if (!marker) {
+      marker = document.createElement('div');
+      marker.id = markerId;
+      marker.setAttribute('aria-hidden', 'true');
+      marker.style.position = 'absolute';
+      marker.style.top = '0';
+      marker.style.left = '0';
+      marker.style.width = '1px';
+      marker.style.height = '1px';
+      marker.style.pointerEvents = 'none';
+      marker.style.opacity = '0';
+      document.body.insertBefore(marker, document.body.firstChild);
+    }
+
+    return marker;
+  }
+
+  protected getPotentialHostScrollContainers(): HTMLElement[] {
+    if (typeof document === 'undefined') {
+      return [];
+    }
+
+    const candidates = new Set<HTMLElement>();
+    const scrollingElement = document.scrollingElement;
+    if (scrollingElement instanceof HTMLElement) {
+      candidates.add(scrollingElement);
+    }
+    if (document.documentElement) {
+      candidates.add(document.documentElement);
+    }
+    if (document.body) {
+      candidates.add(document.body);
+    }
+
+    let current: HTMLElement | null = this.domElement;
+    while (current) {
+      candidates.add(current);
+      current = current.parentElement;
+    }
+
+    const result: HTMLElement[] = [];
+    candidates.forEach((candidate) => {
+      const overflowDelta = candidate.scrollHeight - candidate.clientHeight;
+      if (overflowDelta > 2) {
+        result.push(candidate);
+      }
+    });
+
+    return result;
+  }
+
+  protected getHostScrollContainer(): HTMLElement | undefined {
+    const candidates = this.getPotentialHostScrollContainers();
+    let best: HTMLElement | undefined;
+    let bestOverflowDelta = 0;
+    candidates.forEach((candidate) => {
+      const overflowDelta = candidate.scrollHeight - candidate.clientHeight;
+      if (overflowDelta <= 2) {
+        return;
+      }
+
+      const isDocumentRoot =
+        candidate === document.documentElement ||
+        candidate === document.body ||
+        candidate === document.scrollingElement;
+      if (!isDocumentRoot) {
+        const style = window.getComputedStyle(candidate);
+        const overflowY = (style.overflowY || '').toLowerCase();
+        const isScrollableByStyle =
+          overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay';
+        if (!isScrollableByStyle) {
+          return;
+        }
+      }
+
+      if (overflowDelta > bestOverflowDelta) {
+        best = candidate;
+        bestOverflowDelta = overflowDelta;
+      }
+    });
+
+    return best;
+  }
+  protected isScrollTraceEnabled(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    const pageUrl = window.location.href || '';
+    const queryValue = (getQueryStringParam(pageUrl, 'uhvTraceScroll') || '').trim();
+    return isEnabledDebugValue(queryValue);
+  }
+  protected emitScrollTrace(
+    eventName: string,
+    data?: Record<string, unknown>,
+  ): void {
+    if (!this.isScrollTraceEnabled() || typeof window === 'undefined') {
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      event: eventName,
+      isoTime: new Date().toISOString(),
+      ...data,
+      snapshot: this.buildScrollTraceSnapshot(),
+    };
+    const traceWindow = window as Window & {
+      __uhvScrollTrace?: Array<Record<string, unknown>>;
+    };
+    const traceBuffer = traceWindow.__uhvScrollTrace || [];
+    traceBuffer.push(payload);
+    if (traceBuffer.length > 300) {
+      traceBuffer.splice(0, traceBuffer.length - 300);
+    }
+    traceWindow.__uhvScrollTrace = traceBuffer;
+
+    // eslint-disable-next-line no-console
+    console.warn('[UHV scroll trace]', payload);
+  }
+  protected buildScrollTraceSnapshot(): Record<string, unknown> {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return {};
+    }
+
+    const containers = this.getPotentialHostScrollContainers();
+    const containerState = containers.map((container) => ({
+      element: this.describeScrollElement(container),
+      top: container.scrollTop,
+      left: container.scrollLeft,
+      height: container.clientHeight,
+      scrollHeight: container.scrollHeight,
+    }));
+
+    return {
+      window: {
+        top: window.scrollY || 0,
+        left: window.scrollX || 0,
+      },
+      iframe: this.getInlineIframeScrollState(),
+      scrollingElement: describeElementScrollState(document.scrollingElement),
+      documentElement: describeElementScrollState(document.documentElement),
+      body: describeElementScrollState(document.body),
+      activeElement: this.describeScrollElement(
+        document.activeElement instanceof HTMLElement ? document.activeElement : undefined,
+      ),
+      hostContainers: containerState,
+    };
+  }
+  protected getInlineIframeScrollState(): Record<string, unknown> | undefined {
+    const iframe = this.domElement.querySelector('iframe');
+    if (!iframe) {
+      return undefined;
+    }
+
+    const result: Record<string, unknown> = {
+      element: this.describeScrollElement(iframe),
+    };
+    try {
+      const iframeWindow = iframe.contentWindow;
+      result.windowTop = iframeWindow?.scrollY || 0;
+      result.windowLeft = iframeWindow?.scrollX || 0;
+    } catch {
+      result.windowAccess = 'blocked';
+    }
+
+    try {
+      const iframeDocument = iframe.contentDocument;
+      if (iframeDocument?.documentElement) {
+        result.documentTop = iframeDocument.documentElement.scrollTop || 0;
+      }
+      if (iframeDocument?.body) {
+        result.bodyTop = iframeDocument.body.scrollTop || 0;
+      }
+      result.deepMaxTop = this.getIframeDeepMaxScrollTop(iframe);
+    } catch {
+      result.documentAccess = 'blocked';
+    }
+
+    return result;
+  }
+  protected describeScrollElement(element?: HTMLElement | null): string {
+    if (!element) {
+      return '(none)';
+    }
+
+    const parts: string[] = [element.tagName.toLowerCase()];
+    if (element.id) {
+      parts.push(`#${element.id}`);
+    }
+    const className = (element.className || '').toString().trim();
+    if (className) {
+      const firstClass = className.split(/\s+/g)[0];
+      if (firstClass) {
+        parts.push(`.${firstClass}`);
+      }
+    }
+
+    return parts.join('');
   }
 
   protected getContentDeliveryMode(
@@ -98,6 +543,10 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     _props: IUniversalHtmlViewerWebPartProps,
   ): Promise<boolean> {
     return false;
+  }
+
+  protected onNavigatedToUrl(_targetUrl: string, _pageUrl: string): void {
+    return;
   }
 
   protected clearRefreshTimer(): void {
@@ -402,4 +851,136 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     this.clearRefreshTimer();
     this.clearIframeLoadTimeout();
   }
+  private getDocumentDeepMaxScrollTop(
+    iframeDocument?: Document,
+    depth: number = 0,
+  ): number {
+    if (!iframeDocument || depth > 2) {
+      return 0;
+    }
+
+    let maxTop = 0;
+    const documentElementTop = iframeDocument.documentElement?.scrollTop || 0;
+    if (documentElementTop > maxTop) {
+      maxTop = documentElementTop;
+    }
+    const bodyTop = iframeDocument.body?.scrollTop || 0;
+    if (bodyTop > maxTop) {
+      maxTop = bodyTop;
+    }
+
+    const queryRoot = iframeDocument.body || iframeDocument.documentElement;
+    if (!queryRoot) {
+      return maxTop;
+    }
+
+    const allElements = queryRoot.querySelectorAll<HTMLElement>('*');
+    const maxElements = 2500;
+    const scanLength = Math.min(allElements.length, maxElements);
+    for (let index = 0; index < scanLength; index += 1) {
+      const element = allElements[index];
+      const elementTop = element.scrollTop || 0;
+      if (elementTop > maxTop) {
+        maxTop = elementTop;
+      }
+
+      if (element instanceof HTMLIFrameElement) {
+        let nestedDocument: Document | undefined;
+        try {
+          nestedDocument = element.contentDocument || undefined;
+        } catch {
+          nestedDocument = undefined;
+        }
+        const nestedMax = this.getDocumentDeepMaxScrollTop(nestedDocument, depth + 1);
+        if (nestedMax > maxTop) {
+          maxTop = nestedMax;
+        }
+      }
+    }
+
+    return maxTop;
+  }
+  private resetDocumentDeepScrollPosition(
+    iframeDocument?: Document,
+    depth: number = 0,
+  ): void {
+    if (!iframeDocument || depth > 2) {
+      return;
+    }
+
+    if (iframeDocument.documentElement) {
+      iframeDocument.documentElement.scrollTop = 0;
+      iframeDocument.documentElement.scrollLeft = 0;
+    }
+    if (iframeDocument.body) {
+      iframeDocument.body.scrollTop = 0;
+      iframeDocument.body.scrollLeft = 0;
+    }
+
+    const queryRoot = iframeDocument.body || iframeDocument.documentElement;
+    if (!queryRoot) {
+      return;
+    }
+
+    const allElements = queryRoot.querySelectorAll<HTMLElement>('*');
+    const maxElements = 2500;
+    const scanLength = Math.min(allElements.length, maxElements);
+    for (let index = 0; index < scanLength; index += 1) {
+      const element = allElements[index];
+      if (element.scrollTop || element.scrollLeft) {
+        element.scrollTop = 0;
+        element.scrollLeft = 0;
+      }
+
+      if (element instanceof HTMLIFrameElement) {
+        let nestedDocument: Document | undefined;
+        try {
+          const nestedWindow = element.contentWindow;
+          if (nestedWindow) {
+            nestedWindow.scrollTo(0, 0);
+          }
+          nestedDocument = element.contentDocument || undefined;
+        } catch {
+          // Ignore nested iframe cross-origin errors.
+          nestedDocument = undefined;
+        }
+        this.resetDocumentDeepScrollPosition(nestedDocument, depth + 1);
+      }
+    }
+  }
+}
+
+function hasUrlHash(url?: string): boolean {
+  const value = (url || '').trim();
+  if (!value) {
+    return false;
+  }
+
+  const hashIndex = value.indexOf('#');
+  if (hashIndex < 0) {
+    return false;
+  }
+
+  return hashIndex < value.length - 1;
+}
+
+function isEnabledDebugValue(value?: string): boolean {
+  const normalized = (value || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function describeElementScrollState(
+  element?: Element,
+): Record<string, unknown> | undefined {
+  if (!(element instanceof HTMLElement)) {
+    return undefined;
+  }
+
+  return {
+    element: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}`,
+    top: element.scrollTop || 0,
+    left: element.scrollLeft || 0,
+    height: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  };
 }

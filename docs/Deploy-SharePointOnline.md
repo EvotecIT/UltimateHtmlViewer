@@ -46,6 +46,12 @@ $appCatalogUrl = "https://<tenant>.sharepoint.com/sites/appcatalog"
 $tenantAdminUrl = "https://<tenant>-admin.sharepoint.com"
 ```
 
+Auth reuse defaults:
+
+- Scripted connections now default to persisted login (`-PersistLogin $true`) to reduce repeat device/interactive prompts between runs.
+- Use `-PersistLogin:$false` for a non-persistent session.
+- Use `-ForceAuthentication` to force a fresh login prompt.
+
 ## 1) One-time auth setup (ClientId for PnP.PowerShell)
 
 PnP.PowerShell 3.x requires a registered Entra ID app (`ClientId`) for interactive/device login.

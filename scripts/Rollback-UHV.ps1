@@ -23,6 +23,8 @@ param(
     [string]$ClientId,
     [string]$Tenant,
     [switch]$DeviceLogin,
+    [bool]$PersistLogin = $true,
+    [switch]$ForceAuthentication,
     [string]$TenantAdminUrl
 )
 
@@ -57,6 +59,8 @@ Write-Host "Rolling back app catalog package to: $RollbackSppkgPath"
     -ClientId $ClientId `
     -Tenant $Tenant `
     -DeviceLogin:$DeviceLogin.IsPresent `
+    -PersistLogin $PersistLogin `
+    -ForceAuthentication:$ForceAuthentication.IsPresent `
     -TenantAdminUrl $TenantAdminUrl
 
 if ($SkipSiteUpdate.IsPresent) {
@@ -76,4 +80,6 @@ Write-Host "Updating app on target sites after rollback..."
     -InstallIfMissing:$InstallIfMissing.IsPresent `
     -ClientId $ClientId `
     -Tenant $Tenant `
-    -DeviceLogin:$DeviceLogin.IsPresent
+    -DeviceLogin:$DeviceLogin.IsPresent `
+    -PersistLogin $PersistLogin `
+    -ForceAuthentication:$ForceAuthentication.IsPresent

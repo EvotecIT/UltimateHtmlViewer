@@ -24,7 +24,9 @@ export function wireNestedIframeHydration(
       return;
     }
 
-    const nestedFrames = iframeDocument.querySelectorAll('iframe[src]');
+    const nestedFrames = iframeDocument.querySelectorAll(
+      'iframe[src], iframe[data-uhv-inline-src]',
+    );
     nestedFrames.forEach((frame) => {
       ensureNestedFrameNavigationWired(
         frame as HTMLIFrameElement,
@@ -71,7 +73,7 @@ export function wireNestedIframeHydration(
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['src'],
+      attributeFilter: ['src', 'data-uhv-inline-src'],
     });
   };
 
@@ -105,7 +107,7 @@ function hydrateNestedFrame(
   baseUrl: string,
   options: INestedIframeHydrationOptions,
 ): void {
-  const rawSrc = (frame.getAttribute('src') || '').trim();
+  const rawSrc = getFrameSource(frame);
   if (!rawSrc || rawSrc.startsWith('#')) {
     return;
   }
@@ -146,6 +148,15 @@ function hydrateNestedFrame(
         frame.setAttribute('data-uhv-nested-state', 'failed');
       }
     });
+}
+
+function getFrameSource(frame: HTMLIFrameElement): string {
+  const inlineSrc = (frame.getAttribute('data-uhv-inline-src') || '').trim();
+  if (inlineSrc) {
+    return inlineSrc;
+  }
+
+  return (frame.getAttribute('src') || '').trim();
 }
 
 function ensureNestedFrameNavigationWired(

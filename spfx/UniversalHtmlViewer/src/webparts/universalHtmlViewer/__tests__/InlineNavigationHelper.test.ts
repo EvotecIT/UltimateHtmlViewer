@@ -1,5 +1,5 @@
 import { resolveInlineNavigationTarget } from '../InlineNavigationHelper';
-import { isUrlAllowed, UrlValidationOptions } from '../UrlHelper';
+import { UrlValidationOptions } from '../UrlHelper';
 
 describe('InlineNavigationHelper', () => {
   const validationOptions: UrlValidationOptions = {
@@ -180,6 +180,38 @@ describe('InlineNavigationHelper', () => {
     );
   });
 
+  it('intercepts FullCalendar forced-url clicks when target is not the anchor', () => {
+    const container = document.createElement('div');
+    container.className = 'fc-event-forced-url';
+    const anchor = document.createElement('a');
+    anchor.href = 'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/calendar-item.html';
+    anchor.setAttribute(
+      'href',
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/calendar-item.html',
+    );
+    const inner = document.createElement('span');
+    inner.textContent = 'Calendar event';
+    container.appendChild(anchor);
+    container.appendChild(inner);
+
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: inner,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/calendar-item.html',
+    );
+  });
+
   it('still resolves when event is already defaultPrevented', () => {
     const anchor = document.createElement('a');
     anchor.href = 'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/Reports/index.html';
@@ -209,7 +241,7 @@ describe('InlineNavigationHelper', () => {
     );
   });
 
-  it('allows relative same-host html links even when allowedPathPrefixes do not match', () => {
+  it('does not relax path-prefix checks for relative links', () => {
     const anchor = document.createElement('a');
     anchor.setAttribute('href', 'GPO_Blocked_Inheritance.html');
     Object.defineProperty(anchor, 'href', {
@@ -233,19 +265,7 @@ describe('InlineNavigationHelper', () => {
       cacheBusterParamName: 'v',
     });
 
-    expect(
-      isUrlAllowed(
-        'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/GPO_Blocked_Inheritance.html',
-        {
-          ...validationOptions,
-          allowedPathPrefixes: undefined,
-        },
-      ),
-    ).toBe(true);
-
-    expect(result).toBe(
-      'https://evotecpoland.sharepoint.com/sites/TestUHV1/SiteAssets/GPO_Blocked_Inheritance.html',
-    );
+    expect(result).toBeUndefined();
   });
 
   it('does not relax path-prefix checks for absolute links', () => {

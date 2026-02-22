@@ -8,8 +8,13 @@ import {
 import { CacheBusterMode, HeightMode, isUrlAllowed, UrlValidationOptions } from './UrlHelper';
 import {
   ConfigurationPreset,
+  ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
 } from './UniversalHtmlViewerTypes';
+import {
+  buildPageUrlWithInlineDeepLink,
+  DEFAULT_INLINE_DEEP_LINK_PARAM,
+} from './InlineDeepLinkHelper';
 import { UniversalHtmlViewerWebPartRuntimeBase } from './UniversalHtmlViewerWebPartRuntimeBase';
 
 export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlViewerWebPartRuntimeBase {
@@ -58,6 +63,8 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     );
     const chromeHtml: string = this.buildChromeHtml(
       url,
+      baseUrl,
+      pageUrl,
       validationOptions,
       cacheBusterMode,
       effectiveProps,
@@ -112,6 +119,8 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
 
   private buildChromeHtml(
     resolvedUrl: string,
+    baseUrl: string,
+    pageUrl: string,
     validationOptions: UrlValidationOptions,
     cacheBusterMode: CacheBusterMode,
     props: IUniversalHtmlViewerWebPartProps,
@@ -133,6 +142,12 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     const showDashboardSelector: boolean =
       props.showDashboardSelector === true &&
       props.htmlSourceMode === 'BasePathAndDashboardId';
+    const openInNewTabUrl: string = this.getOpenInNewTabUrl(
+      resolvedUrl,
+      baseUrl,
+      pageUrl,
+      props,
+    );
 
     const statusLabel: string = showStatus
       ? this.getStatusLabel(validationOptions, cacheBusterMode, props)
@@ -142,7 +157,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       : '';
 
     const openInNewTabHtml: string = showOpenInNewTab
-      ? `<a class="${styles.actionLink}" href="${escape(resolvedUrl)}" target="_blank" rel="noopener noreferrer">
+      ? `<a class="${styles.actionLink}" href="${escape(openInNewTabUrl)}" target="_blank" rel="noopener noreferrer">
           Open in new tab
         </a>`
       : '';
@@ -188,6 +203,28 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
         </div>
       </div>
       ${dashboardHtml}`;
+  }
+  private getOpenInNewTabUrl(
+    resolvedUrl: string,
+    baseUrl: string,
+    pageUrl: string,
+    props: IUniversalHtmlViewerWebPartProps,
+  ): string {
+    const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(props);
+    if (contentDeliveryMode !== 'SharePointFileContent') {
+      return resolvedUrl;
+    }
+
+    const pageDeepLinkUrl = buildPageUrlWithInlineDeepLink({
+      pageUrl,
+      targetUrl: this.currentBaseUrl || baseUrl,
+      queryParamName: DEFAULT_INLINE_DEEP_LINK_PARAM,
+    });
+    if (!pageDeepLinkUrl) {
+      return resolvedUrl;
+    }
+
+    return pageDeepLinkUrl;
   }
 
   private buildDashboardSelectorHtml(
@@ -408,20 +445,17 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     this.lastCacheBusterMode = cacheBusterMode;
 
     this.setLoadingVisible(true);
-    const resolvedUrl = await this.resolveUrlWithCacheBuster(
+    this.currentBaseUrl = url;
+    this.onNavigatedToUrl(url, this.getCurrentPageUrl());
+    this.setupIframeLoadFallback(url, props);
+    await this.refreshIframe(
       url,
       cacheBusterMode,
       cacheBusterParamName,
       pageUrl,
+      true,
+      true,
     );
-
-    const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
-    if (iframe) {
-      iframe.src = resolvedUrl;
-    }
-
-    this.currentBaseUrl = url;
-    this.setupIframeLoadFallback(resolvedUrl, props);
     this.setupAutoRefresh(url, cacheBusterMode, cacheBusterParamName, pageUrl, props);
     this.updateStatusBadge(validationOptions, cacheBusterMode, props);
   }

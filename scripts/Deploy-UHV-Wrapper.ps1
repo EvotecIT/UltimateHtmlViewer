@@ -16,6 +16,10 @@ param(
 
     [switch]$DeviceLogin,
 
+    [bool]$PersistLogin = $true,
+
+    [switch]$ForceAuthentication,
+
     [string]$TenantAdminUrl,
 
     [switch]$SkipBuild,
@@ -69,4 +73,6 @@ if (-not (Test-Path $deployScript)) {
     -ClientId $ClientId `
     -Tenant $Tenant `
     -DeviceLogin:$DeviceLogin.IsPresent `
+    -PersistLogin $PersistLogin `
+    -ForceAuthentication:$ForceAuthentication.IsPresent `
     -TenantAdminUrl $TenantAdminUrl

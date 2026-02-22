@@ -30,7 +30,9 @@ param(
 
     [string]$ClientId,
     [string]$Tenant,
-    [switch]$DeviceLogin
+    [switch]$DeviceLogin,
+    [bool]$PersistLogin = $true,
+    [switch]$ForceAuthentication
 )
 
 Set-StrictMode -Version Latest
@@ -76,7 +78,9 @@ if ($InstallOnly.IsPresent) {
         -InstallIfMissing `
         -ClientId $ClientId `
         -Tenant $Tenant `
-        -DeviceLogin:$DeviceLogin.IsPresent
+        -DeviceLogin:$DeviceLogin.IsPresent `
+        -PersistLogin $PersistLogin `
+        -ForceAuthentication:$ForceAuthentication.IsPresent
     return
 }
 
@@ -109,4 +113,6 @@ Write-Host "Dashboard URL: $effectiveFullUrl"
     -AppCatalogScope $AppCatalogScope `
     -ClientId $ClientId `
     -Tenant $Tenant `
-    -DeviceLogin:$DeviceLogin.IsPresent
+    -DeviceLogin:$DeviceLogin.IsPresent `
+    -PersistLogin $PersistLogin `
+    -ForceAuthentication:$ForceAuthentication.IsPresent

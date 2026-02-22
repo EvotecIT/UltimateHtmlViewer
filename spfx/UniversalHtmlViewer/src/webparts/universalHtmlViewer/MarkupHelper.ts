@@ -14,7 +14,28 @@ export function buildOpenInNewTabHtml(
   url: string,
   fallbackClassName: string,
   fallbackLinkClassName: string,
+  linkText?: string,
+): string {
+  return buildActionLinkHtml(
+    url,
+    fallbackClassName,
+    fallbackLinkClassName,
+    linkText || 'Open in new tab',
+    true,
+  );
+}
+
+export function buildActionLinkHtml(
+  url: string,
+  fallbackClassName: string,
+  fallbackLinkClassName: string,
+  linkText: string,
+  openInNewTab?: boolean,
 ): string {
   const escapedUrl: string = escape(url);
-  return `<div class="${fallbackClassName}"><a class="${fallbackLinkClassName}" href="${escapedUrl}" target="_blank" rel="noopener noreferrer">Open in new tab</a></div>`;
+  const label: string = escape((linkText || '').trim() || 'Open');
+  const targetAttributes = openInNewTab
+    ? ' target="_blank" rel="noopener noreferrer"'
+    : '';
+  return `<div class="${fallbackClassName}"><a class="${fallbackLinkClassName}" href="${escapedUrl}"${targetAttributes}>${label}</a></div>`;
 }

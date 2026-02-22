@@ -111,6 +111,12 @@ spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg
   -DeviceLogin
 ```
 
+Auth session behavior:
+
+- Deployment/setup scripts now default to persisted PnP login (`-PersistLogin $true`), so you typically do not reauthenticate on every run.
+- Use `-PersistLogin:$false` for one-off sessions on shared hosts.
+- Use `-ForceAuthentication` when you want to intentionally prompt for fresh sign-in.
+
 ## Recommended dashboard settings (SharePoint-hosted files)
 
 For dashboard/report bundles stored in SharePoint libraries:

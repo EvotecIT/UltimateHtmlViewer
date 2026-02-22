@@ -9,7 +9,11 @@ import {
 } from '@microsoft/sp-property-pane';
 
 import styles from './UniversalHtmlViewerWebPart.module.scss';
-import { buildMessageHtml } from './MarkupHelper';
+import {
+  buildActionLinkHtml,
+  buildMessageHtml,
+  buildOpenInNewTabHtml,
+} from './MarkupHelper';
 import {
   buildFinalUrl,
   CacheBusterMode,
@@ -31,6 +35,13 @@ import { UniversalHtmlViewerWebPartUiBase } from './UniversalHtmlViewerWebPartUi
 import { applyInlineModeBehaviors } from './InlineModeBehaviorHelper';
 import { loadSharePointFileContentForInline } from './SharePointInlineContentHelper';
 import {
+  buildPageUrlWithoutInlineDeepLink,
+  buildPageUrlWithInlineDeepLink,
+  DEFAULT_INLINE_DEEP_LINK_PARAM,
+  resolveInlineDeepLinkTarget,
+} from './InlineDeepLinkHelper';
+import { getQueryStringParam } from './QueryStringHelper';
+import {
   ConfigurationPreset,
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
@@ -38,6 +49,14 @@ import {
 
 export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPartUiBase {
   private nestedIframeHydrationCleanup: (() => void) | undefined;
+  private initialDeepLinkScrollLockCleanup: (() => void) | undefined;
+  private readonly inlineDeepLinkParamName: string = DEFAULT_INLINE_DEEP_LINK_PARAM;
+  private isInlineDeepLinkPopStateWired: boolean = false;
+  private isInlineDeepLinkScrollRestorationManaged: boolean = false;
+  private previousInlineDeepLinkScrollRestoration: 'auto' | 'manual' | undefined;
+  private readonly onInlineDeepLinkPopState = (): void => {
+    this.render();
+  };
 
   public render(): void {
     this.renderAsync().catch((error) => {
@@ -491,6 +510,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   }
 
   private async renderAsync(): Promise<void> {
+    this.clearInitialDeepLinkScrollLock();
     this.clearIframeLoadTimeout();
     this.clearNestedIframeHydration();
     const pageUrl: string = this.getCurrentPageUrl();
@@ -502,6 +522,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
       effectiveProps,
     );
+    this.configureInlineDeepLinkPopState(contentDeliveryMode === 'SharePointFileContent');
     const currentDashboardId: string | undefined = this.getEffectiveDashboardId(
       effectiveProps,
       pageUrl,
@@ -544,8 +565,58 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       effectiveProps,
     );
     this.lastValidationOptions = validationOptions;
+    const deepLinkedUrl: string | undefined = resolveInlineDeepLinkTarget({
+      pageUrl,
+      fallbackUrl: finalUrl,
+      queryParamName: this.inlineDeepLinkParamName,
+      validationOptions,
+    });
+    const requestedDeepLinkValue: string = (
+      getQueryStringParam(pageUrl, this.inlineDeepLinkParamName) || ''
+    ).trim();
+    const hasRequestedDeepLink: boolean = requestedDeepLinkValue.length > 0;
+    const shouldResetHostScrollToTopOnInitialDeepLink: boolean =
+      contentDeliveryMode === 'SharePointFileContent' && hasRequestedDeepLink;
+    if (this.isScrollTraceEnabled()) {
+      this.emitScrollTrace(
+        'deep-link-evaluation',
+        {
+          contentDeliveryMode,
+          hasRequestedDeepLink,
+          shouldResetHostScrollToTopOnInitialDeepLink,
+          requestedDeepLinkValue,
+        },
+      );
+    }
+    if (shouldResetHostScrollToTopOnInitialDeepLink) {
+      this.applyInitialDeepLinkScrollLock();
+    }
+    if (hasRequestedDeepLink && !deepLinkedUrl) {
+      this.clearRefreshTimer();
+      this.clearIframeLoadTimeout();
+      const resetToDefaultHtml = this.buildResetToDefaultDashboardHtml(pageUrl);
+      this.domElement.innerHTML = buildMessageHtml(
+        'UniversalHtmlViewer: The requested deep link is invalid or not allowed.',
+        `${resetToDefaultHtml}${this.buildDiagnosticsHtml(
+          this.buildDiagnosticsData({
+            htmlSourceMode,
+            contentDeliveryMode,
+            pageUrl,
+            finalUrl,
+            requestedDeepLinkValue,
+            validationOptions,
+            tenantConfigLoaded: !!tenantConfig,
+          }, effectiveProps),
+          effectiveProps,
+        )}`,
+        styles.universalHtmlViewer,
+        styles.message,
+      );
+      return;
+    }
+    const initialContentUrl: string = deepLinkedUrl || finalUrl;
 
-    if (!isUrlAllowed(finalUrl, validationOptions)) {
+    if (!isUrlAllowed(initialContentUrl, validationOptions)) {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
       this.domElement.innerHTML = buildMessageHtml(
@@ -556,6 +627,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             contentDeliveryMode,
             pageUrl,
             finalUrl,
+            initialContentUrl,
             validationOptions,
             tenantConfigLoaded: !!tenantConfig,
           }, effectiveProps),
@@ -574,7 +646,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       effectiveProps.cacheBusterParamName,
     );
     const resolvedUrl: string = await this.resolveUrlWithCacheBuster(
-      finalUrl,
+      initialContentUrl,
       cacheBusterMode,
       cacheBusterParamName,
       pageUrl,
@@ -586,28 +658,45 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           this.context.spHttpClient,
           this.context.pageContext.web.absoluteUrl,
           resolvedUrl,
-          finalUrl,
+          initialContentUrl,
           pageUrl,
         );
       } catch (error) {
         this.clearRefreshTimer();
         this.clearIframeLoadTimeout();
+        const statusCode = this.getInlineLoadErrorStatusCode(error);
+        const isAccessDenied = statusCode === 401 || statusCode === 403;
+        const resetToDefaultHtml = this.buildResetToDefaultDashboardHtml(pageUrl);
+        const accessHelpHtml = `${buildOpenInNewTabHtml(
+          initialContentUrl,
+          styles.fallback,
+          styles.fallbackLink,
+          'Open file in SharePoint / Request access',
+        )}${resetToDefaultHtml}<div class="${styles.fallback}">${
+          isAccessDenied
+            ? 'Access was denied. Use "Request access" on the opened SharePoint page.'
+            : 'If access is denied, use "Request access" on the opened SharePoint page.'
+        }</div>`;
         this.domElement.innerHTML = buildMessageHtml(
-          'UniversalHtmlViewer: Failed to load HTML from SharePoint file API.',
-          this.buildDiagnosticsHtml(
+          isAccessDenied
+            ? 'UniversalHtmlViewer: You do not have access to this report page.'
+            : 'UniversalHtmlViewer: Failed to load HTML from SharePoint file API.',
+          `${accessHelpHtml}${this.buildDiagnosticsHtml(
             this.buildDiagnosticsData({
               htmlSourceMode,
               contentDeliveryMode,
               pageUrl,
               finalUrl,
+              initialContentUrl,
               resolvedUrl,
+              statusCode,
               validationOptions,
               cacheBusterMode,
               tenantConfigLoaded: !!tenantConfig,
               error: String(error),
             }, effectiveProps),
             effectiveProps,
-          ),
+          )}`,
           styles.universalHtmlViewer,
           styles.message,
         );
@@ -624,6 +713,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           contentDeliveryMode,
           pageUrl,
           finalUrl,
+          initialContentUrl,
           resolvedUrl,
           validationOptions,
           cacheBusterMode,
@@ -631,7 +721,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         }, effectiveProps),
         effectiveProps,
       ),
-      finalUrl,
+      initialContentUrl,
       cacheBusterMode,
       cacheBusterParamName,
       pageUrl,
@@ -640,10 +730,10 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       currentDashboardId,
       inlineHtml,
     );
-    this.currentBaseUrl = finalUrl;
+    this.currentBaseUrl = initialContentUrl;
     this.setupIframeLoadFallback(resolvedUrl, effectiveProps);
     this.setupAutoRefresh(
-      finalUrl,
+      initialContentUrl,
       cacheBusterMode,
       cacheBusterParamName,
       pageUrl,
@@ -667,11 +757,19 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         this.currentBaseUrl = targetUrl;
         this.setLoadingVisible(true);
         this.lastCacheBusterMode = inlineCacheBusterMode;
+        const updatedPageUrl = this.getCurrentPageUrl();
+        this.onNavigatedToUrl(targetUrl, updatedPageUrl);
+        const navigatedPageUrl = this.getCurrentPageUrl();
+        if (contentDeliveryMode === 'SharePointFileContent') {
+          this.applyInitialDeepLinkScrollLock();
+        }
         this.refreshIframe(
           targetUrl,
           inlineCacheBusterMode,
           cacheBusterParamName,
-          pageUrl,
+          navigatedPageUrl,
+          true,
+          false,
         ).catch(() => {
           return undefined;
         });
@@ -686,7 +784,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             this.context.pageContext.web.absoluteUrl,
             sourceUrl,
             baseUrlForRelativeLinks,
-            pageUrl,
+            this.getCurrentPageUrl(),
           );
         } catch { return undefined; }
       },
@@ -713,13 +811,419 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return true;
     } catch { return false; }
   }
+  protected onNavigatedToUrl(targetUrl: string, pageUrl: string): void {
+    const effectiveProps: IUniversalHtmlViewerWebPartProps =
+      this.lastEffectiveProps || this.properties;
+    if (this.getContentDeliveryMode(effectiveProps) !== 'SharePointFileContent') {
+      return;
+    }
+
+    const currentPageUrl: string = (pageUrl || '').trim() || this.getCurrentPageUrl();
+    const updatedPageUrl = buildPageUrlWithInlineDeepLink({
+      pageUrl: currentPageUrl,
+      targetUrl,
+      queryParamName: this.inlineDeepLinkParamName,
+    });
+    if (
+      !updatedPageUrl ||
+      updatedPageUrl === currentPageUrl ||
+      typeof window === 'undefined' ||
+      !window.history ||
+      typeof window.history.pushState !== 'function'
+    ) {
+      return;
+    }
+
+    try {
+      window.history.pushState(window.history.state, '', updatedPageUrl);
+    } catch {
+      return;
+    }
+  }
+  private buildResetToDefaultDashboardHtml(pageUrl: string): string {
+    const resetUrl = buildPageUrlWithoutInlineDeepLink({
+      pageUrl,
+      queryParamName: this.inlineDeepLinkParamName,
+    });
+    if (!resetUrl || resetUrl === pageUrl) {
+      return '';
+    }
+
+    return buildActionLinkHtml(
+      resetUrl,
+      styles.fallback,
+      styles.fallbackLink,
+      'Reset to default dashboard',
+      false,
+    );
+  }
+  private getInlineLoadErrorStatusCode(error: unknown): number | undefined {
+    const source = error as
+      | {
+          status?: unknown;
+          response?: {
+            status?: unknown;
+          };
+        }
+      | undefined;
+    const directStatus = source?.status;
+    if (typeof directStatus === 'number' && directStatus >= 100 && directStatus <= 599) {
+      return directStatus;
+    }
+
+    const nestedStatus = source?.response?.status;
+    if (typeof nestedStatus === 'number' && nestedStatus >= 100 && nestedStatus <= 599) {
+      return nestedStatus;
+    }
+
+    const message = String(error || '');
+    const statusMatch = message.match(/\b([1-5]\d{2})\b/);
+    if (!statusMatch) {
+      return undefined;
+    }
+
+    const parsed = Number(statusMatch[1]);
+    if (Number.isNaN(parsed)) {
+      return undefined;
+    }
+    return parsed;
+  }
+  private configureInlineDeepLinkPopState(enabled: boolean): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    this.configureInlineDeepLinkScrollRestoration(enabled);
+
+    if (enabled && !this.isInlineDeepLinkPopStateWired) {
+      window.addEventListener('popstate', this.onInlineDeepLinkPopState);
+      this.isInlineDeepLinkPopStateWired = true;
+      return;
+    }
+
+    if (!enabled && this.isInlineDeepLinkPopStateWired) {
+      window.removeEventListener('popstate', this.onInlineDeepLinkPopState);
+      this.isInlineDeepLinkPopStateWired = false;
+    }
+  }
+  private configureInlineDeepLinkScrollRestoration(enabled: boolean): void {
+    if (typeof window === 'undefined' || !window.history) {
+      return;
+    }
+
+    const historyObject = window.history as History & {
+      scrollRestoration?: 'auto' | 'manual';
+    };
+
+    if (enabled) {
+      if (this.isInlineDeepLinkScrollRestorationManaged) {
+        return;
+      }
+
+      const currentScrollRestoration =
+        typeof historyObject.scrollRestoration === 'string'
+          ? historyObject.scrollRestoration
+          : undefined;
+      this.previousInlineDeepLinkScrollRestoration = currentScrollRestoration;
+      try {
+        historyObject.scrollRestoration = 'manual';
+        this.isInlineDeepLinkScrollRestorationManaged = true;
+      } catch {
+        this.previousInlineDeepLinkScrollRestoration = undefined;
+      }
+      return;
+    }
+
+    if (!this.isInlineDeepLinkScrollRestorationManaged) {
+      return;
+    }
+
+    try {
+      if (this.previousInlineDeepLinkScrollRestoration) {
+        historyObject.scrollRestoration = this.previousInlineDeepLinkScrollRestoration;
+      }
+    } catch {
+      // Ignore restoration failures in unsupported browser contexts.
+    }
+    this.isInlineDeepLinkScrollRestorationManaged = false;
+    this.previousInlineDeepLinkScrollRestoration = undefined;
+  }
   private clearNestedIframeHydration(): void {
     if (this.nestedIframeHydrationCleanup) {
       this.nestedIframeHydrationCleanup();
       this.nestedIframeHydrationCleanup = undefined;
     }
   }
+  private applyInitialDeepLinkScrollLock(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    this.clearInitialDeepLinkScrollLock();
+
+    const historyObject = window.history as History & {
+      scrollRestoration?: 'auto' | 'manual';
+    };
+    const previousScrollRestoration =
+      typeof historyObject.scrollRestoration === 'string'
+        ? historyObject.scrollRestoration
+        : undefined;
+    try {
+      if (previousScrollRestoration) {
+        historyObject.scrollRestoration = 'manual';
+      }
+    } catch {
+      // Continue even if scroll restoration cannot be toggled in this browser context.
+    }
+
+    let released = false;
+    let intervalId = 0;
+    let releaseTimerId = 0;
+    let lastAppliedAt = 0;
+    let lastTraceAt = 0;
+    const lockStartedAt = Date.now();
+    let lastDeviationAt = lockStartedAt;
+    const hostScrollContainers = this.getPotentialHostScrollContainers();
+    const scrollTraceEnabled = this.isScrollTraceEnabled();
+    let release: () => void = (): void => {
+      return;
+    };
+    const minLockDurationMs = 500;
+    const stableReleaseDurationMs = 900;
+    const maxLockDurationMs = 8000;
+    const timeouts: number[] = [];
+    const interactionEvents: Array<keyof WindowEventMap> = [
+      'wheel',
+      'touchstart',
+      'mousedown',
+      'pointerdown',
+    ];
+    const trace = (
+      eventName: string,
+      data?: Record<string, unknown>,
+      force: boolean = false,
+    ): void => {
+      if (!scrollTraceEnabled) {
+        return;
+      }
+
+      const now = Date.now();
+      if (!force && now - lastTraceAt < 300) {
+        return;
+      }
+
+      lastTraceAt = now;
+      this.emitScrollTrace(eventName, data);
+    };
+    trace(
+      'scroll-lock-start',
+      {
+        previousScrollRestoration: previousScrollRestoration || '(none)',
+        hostContainers: hostScrollContainers.map((container) =>
+          this.describeScrollElement(container),
+        ),
+      },
+      true,
+    );
+
+    const restoreTop = (): void => {
+      if (released) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastAppliedAt < 40) {
+        return;
+      }
+      lastAppliedAt = now;
+      this.forceHostScrollTop();
+      this.restoreHostScrollPosition({ x: 0, y: 0 });
+      this.resetInlineIframeScrollPositionForDeepLink();
+      const currentHostScrollContainers = this.getPotentialHostScrollContainers();
+      const scrollOffsets = this.getDeepLinkScrollOffsets(currentHostScrollContainers);
+      if (scrollOffsets.maxOffset > 2) {
+        lastDeviationAt = now;
+      } else if (
+        now - lockStartedAt >= minLockDurationMs &&
+        now - lastDeviationAt >= stableReleaseDurationMs
+      ) {
+        trace(
+          'auto-release-stable',
+          {
+            stableForMs: now - lastDeviationAt,
+            lockDurationMs: now - lockStartedAt,
+            offsets: scrollOffsets,
+          },
+          true,
+        );
+        release();
+        return;
+      }
+      trace('restore-top');
+    };
+    const onUserInteraction = (event: Event): void => {
+      if (!event.isTrusted) {
+        trace('user-interaction-ignored-not-trusted', { type: event.type });
+        return;
+      }
+      if (Date.now() - lockStartedAt < 250) {
+        trace('user-interaction-ignored-early', { type: event.type });
+        return;
+      }
+      trace('user-interaction-release', { type: event.type }, true);
+      release();
+    };
+    const onWindowScroll = (): void => {
+      if (released) {
+        return;
+      }
+      const windowScrollTop =
+        window.scrollY ||
+        document.documentElement?.scrollTop ||
+        document.body?.scrollTop ||
+        0;
+      if (windowScrollTop > 2) {
+        lastDeviationAt = Date.now();
+        trace('window-scroll-detected', { windowScrollTop });
+        restoreTop();
+      }
+    };
+    const onHostScroll = (): void => {
+      if (released) {
+        return;
+      }
+      const hasOffsetContainer = hostScrollContainers.some(
+        (hostScrollContainer) => hostScrollContainer.scrollTop > 2,
+      );
+      if (hasOffsetContainer) {
+        lastDeviationAt = Date.now();
+        trace(
+          'host-scroll-detected',
+          {
+            containerOffsets: hostScrollContainers.map((hostScrollContainer) => ({
+              element: this.describeScrollElement(hostScrollContainer),
+              top: hostScrollContainer.scrollTop || 0,
+              left: hostScrollContainer.scrollLeft || 0,
+            })),
+          },
+          true,
+        );
+        restoreTop();
+      }
+    };
+
+    release = (): void => {
+      if (released) {
+        return;
+      }
+
+      trace('scroll-lock-release', undefined, true);
+      this.forceHostScrollTop();
+      this.resetInlineIframeScrollPositionForDeepLink();
+      released = true;
+      window.clearInterval(intervalId);
+      window.clearTimeout(releaseTimerId);
+      timeouts.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      interactionEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, onUserInteraction);
+      });
+      window.removeEventListener('scroll', onWindowScroll, true);
+      hostScrollContainers.forEach((hostScrollContainer) => {
+        hostScrollContainer.removeEventListener('scroll', onHostScroll, true);
+      });
+
+      if (previousScrollRestoration) {
+        try {
+          historyObject.scrollRestoration = previousScrollRestoration;
+        } catch {
+          return;
+        }
+      }
+      trace('scroll-lock-released', undefined, true);
+    };
+
+    interactionEvents.forEach((eventName) => {
+      window.addEventListener(eventName, onUserInteraction);
+    });
+    window.addEventListener('scroll', onWindowScroll, true);
+    hostScrollContainers.forEach((hostScrollContainer) => {
+      hostScrollContainer.addEventListener('scroll', onHostScroll, true);
+    });
+
+    timeouts.push(
+      window.setTimeout(restoreTop, 0),
+      window.setTimeout(restoreTop, 120),
+      window.setTimeout(restoreTop, 350),
+      window.setTimeout(restoreTop, 800),
+      window.setTimeout(restoreTop, 1400),
+      window.setTimeout(restoreTop, 2200),
+      window.setTimeout(restoreTop, 3200),
+      window.setTimeout(restoreTop, 4500),
+      window.setTimeout(restoreTop, 6200),
+      window.setTimeout(restoreTop, 8200),
+    );
+    intervalId = window.setInterval(restoreTop, 80);
+    releaseTimerId = window.setTimeout(() => {
+      trace(
+        'auto-release-timeout',
+        {
+          lockDurationMs: Date.now() - lockStartedAt,
+        },
+        true,
+      );
+      release();
+    }, maxLockDurationMs);
+    this.initialDeepLinkScrollLockCleanup = release;
+  }
+  private getDeepLinkScrollOffsets(
+    hostScrollContainers: HTMLElement[],
+  ): { windowTop: number; hostMaxTop: number; iframeTop: number; maxOffset: number } {
+    const windowTop =
+      window.scrollY || document.documentElement?.scrollTop || document.body?.scrollTop || 0;
+    let hostMaxTop = 0;
+    hostScrollContainers.forEach((container) => {
+      if (container.scrollTop > hostMaxTop) {
+        hostMaxTop = container.scrollTop;
+      }
+    });
+
+    const iframeTop = this.getInlineIframeMaxScrollTop();
+    const maxOffset = Math.max(windowTop, hostMaxTop, iframeTop);
+    return {
+      windowTop,
+      hostMaxTop,
+      iframeTop,
+      maxOffset,
+    };
+  }
+  private getInlineIframeMaxScrollTop(): number {
+    const iframe = this.domElement.querySelector('iframe');
+    if (!iframe) {
+      return 0;
+    }
+    return this.getIframeDeepMaxScrollTop(iframe);
+  }
+  private resetInlineIframeScrollPositionForDeepLink(): void {
+    const iframe = this.domElement.querySelector('iframe');
+    if (!iframe) {
+      return;
+    }
+
+    this.resetIframeScrollPosition(iframe);
+  }
+  private clearInitialDeepLinkScrollLock(): void {
+    if (!this.initialDeepLinkScrollLockCleanup) {
+      return;
+    }
+
+    this.initialDeepLinkScrollLockCleanup();
+    this.initialDeepLinkScrollLockCleanup = undefined;
+  }
   protected onDispose(): void {
+    this.configureInlineDeepLinkPopState(false);
+    this.clearInitialDeepLinkScrollLock();
     this.clearNestedIframeHydration();
     super.onDispose();
   }

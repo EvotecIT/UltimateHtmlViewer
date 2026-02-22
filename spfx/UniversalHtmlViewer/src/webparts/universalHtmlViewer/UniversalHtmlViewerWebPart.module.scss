@@ -1,5 +1,6 @@
 .universalHtmlViewer {
   width: 100%;
+  overflow-anchor: none;
 }
 
 .chrome {
@@ -131,6 +132,7 @@
   border-top: 0;
   border-radius: 0 0 8px 8px;
   overflow: hidden;
+  overflow-anchor: none;
   background: #ffffff;
 }
 
@@ -143,6 +145,7 @@
   border: 0;
   width: 100%;
   display: block;
+  overflow-anchor: none;
 }
 
 .message {

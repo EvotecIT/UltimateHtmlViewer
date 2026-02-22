@@ -89,18 +89,7 @@ export function resolveInlineNavigationTarget(
   );
 
   if (!isUrlAllowed(normalizedAbsoluteUrl, options.validationOptions)) {
-    // Safe fallback for relative links inside trusted inline reports:
-    // keep host and extension restrictions, but relax path-prefix checks
-    // to avoid false negatives on generated relative navigation menus.
-    if (
-      !isRelativePathReference(rawHref) ||
-      !isUrlAllowed(normalizedAbsoluteUrl, {
-        ...options.validationOptions,
-        allowedPathPrefixes: undefined,
-      })
-    ) {
-      return undefined;
-    }
+    return undefined;
   }
 
   return normalizedAbsoluteUrl;
@@ -124,7 +113,17 @@ function getAnchorFromEvent(event: MouseEvent): HTMLAnchorElement | undefined {
 
   const anchor = target.closest('a[href]');
   if (!anchor || anchor.tagName.toLowerCase() !== 'a') {
-    return undefined;
+    const forcedUrlContainer = target.closest('.fc-event-forced-url');
+    if (!forcedUrlContainer) {
+      return undefined;
+    }
+
+    const forcedAnchor = forcedUrlContainer.querySelector('a[href]');
+    if (!forcedAnchor || forcedAnchor.tagName.toLowerCase() !== 'a') {
+      return undefined;
+    }
+
+    return forcedAnchor as HTMLAnchorElement;
   }
 
   return anchor as HTMLAnchorElement;
@@ -139,23 +138,6 @@ function isNonHttpProtocol(value: string): boolean {
 
   const protocol: string = (protocolMatch[1] || '').toLowerCase();
   return protocol === 'javascript' || protocol === 'data' || protocol === 'mailto' || protocol === 'tel';
-}
-
-function isRelativePathReference(value: string): boolean {
-  const normalized = (value || '').trim();
-  if (!normalized) {
-    return false;
-  }
-  if (
-    normalized.startsWith('/') ||
-    normalized.startsWith('#') ||
-    normalized.startsWith('?') ||
-    normalized.startsWith('//')
-  ) {
-    return false;
-  }
-
-  return !/^[a-z][a-z0-9+\-.]*:/i.test(normalized);
 }
 
 function isSameHostAsCurrentPage(targetUrl: URL, currentPageUrl: string): boolean {

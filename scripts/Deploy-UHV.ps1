@@ -19,6 +19,12 @@ param(
     # More reliable than -Interactive in headless/locked-down environments.
     [switch]$DeviceLogin,
 
+    # Reuse cached login across script runs (recommended for repeated operations).
+    [bool]$PersistLogin = $true,
+
+    # Force a fresh sign-in prompt even if cached login exists.
+    [switch]$ForceAuthentication,
+
     # Optional explicit admin URL, e.g. https://contoso-admin.sharepoint.com
     [string]$TenantAdminUrl
 )
@@ -55,7 +61,10 @@ if ($DeviceLogin.IsPresent) {
     if (-not $Tenant) {
         throw "Tenant is required for -DeviceLogin. Pass -Tenant <tenant>.onmicrosoft.com or the tenant GUID."
     }
-    Connect-PnPOnline -Url $connectUrl -DeviceLogin -ClientId $ClientId -Tenant $Tenant
+    if ($ForceAuthentication.IsPresent) {
+        Write-Warning "-ForceAuthentication is only supported with -Interactive login; ignoring it for -DeviceLogin."
+    }
+    Connect-PnPOnline -Url $connectUrl -DeviceLogin -ClientId $ClientId -Tenant $Tenant -PersistLogin:$PersistLogin
 } else {
     if (-not $ClientId) {
         throw "ClientId is required for -Interactive with PnP.PowerShell 3.x. Create an Entra ID app registration and pass -ClientId <GUID> (see docs/Deploy-SharePointOnline.md)."
@@ -63,15 +72,15 @@ if ($DeviceLogin.IsPresent) {
 
     if ($Tenant) {
         if ($TenantAdminUrl) {
-            Connect-PnPOnline -Url $connectUrl -Interactive -ClientId $ClientId -Tenant $Tenant -TenantAdminUrl $TenantAdminUrl
+            Connect-PnPOnline -Url $connectUrl -Interactive -ClientId $ClientId -Tenant $Tenant -TenantAdminUrl $TenantAdminUrl -PersistLogin:$PersistLogin -ForceAuthentication:$ForceAuthentication.IsPresent
         } else {
-            Connect-PnPOnline -Url $connectUrl -Interactive -ClientId $ClientId -Tenant $Tenant
+            Connect-PnPOnline -Url $connectUrl -Interactive -ClientId $ClientId -Tenant $Tenant -PersistLogin:$PersistLogin -ForceAuthentication:$ForceAuthentication.IsPresent
         }
     } else {
         if ($TenantAdminUrl) {
-            Connect-PnPOnline -Url $connectUrl -Interactive -ClientId $ClientId -TenantAdminUrl $TenantAdminUrl
+            Connect-PnPOnline -Url $connectUrl -Interactive -ClientId $ClientId -TenantAdminUrl $TenantAdminUrl -PersistLogin:$PersistLogin -ForceAuthentication:$ForceAuthentication.IsPresent
         } else {
-            Connect-PnPOnline -Url $connectUrl -Interactive -ClientId $ClientId
+            Connect-PnPOnline -Url $connectUrl -Interactive -ClientId $ClientId -PersistLogin:$PersistLogin -ForceAuthentication:$ForceAuthentication.IsPresent
         }
     }
 }
