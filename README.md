@@ -1,92 +1,136 @@
-# UniversalHtmlViewer - SharePoint SPFx HTML Dashboard Host
+# UniversalHtmlViewer (UHV)
 
-UniversalHtmlViewer (UHV) is an SPFx web part for rendering HTML dashboards inside modern SharePoint pages, with security and deployment controls suitable for enterprise tenants.
-
-📦 Project Status
+SPFx web part for hosting HTML dashboards in modern SharePoint pages, with deep-link navigation, inline rendering, security controls, and deployment automation.
 
 [![SPFx Tests](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/spfx-tests.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/spfx-tests.yml)
 [![Release SPPKG](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml)
 [![license](https://img.shields.io/github/license/EvotecIT/UltimateHtmlViewer.svg)](https://github.com/EvotecIT/UltimateHtmlViewer)
-[![top language](https://img.shields.io/github/languages/top/EvotecIT/UltimateHtmlViewer.svg)](https://github.com/EvotecIT/UltimateHtmlViewer)
 
-## Documentation map
+## What UHV Solves
 
-- Overview and product behavior: `README.md`
-- SharePoint deployment and operations: `docs/Deploy-SharePointOnline.md`
+Static HTML report bundles in SharePoint often cause iframe download behavior, broken relative links, weak deep-linking, and inconsistent page scrolling. UHV provides a predictable host layer for those dashboards.
 
-🛠️ Tech Stack
+## Key Capabilities
 
-- SharePoint Framework (SPFx)
-- TypeScript + React
-- PnP.PowerShell deployment automation
+- Render mode selection: `DirectUrl` or `SharePointFileContent` (inline `srcdoc`).
+- Deep-link support with shareable page URLs via `?uhvPage=...`.
+- Nested iframe hydration for report wrappers.
+- Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
+- Strong URL policy controls: `StrictTenant`, `Allowlist`, `AnyHttps`.
+- Property-pane presets for fast setup (`SharePointLibraryRelaxed`, `FullPage`, `Strict`).
+- Auto-height and width-fit behavior for big dashboards.
+- Scripted build/deploy/update/rollback workflows.
 
-👨‍💻 Author & Social
+## Product Screens
 
-[![Twitter follow](https://img.shields.io/twitter/follow/PrzemyslawKlys.svg?label=Twitter%20%40PrzemyslawKlys&style=social)](https://twitter.com/PrzemyslawKlys)
-[![Blog](https://img.shields.io/badge/Blog-evotec.xyz-2A6496.svg)](https://evotec.xyz/hub)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-pklys-0077B5.svg?logo=LinkedIn)](https://www.linkedin.com/in/pklys)
-[![Discord](https://img.shields.io/discord/508328927853281280?style=flat-square&label=discord%20chat)](https://evo.yt/discord)
+### Dashboard embedded in modern page
 
-## What it's all about
+![UHV dashboard overview](assets/uhv-dashboard-overview.png)
 
-UHV solves a common SharePoint Online problem: static report HTML in libraries is often awkward to host reliably inside modern pages.  
-The web part gives you two rendering models:
+### Dashboard menu and deep navigation
 
-- `DirectUrl`: normal iframe to URL.
-- `SharePointFileContent`: reads file content from SharePoint API and renders inline (`srcdoc`) to improve compatibility for SharePoint-hosted report bundles.
+![UHV dashboard menu](assets/uhv-dashboard-menu.png)
 
-This is especially useful for generated dashboard trees (`index.html` + linked pages/assets), including nested iframe patterns and `.aspx` navigation in inline mode.
+### Property pane: quick setup + source
 
-## Why teams use UHV
+![UHV quick setup](assets/uhv-property-pane-quick-setup.png)
 
-- Keep dashboard hosting inside SharePoint (no separate web server required).
-- Avoid legacy custom-script-centric hosting patterns.
-- Standardize security policy (tenant-only, allowlist, or broader HTTPS mode).
-- Give site owners a repeatable deployment flow (build, publish, install, onboard, update, rollback).
+### Property pane: layout + display
 
-## How it works
+![UHV layout and display](assets/uhv-property-pane-layout-display.png)
+
+### Property pane: security + iframe
+
+![UHV security and iframe](assets/uhv-property-pane-security-iframe.png)
+
+## How It Works
 
 ```mermaid
 flowchart LR
-  A[Modern SharePoint Page] --> B[UHV Web Part]
+  A[SharePoint page] --> B[UHV web part]
   B --> C{Content delivery mode}
   C -->|DirectUrl| D[iframe src]
-  C -->|SharePointFileContent| E[SharePoint REST file read]
+  C -->|SharePointFileContent| E[Read file from SharePoint API]
   E --> F[iframe srcdoc]
-  D --> G[Dashboard]
-  F --> G[Dashboard]
+  D --> G[Dashboard HTML]
+  F --> G[Dashboard HTML]
+  G --> H[Inline navigation + nested iframe hydration]
 ```
 
-## Feature highlights
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant P as Dashboard.aspx
+  participant W as UHV Web Part
+  participant S as SharePoint File API
 
-- Multiple source modes: full URL, base+relative, base+dashboardId.
-- Content delivery modes: direct iframe and SharePoint file API inline.
-- Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
-- Nested iframe hydration for SharePoint-hosted report wrappers.
-- Security modes: `StrictTenant`, `Allowlist`, `AnyHttps`.
-- Presets for practical scenarios (`SharePointLibraryRelaxed`, `FullPage`, `Strict`).
-- Auto-height and fit-to-width options for dashboard layout.
-- Tenant config JSON (`Merge` or `Override`).
-- Export/import configuration from property pane.
-- Deployment automation scripts (deploy, onboard, update, rollback).
+  U->>P: Open page with ?uhvPage=...
+  P->>W: Render web part
+  W->>S: Load target HTML
+  S-->>W: HTML content
+  W->>W: Inject srcdoc + wire inline nav
+  W->>W: Hydrate nested iframes
+  W->>P: Keep host scroll pinned to top until layout settles
+```
 
-## Quick start
+## Configuration Model
 
-### 1) Build package
+### Source and Delivery
+
+| Setting | Options | Purpose |
+| --- | --- | --- |
+| `htmlSourceMode` | `FullUrl`, `BasePathAndRelativePath`, `BasePathAndDashboardId` | Defines how target HTML URL is built. |
+| `contentDeliveryMode` | `DirectUrl`, `SharePointFileContent` | Chooses direct iframe URL vs inline file content from SharePoint API. |
+| `queryStringParamName` | string | Query key used for dashboard ID mode. |
+| `defaultFileName` | string | Default file when dashboard id/path is missing. |
+
+### Layout and UX
+
+| Setting | Typical value | Purpose |
+| --- | --- | --- |
+| `heightMode` | `Auto` | Auto-fit to content height (recommended for reports). |
+| `fixedHeightPx` | `800-1000` | Minimum visual baseline in auto mode. |
+| `fitContentWidth` | `true` | Shrinks wide report content to frame width. |
+| `showChrome` | `true` | Top header with status/actions. |
+| `showOpenInNewTab` | `true` | Gives fallback path to open raw report page. |
+
+### Security and iframe policy
+
+| Setting | Options | Purpose |
+| --- | --- | --- |
+| `securityMode` | `StrictTenant`, `Allowlist`, `AnyHttps` | URL policy boundary. |
+| `allowedHosts` | host list | Explicit host allowlist for `Allowlist` mode. |
+| `allowedPathPrefixes` | path list | Optional path constraints for tighter scope. |
+| `sandboxPreset` | preset or custom | Controls iframe sandbox behavior. |
+| `iframeAllow` | permissions policy string | Optional iframe permissions (`fullscreen`, etc.). |
+
+## Recommended Setup (SharePoint-hosted report bundles)
+
+- Preset: `SharePointLibraryRelaxed`
+- Source mode: `FullUrl`
+- Content delivery: `SharePointFileContent`
+- Height mode: `Auto`
+- Fit content to width: `On`
+- Keep reports and linked pages in same tenant/site boundary
+
+## Deep Links and Scroll Behavior
+
+- Deep links are represented by `?uhvPage=<encoded-site-relative-or-absolute-path>`.
+- UHV enforces top positioning during initial deep-link render.
+- Scroll lock now waits for host/iframe stability and nested iframe hydration before release.
+- If debugging is needed, append `?uhvTraceScroll=1` and inspect `[UHV scroll trace]` console events.
+
+## Build and Deploy
+
+Full deployment guide: `docs/Deploy-SharePointOnline.md`
+
+### Quick commands
 
 ```powershell
+# Build package
 .\scripts\Build-UHV.ps1
-```
 
-Output:
-
-```text
-spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg
-```
-
-### 2) Deploy to app catalog
-
-```powershell
+# Build + deploy to tenant app catalog
 .\scripts\Deploy-UHV-Wrapper.ps1 `
   -AppCatalogUrl "https://<tenant>.sharepoint.com/sites/appcatalog" `
   -Scope Tenant `
@@ -94,164 +138,54 @@ spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg
   -ClientId "<client-guid>" `
   -Tenant "<tenant>.onmicrosoft.com" `
   -TenantAdminUrl "https://<tenant>-admin.sharepoint.com"
-```
 
-### 3) Onboard a site in one command
-
-```powershell
-.\scripts\Setup-UHVSite.ps1 `
-  -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
-  -SiteRelativeDashboardPath "SiteAssets/Index.html" `
-  -PageName "Dashboard" `
-  -PageTitle "Dashboard" `
-  -ConfigurationPreset "SharePointLibraryRelaxed" `
-  -ContentDeliveryMode "SharePointFileContent" `
+# Update installed app on sites
+.\scripts\Update-UHVSiteApp.ps1 `
+  -SiteUrls @(
+    "https://<tenant>.sharepoint.com/sites/SiteA",
+    "https://<tenant>.sharepoint.com/sites/SiteB"
+  ) `
+  -InstallIfMissing `
+  -DeviceLogin `
   -ClientId "<client-guid>" `
-  -Tenant "<tenant>.onmicrosoft.com" `
-  -DeviceLogin
+  -Tenant "<tenant>.onmicrosoft.com"
 ```
 
-Auth session behavior:
-
-- Deployment/setup scripts now default to persisted PnP login (`-PersistLogin $true`), so you typically do not reauthenticate on every run.
-- Use `-PersistLogin:$false` for one-off sessions on shared hosts.
-- Use `-ForceAuthentication` when you want to intentionally prompt for fresh sign-in.
-
-## Recommended dashboard settings (SharePoint-hosted files)
-
-For dashboard/report bundles stored in SharePoint libraries:
-
-- `Configuration preset`: `SharePointLibraryRelaxed`
-- `HTML source mode`: `Full URL`
-- `Content delivery mode`: `SharePoint file API (inline iframe)`
-- `Height mode`: `Auto (content height)`
-- `Fit content to width (inline mode)`: `On`
-- `Minimum height`: usually `800-1000`
-
-Tips:
-
-- Upload the full folder tree, not just `index.html`.
-- Keep links relative (`./`, `../`) when possible.
-- Keep file set in same tenant/path boundary.
-
-## Deployment models
-
-### Site-scoped (recommended for controlled rollouts)
-
-- Publish package to app catalog.
-- Install app per site where needed.
-- Least blast radius; ideal for client-by-client rollout.
-
-### Tenant app catalog publish
-
-- Package is available centrally.
-- With current config, `skipFeatureDeployment=false` in `spfx/UniversalHtmlViewer/config/package-solution.json`, so site installation is typically still required.
-
-## Scripts reference
+## Scripts Reference
 
 | Script | Purpose |
 | --- | --- |
-| `scripts/Build-UHV.ps1` | Build/package with known-good local Node bootstrap fallback. |
-| `scripts/Deploy-UHV.ps1` | Publish `.sppkg` to app catalog (site/tenant scope). |
+| `scripts/Build-UHV.ps1` | Build/package with local Node bootstrap fallback. |
+| `scripts/Deploy-UHV.ps1` | Upload/publish `.sppkg` to app catalog. |
 | `scripts/Deploy-UHV-Wrapper.ps1` | Build + deploy wrapper. |
-| `scripts/deploy-uhv.cmd` | Windows shortcut for wrapper. |
-| `scripts/Add-UHVPage.ps1` | Create page, add UHV web part, set properties. |
-| `scripts/Setup-UHVSite.ps1` | Install/update app on site and create configured dashboard page. |
-| `scripts/Update-UHVSiteApp.ps1` | Upgrade installed app instance across many sites. |
-| `scripts/Rollback-UHV.ps1` | Republish older package and update target sites. |
-| `scripts/Package-UHV.ps1` | Create client-ready release zip. |
+| `scripts/Setup-UHVSite.ps1` | Install/update app and provision configured page. |
+| `scripts/Add-UHVPage.ps1` | Add/configure UHV web part on a site page. |
+| `scripts/Update-UHVSiteApp.ps1` | Update installed app on one or more sites. |
+| `scripts/Rollback-UHV.ps1` | Roll back to older package and reapply site updates. |
 
-## Local development
+## Permissions and Access Model
 
-Prerequisites:
+- `.sppkg` trust is controlled by SharePoint App Catalog governance.
+- Viewer access depends on SharePoint permissions to:
+  - the site page hosting UHV
+  - the report files in document libraries
+- For denied report file access, UHV can surface an open/request-access path.
 
-- Node.js `>=22.14.0 <23.0.0`
-- npm
+## Troubleshooting
 
-Install:
+- Report downloads instead of rendering: switch to `SharePointFileContent`.
+- Navigation not staying inline: verify relative links and allowed extensions.
+- Deep-link opens but landing position is wrong: retest with `?uhvTraceScroll=1` and review trace.
+- Page editing issues (`SavePageCoAuth 400`): often SharePoint authoring state; see deployment guide.
 
-```bash
-cd spfx/UniversalHtmlViewer
-npm ci
-```
-
-Run SPFx serve:
-
-```bash
-npm run serve
-```
-
-Workbench:
-
-```text
-https://<tenant>.sharepoint.com/_layouts/workbench.aspx
-```
-
-## Testing
-
-```bash
-cd spfx/UniversalHtmlViewer
-npm test
-```
-
-Current unit tests cover URL/source computation and inline navigation helpers.
-
-## Security and trust model
-
-SharePoint Online does not use Authenticode-style signing for `.sppkg`.  
-Trust is governed by:
-
-- App catalog upload/publish permissions,
-- Tenant/site admin approval and installation flow,
-- SharePoint tenant security controls.
-
-Recommended operational controls:
-
-- Use versioned release artifacts from CI.
-- Verify checksums (`SHA256SUMS.txt`) for release bundles.
-- Keep deployment rights least-privileged.
-- Optionally sign internal PowerShell scripts in your org process.
-
-## Troubleshooting quick hits
-
-- Dashboard opens as download / iframe timeout:
-  use `SharePointFileContent` mode.
-- Linked pages do not navigate inline:
-  keep links relative and use a SharePoint library preset.
-- Nested iframe wrappers fail:
-  use relaxed SharePoint preset with inline mode.
-- Page edit exits with `SavePageCoAuth 400`:
-  often SharePoint authoring issue; temporary workaround:
-  `Set-PnPList -Identity "Site Pages" -ForceCheckout:$true`.
-- Fluid schema error on script-created page:
-  recreate with latest `Add-UHVPage.ps1 -ForceOverwrite`.
-
-## Documentation
-
-- Deployment guide: `docs/Deploy-SharePointOnline.md`
-- SPFx solution root: `spfx/UniversalHtmlViewer`
-
-## Repository structure
+## Repo Layout
 
 ```text
 .
+├─ assets/
 ├─ docs/
 │  └─ Deploy-SharePointOnline.md
 ├─ scripts/
-│  ├─ Build-UHV.ps1
-│  ├─ Deploy-UHV.ps1
-│  ├─ Deploy-UHV-Wrapper.ps1
-│  ├─ Add-UHVPage.ps1
-│  ├─ Setup-UHVSite.ps1
-│  ├─ Update-UHVSiteApp.ps1
-│  └─ Rollback-UHV.ps1
 └─ spfx/
    └─ UniversalHtmlViewer/
 ```
-
-## Please share with the community
-
-[![Share on reddit](https://img.shields.io/badge/share%20on-reddit-red?logo=reddit)](https://reddit.com/submit?url=https://github.com/EvotecIT/UltimateHtmlViewer&title=UniversalHtmlViewer)
-[![Share on hacker news](https://img.shields.io/badge/share%20on-hacker%20news-orange?logo=ycombinator)](https://news.ycombinator.com/submitlink?u=https://github.com/EvotecIT/UltimateHtmlViewer)
-[![Share on twitter](https://img.shields.io/badge/share%20on-twitter-03A9F4?logo=twitter)](https://twitter.com/share?url=https://github.com/EvotecIT/UltimateHtmlViewer&t=UniversalHtmlViewer)
-[![Share on linkedin](https://img.shields.io/badge/share%20on-linkedin-3949AB?logo=linkedin)](https://www.linkedin.com/shareArticle?url=https://github.com/EvotecIT/UltimateHtmlViewer&title=UniversalHtmlViewer)
