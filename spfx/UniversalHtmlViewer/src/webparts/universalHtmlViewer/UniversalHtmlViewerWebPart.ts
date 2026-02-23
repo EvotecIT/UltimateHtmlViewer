@@ -47,6 +47,13 @@ import {
   IUniversalHtmlViewerWebPartProps,
 } from './UniversalHtmlViewerTypes';
 
+interface IInlineDeepLinkFrameMetrics {
+  frameClientHeight: number;
+  frameScrollHeight: number;
+  documentHeight: number;
+  pendingNestedFrames: number;
+}
+
 export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPartUiBase {
   private nestedIframeHydrationCleanup: (() => void) | undefined;
   private initialDeepLinkScrollLockCleanup: (() => void) | undefined;
@@ -983,6 +990,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     let lastTraceAt = 0;
     const lockStartedAt = Date.now();
     let lastDeviationAt = lockStartedAt;
+    let lastInlineFrameMetrics: IInlineDeepLinkFrameMetrics | undefined =
+      this.getInlineDeepLinkFrameMetrics();
     const hostScrollContainers = this.getPotentialHostScrollContainers();
     const scrollTraceEnabled = this.isScrollTraceEnabled();
     let release: () => void = (): void => {
@@ -990,7 +999,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     };
     const minLockDurationMs = 500;
     const stableReleaseDurationMs = 900;
-    const maxLockDurationMs = 8000;
+    const maxLockDurationMs = 12000;
+    const frameHeightShiftThresholdPx = 6;
+    const documentHeightShiftThresholdPx = 12;
     const timeouts: number[] = [];
     const interactionEvents: Array<keyof WindowEventMap> = [
       'wheel',
@@ -1041,7 +1052,38 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.resetInlineIframeScrollPositionForDeepLink();
       const currentHostScrollContainers = this.getPotentialHostScrollContainers();
       const scrollOffsets = this.getDeepLinkScrollOffsets(currentHostScrollContainers);
-      if (scrollOffsets.maxOffset > 2) {
+      const inlineFrameMetrics = this.getInlineDeepLinkFrameMetrics();
+      const hasPendingNestedFrames = (inlineFrameMetrics?.pendingNestedFrames || 0) > 0;
+      const hasFrameHeightShift =
+        !!inlineFrameMetrics &&
+        !!lastInlineFrameMetrics &&
+        Math.abs(inlineFrameMetrics.frameClientHeight - lastInlineFrameMetrics.frameClientHeight) >=
+          frameHeightShiftThresholdPx;
+      const hasDocumentHeightShift =
+        !!inlineFrameMetrics &&
+        !!lastInlineFrameMetrics &&
+        Math.abs(inlineFrameMetrics.documentHeight - lastInlineFrameMetrics.documentHeight) >=
+          documentHeightShiftThresholdPx;
+      const hasLayoutShift = hasFrameHeightShift || hasDocumentHeightShift;
+
+      if (hasLayoutShift) {
+        trace('iframe-layout-shift-detected', {
+          frameClientHeight: inlineFrameMetrics?.frameClientHeight || 0,
+          previousFrameClientHeight: lastInlineFrameMetrics?.frameClientHeight || 0,
+          documentHeight: inlineFrameMetrics?.documentHeight || 0,
+          previousDocumentHeight: lastInlineFrameMetrics?.documentHeight || 0,
+        });
+      }
+      if (hasPendingNestedFrames) {
+        trace('nested-frame-processing', {
+          pendingNestedFrames: inlineFrameMetrics?.pendingNestedFrames || 0,
+        });
+      }
+      if (inlineFrameMetrics) {
+        lastInlineFrameMetrics = inlineFrameMetrics;
+      }
+
+      if (scrollOffsets.maxOffset > 2 || hasLayoutShift || hasPendingNestedFrames) {
         lastDeviationAt = now;
       } else if (
         now - lockStartedAt >= minLockDurationMs &&
@@ -1204,6 +1246,44 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return 0;
     }
     return this.getIframeDeepMaxScrollTop(iframe);
+  }
+  private getInlineDeepLinkFrameMetrics(): IInlineDeepLinkFrameMetrics | undefined {
+    const iframe = this.domElement.querySelector('iframe');
+    if (!iframe) {
+      return undefined;
+    }
+
+    const metrics: IInlineDeepLinkFrameMetrics = {
+      frameClientHeight: iframe.clientHeight || 0,
+      frameScrollHeight: iframe.scrollHeight || 0,
+      documentHeight: 0,
+      pendingNestedFrames: 0,
+    };
+
+    try {
+      const iframeDocument = iframe.contentDocument;
+      if (!iframeDocument) {
+        return metrics;
+      }
+
+      const root = iframeDocument.documentElement;
+      const body = iframeDocument.body;
+      metrics.documentHeight = Math.max(
+        root?.scrollHeight || 0,
+        body?.scrollHeight || 0,
+        root?.offsetHeight || 0,
+        body?.offsetHeight || 0,
+        root?.clientHeight || 0,
+        body?.clientHeight || 0,
+      );
+      metrics.pendingNestedFrames = iframeDocument.querySelectorAll(
+        'iframe[data-uhv-nested-state="processing"]',
+      ).length;
+    } catch {
+      // Ignore cross-origin iframe access issues.
+    }
+
+    return metrics;
   }
   private resetInlineIframeScrollPositionForDeepLink(): void {
     const iframe = this.domElement.querySelector('iframe');
