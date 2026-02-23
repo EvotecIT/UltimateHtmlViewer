@@ -7,7 +7,7 @@ param(
     [string]$AppCatalogScope = "Tenant",
 
     [string]$UhvAppId = "15fe766e-03e4-4543-8129-c5e260b0b9e9",
-    [string]$UhvAppNamePattern = "universal-html-viewer-client-side-solution",
+    [string]$UhvAppNamePattern = "Universal HTML Viewer",
     [switch]$InstallIfMissing,
 
     [string]$ClientId,
@@ -55,6 +55,18 @@ function Normalize-Id {
 
     return $Value.Trim().TrimStart("{").TrimEnd("}").ToLowerInvariant()
 }
+function Normalize-SearchText {
+    param(
+        [string]$Value
+    )
+
+    if (-not $Value) {
+        return ""
+    }
+
+    $normalized = $Value.ToLowerInvariant() -replace "[^a-z0-9]+", " "
+    return ($normalized -replace "\s+", " ").Trim()
+}
 
 function Find-UhvCatalogApp {
     param(
@@ -75,6 +87,7 @@ function Find-UhvCatalogApp {
         $matched = $apps | Where-Object {
             $idValue = Normalize-Id (Get-StringPropertyValue -InputObject $_ -PropertyNames @("Id", "AppId"))
             $titleValue = (Get-StringPropertyValue -InputObject $_ -PropertyNames @("Title", "Name")).Trim().ToLowerInvariant()
+            $normalizedTitleValue = Normalize-SearchText $titleValue
 
             $idMatch = $false
             if ($UhvAppId) {
@@ -83,7 +96,10 @@ function Find-UhvCatalogApp {
 
             $nameMatch = $false
             if ($UhvAppNamePattern) {
-                $nameMatch = $titleValue -like "*$($UhvAppNamePattern.Trim().ToLowerInvariant())*"
+                $normalizedPattern = Normalize-SearchText $UhvAppNamePattern
+                $nameMatch =
+                    $titleValue -like "*$($UhvAppNamePattern.Trim().ToLowerInvariant())*" -or
+                    ($normalizedPattern -and $normalizedTitleValue -like "*$normalizedPattern*")
             }
 
             return $idMatch -or $nameMatch

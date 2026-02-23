@@ -168,7 +168,7 @@ Build only (no SharePoint login):
 When not using true tenant-wide skip-feature deployment, install app on each target site:
 
 1. Open `Site contents`.
-2. Select `Add an app` and install `universal-html-viewer-client-side-solution` from organization apps.
+2. Select `Add an app` and install `Universal HTML Viewer` from organization apps.
 3. Refresh page editor and add `Universal HTML Viewer` web part.
 
 ## 6) Recommended UHV config for SharePoint-hosted dashboards
