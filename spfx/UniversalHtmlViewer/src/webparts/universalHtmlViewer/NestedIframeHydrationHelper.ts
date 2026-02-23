@@ -169,6 +169,16 @@ function ensureNestedFrameNavigationWired(
   }
 
   const onFrameLoad = (): void => {
+    resetNestedFrameScrollPosition(frame);
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        resetNestedFrameScrollPosition(frame);
+      }, 80);
+      window.setTimeout(() => {
+        resetNestedFrameScrollPosition(frame);
+      }, 260);
+    }
+
     const frameDocument = tryGetIframeDocument(frame);
     if (!frameDocument || !frameDocument.documentElement) {
       return;
@@ -269,6 +279,39 @@ function tryGetIframeDocument(iframe: HTMLIFrameElement): Document | undefined {
     return iframe.contentDocument || undefined;
   } catch {
     return undefined;
+  }
+}
+
+function resetNestedFrameScrollPosition(frame: HTMLIFrameElement, depth: number = 0): void {
+  if (depth > 2) {
+    return;
+  }
+
+  try {
+    const frameWindow = frame.contentWindow;
+    if (frameWindow) {
+      frameWindow.scrollTo(0, 0);
+    }
+
+    const frameDocument = frame.contentDocument;
+    if (!frameDocument) {
+      return;
+    }
+    if (frameDocument.documentElement) {
+      frameDocument.documentElement.scrollTop = 0;
+      frameDocument.documentElement.scrollLeft = 0;
+    }
+    if (frameDocument.body) {
+      frameDocument.body.scrollTop = 0;
+      frameDocument.body.scrollLeft = 0;
+    }
+
+    const nestedFrames = frameDocument.querySelectorAll('iframe');
+    nestedFrames.forEach((nestedFrame) => {
+      resetNestedFrameScrollPosition(nestedFrame as HTMLIFrameElement, depth + 1);
+    });
+  } catch {
+    // Ignore cross-origin nested frame access issues.
   }
 }
 
