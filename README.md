@@ -6,6 +6,8 @@ SPFx web part for hosting HTML experiences in modern SharePoint pages, with deep
 [![Release SPPKG](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml)
 [![license](https://img.shields.io/github/license/EvotecIT/UltimateHtmlViewer.svg)](https://github.com/EvotecIT/UltimateHtmlViewer)
 
+Security notes and current dependency-alert disposition: `SECURITY.md`
+
 ## ✨ What UHV Solves
 
 Static HTML report/app bundles in SharePoint often cause iframe download behavior, broken relative links, weak deep-linking, and inconsistent page scrolling. UHV provides a predictable host layer for those experiences.
