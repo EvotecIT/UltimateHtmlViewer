@@ -349,6 +349,12 @@ Operations runbook (reusable): `docs/Operations-Runbook.md`
   -DeviceLogin `
   -ClientId "<client-guid>" `
   -Tenant "<tenant>.onmicrosoft.com"
+
+# All-in-one deploy/update pipeline (tenant + target sites)
+.\scripts\Deploy-UHV-All.ps1 `
+  -ClientId "<client-guid>" `
+  -Tenant "<tenant>.onmicrosoft.com" `
+  -DeviceLogin
 ```
 
 Note: `-SiteRelativeDashboardPath` is a backward-compatible name and accepts any HTML entry file path.
@@ -360,6 +366,7 @@ Note: `-SiteRelativeDashboardPath` is a backward-compatible name and accepts any
 | `scripts/Build-UHV.ps1` | Build/package with local Node bootstrap fallback. |
 | `scripts/Deploy-UHV.ps1` | Upload/publish `.sppkg` to app catalog. |
 | `scripts/Deploy-UHV-Wrapper.ps1` | Build + deploy wrapper. |
+| `scripts/Deploy-UHV-All.ps1` | Build, deploy to app catalog, then update/install on target sites. |
 | `scripts/Setup-UHVSite.ps1` | Install/update app and provision configured page. |
 | `scripts/Add-UHVPage.ps1` | Add/configure UHV web part on a site page. |
 | `scripts/Update-UHVSiteApp.ps1` | Update installed app on one or more sites. |
