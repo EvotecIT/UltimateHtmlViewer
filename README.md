@@ -71,6 +71,32 @@ flowchart LR
   F --> G[Back/Forward works]
 ```
 
+### Screenshot Legend: Exact Option Mapping
+
+Use this as a quick checklist when reproducing the setup from screenshots.
+
+| Screenshot | Where | Option | Recommended value |
+| --- | --- | --- | --- |
+| `uhv-property-pane-quick-setup.png` | Quick setup | `Configuration preset` | `SharePoint library (relaxed)` |
+| `uhv-property-pane-quick-setup.png` | Source | `HTML source mode` | `Full URL` |
+| `uhv-property-pane-quick-setup.png` | Source | `Content delivery mode` | `SharePoint file API (inline iframe)` |
+| `uhv-property-pane-quick-setup.png` | Source | `Full URL to HTML page` | `https://<tenant>.sharepoint.com/sites/<site>/SiteAssets/<dashboard>.html` |
+| `uhv-property-pane-layout-display.png` | Layout | `Height mode` | `Viewport (100vh)` |
+| `uhv-property-pane-layout-display.png` | Layout | `Fit content to width (inline mode)` | `Off` (toggle as needed for wide reports) |
+| `uhv-property-pane-layout-display.png` | Layout | `Fixed height (px)` | `800` (baseline) |
+| `uhv-property-pane-layout-display.png` | Display & UX | `Chrome density` | `Comfortable` |
+| `uhv-property-pane-layout-display.png` | Display & UX | `Chrome title` | `Universal HTML Viewer` |
+| `uhv-property-pane-layout-display.png` | Display & UX | `Show status pill` | `On` |
+| `uhv-property-pane-layout-display.png` | Display & UX | `Show last updated time` | `On` |
+| `uhv-property-pane-layout-display.png` | Display & UX | `Show loading indicator` | `On` |
+| `uhv-property-pane-security-iframe.png` | Caching | `Cache-busting mode` | `SharePoint file modified time` |
+| `uhv-property-pane-security-iframe.png` | Caching | `Cache-buster parameter name` | `v` |
+| `uhv-property-pane-security-iframe.png` | Iframe | `Loading mode` | `Eager` |
+| `uhv-property-pane-security-iframe.png` | Iframe | `Sandbox preset` | `Relaxed` |
+| `uhv-property-pane-security-iframe.png` | Iframe | `Iframe load timeout` | `10s` |
+| `uhv-dashboard-menu.png` | Runtime behavior | `Inline link interception` | Enabled for `.html`, `.htm`, `.aspx` |
+| `uhv-dashboard-menu.png` | Runtime behavior | `URL state` | `?uhvPage=<encoded-target>` |
+
 ## ⚙️ How It Works
 
 ```mermaid
