@@ -254,12 +254,24 @@ sequenceDiagram
 ## 🛠️ Build and Deploy
 
 Full deployment guide: `docs/Deploy-SharePointOnline.md`
+Operations runbook (reusable): `docs/Operations-Runbook.md`
 
 ### Quick commands
 
 ```powershell
+# Optional: load your local (non-committed) profile values
+. .\ignore\UHV.LocalProfile.ps1
+
 # Build package
 .\scripts\Build-UHV.ps1
+
+# One-command site setup (recommended)
+.\scripts\Setup-UHVSite.ps1 `
+  -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
+  -SiteRelativeDashboardPath "SiteAssets/Index.html" `
+  -ConfigurationPreset "SharePointLibraryRelaxed" `
+  -ContentDeliveryMode "SharePointFileContent" `
+  -DeviceLogin
 
 # Build + deploy to tenant app catalog
 .\scripts\Deploy-UHV-Wrapper.ps1 `
@@ -293,6 +305,24 @@ Full deployment guide: `docs/Deploy-SharePointOnline.md`
 | `scripts/Add-UHVPage.ps1` | Add/configure UHV web part on a site page. |
 | `scripts/Update-UHVSiteApp.ps1` | Update installed app on one or more sites. |
 | `scripts/Rollback-UHV.ps1` | Roll back to older package and reapply site updates. |
+| `scripts/examples/UHV.LocalProfile.example.ps1` | Template for local auth/tenant profile values. |
+
+## 🧰 Local-Only Operator Files
+
+Use `ignore/` for local notes, secrets, and machine-specific snippets.
+
+- Folder is intentionally ignored by git.
+- Keep reusable templates in `scripts/examples/`.
+- Copy template to `ignore/` and edit locally:
+
+```powershell
+Copy-Item .\scripts\examples\UHV.LocalProfile.example.ps1 .\ignore\UHV.LocalProfile.ps1
+```
+
+Scripts support auth fallbacks from environment variables:
+
+- `UHV_CLIENT_ID`
+- `UHV_TENANT`
 
 ## 🩺 Troubleshooting
 
@@ -307,8 +337,11 @@ Full deployment guide: `docs/Deploy-SharePointOnline.md`
 .
 ├─ assets/
 ├─ docs/
-│  └─ Deploy-SharePointOnline.md
+│  ├─ Deploy-SharePointOnline.md
+│  └─ Operations-Runbook.md
+├─ ignore/                  (local-only, non-committed workspace)
 ├─ scripts/
+│  └─ examples/
 └─ spfx/
    └─ UniversalHtmlViewer/
 ```

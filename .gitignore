@@ -4,6 +4,13 @@ coverage/
 .DS_Store
 Thumbs.db
 .tools/
+/release/
+UPDATE*.MD
+
+# Local operator-only files (tenant values, notes, ad-hoc runbooks)
+ignore/*
+!ignore/.gitkeep
+!ignore/README.md
 
 spfx/UniversalHtmlViewer/node_modules/
 spfx/UniversalHtmlViewer/lib/

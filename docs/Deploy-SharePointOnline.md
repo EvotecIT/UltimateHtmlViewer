@@ -11,6 +11,7 @@ This guide shows how to build, publish, install, update, and rollback UniversalH
 
 - Product overview and capabilities: `README.md`
 - Deployment and operations (this guide): `docs/Deploy-SharePointOnline.md`
+- Reusable day-to-day runbook: `docs/Operations-Runbook.md`
 
 ## What this guide covers
 
@@ -51,6 +52,8 @@ Auth reuse defaults:
 - Scripted connections now default to persisted login (`-PersistLogin $true`) to reduce repeat device/interactive prompts between runs.
 - Use `-PersistLogin:$false` for a non-persistent session.
 - Use `-ForceAuthentication` to force a fresh login prompt.
+- If `-ClientId` / `-Tenant` are omitted, scripts can read `UHV_CLIENT_ID` / `UHV_TENANT` environment variables.
+- For local-only values, use `ignore/UHV.LocalProfile.ps1` (template: `scripts/examples/UHV.LocalProfile.example.ps1`).
 
 ## 1) One-time auth setup (ClientId for PnP.PowerShell)
 

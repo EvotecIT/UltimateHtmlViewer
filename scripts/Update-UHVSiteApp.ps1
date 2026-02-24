@@ -20,6 +20,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+if ([string]::IsNullOrWhiteSpace($ClientId)) {
+    $ClientId = $env:UHV_CLIENT_ID
+}
+if ([string]::IsNullOrWhiteSpace($Tenant)) {
+    $Tenant = $env:UHV_TENANT
+}
+
 if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
     throw "PnP.PowerShell module not found. Install-Module PnP.PowerShell -Scope CurrentUser"
 }
