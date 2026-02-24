@@ -90,33 +90,33 @@ You can quickly confirm install status before touching any page configuration.
 
 ### 2. Add UHV web part to any modern page
 
-Once added, UHV becomes the host layer for your report bundle.
+Once added, UHV becomes the host layer for your HTML app/report experience.
 
-![UHV dashboard overview](assets/uhv-dashboard-overview.png)
+![UHV runtime on modern SharePoint page](assets/uhv-showcase-runtime-page.png)
 
 ### 3. Configure source and delivery mode
 
 Set report source and use `SharePointFileContent` for inline rendering reliability.
 
-![UHV quick setup](assets/uhv-property-pane-quick-setup.png)
+![UHV quick setup in page editor](assets/uhv-showcase-editor-quick-setup.png)
 
-### 4. Tune layout and chrome
+### 4. Validate minimal runtime presentation
 
-Set height strategy, width fit, and viewer chrome for readable HTML content.
+Use published view (optionally `?env=Embedded`) for a clean app-like experience.
 
-![UHV layout and display](assets/uhv-property-pane-layout-display.png)
+![UHV runtime with reduced chrome](assets/uhv-showcase-runtime-embedded.png)
 
-### 5. Lock down security and iframe behavior
+### 5. Confirm deep links, security, and operations model
 
-Choose URL policy and sandbox preset that match your tenant governance.
+The showcase can document deep-link contract, policy modes, and deployment runbooks in one surface.
 
-![UHV security and iframe](assets/uhv-property-pane-security-iframe.png)
+![UHV deep-link, security, and operations sections](assets/uhv-showcase-deeplink-security-ops.png)
 
-### 6. Users navigate embedded links inline
+### 6. Final published experience
 
-As users click links, UHV keeps navigation inline and updates page URL state.
+Published page view is ready for end users. Optional page social actions can be disabled at site scope.
 
-![UHV dashboard menu](assets/uhv-dashboard-menu.png)
+![UHV published page with social bar](assets/uhv-showcase-runtime-socialbar.png)
 
 ```mermaid
 flowchart LR
@@ -134,25 +134,24 @@ Use this as a quick checklist when reproducing the setup from screenshots.
 
 | Screenshot | Where | Option | Recommended value |
 | --- | --- | --- | --- |
-| `uhv-property-pane-quick-setup.png` | Quick setup | `Configuration preset` | `SharePoint library (relaxed)` |
-| `uhv-property-pane-quick-setup.png` | Source | `HTML source mode` | `Full URL` |
-| `uhv-property-pane-quick-setup.png` | Source | `Content delivery mode` | `SharePoint file API (inline iframe)` |
-| `uhv-property-pane-quick-setup.png` | Source | `Full URL to HTML page` | `https://<tenant>.sharepoint.com/sites/<site>/SiteAssets/<entry>.html` |
-| `uhv-property-pane-layout-display.png` | Layout | `Height mode` | `Viewport (100vh)` |
-| `uhv-property-pane-layout-display.png` | Layout | `Fit content to width (inline mode)` | `Off` (toggle as needed for wide reports) |
-| `uhv-property-pane-layout-display.png` | Layout | `Fixed height (px)` | `800` (baseline) |
-| `uhv-property-pane-layout-display.png` | Display & UX | `Chrome density` | `Comfortable` |
-| `uhv-property-pane-layout-display.png` | Display & UX | `Chrome title` | `Universal HTML Viewer` |
-| `uhv-property-pane-layout-display.png` | Display & UX | `Show status pill` | `On` |
-| `uhv-property-pane-layout-display.png` | Display & UX | `Show last updated time` | `On` |
-| `uhv-property-pane-layout-display.png` | Display & UX | `Show loading indicator` | `On` |
-| `uhv-property-pane-security-iframe.png` | Caching | `Cache-busting mode` | `SharePoint file modified time` |
-| `uhv-property-pane-security-iframe.png` | Caching | `Cache-buster parameter name` | `v` |
-| `uhv-property-pane-security-iframe.png` | Iframe | `Loading mode` | `Eager` |
-| `uhv-property-pane-security-iframe.png` | Iframe | `Sandbox preset` | `Relaxed` |
-| `uhv-property-pane-security-iframe.png` | Iframe | `Iframe load timeout` | `10s` |
-| `uhv-dashboard-menu.png` | Runtime behavior | `Inline link interception` | Enabled for `.html`, `.htm`, `.aspx` |
-| `uhv-dashboard-menu.png` | Runtime behavior | `URL state` | `?uhvPage=<encoded-target>` |
+| `uhv-showcase-editor-quick-setup.png` | Quick setup | `Configuration preset` | `SharePoint library (relaxed)` |
+| `uhv-showcase-editor-quick-setup.png` | Source | `HTML source mode` | `Full URL` |
+| `uhv-showcase-editor-quick-setup.png` | Source | `Content delivery mode` | `SharePoint file API (inline iframe)` |
+| `uhv-showcase-editor-quick-setup.png` | Source | `Full URL to HTML page` | `https://<tenant>.sharepoint.com/sites/<site>/Shared%20Documents/<entry>.html` |
+| `uhv-showcase-runtime-embedded.png` | Runtime shell | `?env=Embedded` | Optional (when supported by host context) |
+| `uhv-showcase-deeplink-security-ops.png` | Runtime behavior | `URL state` | `?uhvPage=<encoded-target>` |
+| `uhv-showcase-deeplink-security-ops.png` | Security | URL policy mode | `StrictTenant` or `Allowlist` |
+| `uhv-showcase-runtime-socialbar.png` | Site UX | Social bar | Optional; can be disabled per site |
+
+### Legacy Demo Screenshots
+
+Previous dashboard-oriented visuals are preserved for reference:
+
+- `assets/legacy/uhv-dashboard-overview.png`
+- `assets/legacy/uhv-dashboard-menu.png`
+- `assets/legacy/uhv-property-pane-quick-setup.png`
+- `assets/legacy/uhv-property-pane-layout-display.png`
+- `assets/legacy/uhv-property-pane-security-iframe.png`
 
 ## ⚙️ How It Works
 
@@ -307,6 +306,39 @@ sequenceDiagram
   - the underlying report files/folders being loaded
 - If user can open the page but not the target file, content load fails according to SharePoint security response.
 - Shareable deep links still work only for users who have permission to both page and target file.
+
+## 🎛️ Minimal Viewer Mode (Tips & Tricks)
+
+- Use a published page view (not edit mode) for a clean runtime surface.
+- Add `?env=Embedded` to page URLs to reduce SharePoint chrome where supported.
+- Turn off page comments in **Page details** when you do not need discussion threads.
+- Disable Social Bar (`Like`, `Save for later`, views) at site scope:
+
+```powershell
+Import-Module Microsoft.Online.SharePoint.PowerShell
+Connect-SPOService -Url "https://<tenant>-admin.sharepoint.com"
+Set-SPOSite -Identity "https://<tenant>.sharepoint.com/sites/<site>" -SocialBarOnSitePagesDisabled $true
+```
+
+- Re-enable Social Bar later if needed:
+
+```powershell
+Set-SPOSite -Identity "https://<tenant>.sharepoint.com/sites/<site>" -SocialBarOnSitePagesDisabled $false
+```
+
+- If you are already using PnP admin auth and cannot use `Connect-SPOService`, site-scope CSOM fallback:
+
+```powershell
+Connect-PnPOnline -Url "https://<tenant>-admin.sharepoint.com" -DeviceLogin -ClientId "<client-guid>" -Tenant "<tenant>.onmicrosoft.com"
+$ctx = Get-PnPContext
+$tenant = [Microsoft.Online.SharePoint.TenantAdministration.Tenant]::new($ctx)
+$siteProps = $tenant.GetSitePropertiesByUrl("https://<tenant>.sharepoint.com/sites/<site>", $true)
+$ctx.Load($siteProps); $ctx.ExecuteQuery()
+$siteProps.SocialBarOnSitePagesDisabled = $true
+$siteProps.Update(); $ctx.ExecuteQuery()
+```
+
+- Editors/owners may still see authoring commands (`New`, `Promote`, `Edit`) because those are permission-driven.
 
 ## 🛠️ Build and Deploy
 
