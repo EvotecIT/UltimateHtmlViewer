@@ -21,27 +21,55 @@ Static HTML report bundles in SharePoint often cause iframe download behavior, b
 - Auto-height and width-fit behavior for big dashboards.
 - Scripted build/deploy/update/rollback workflows.
 
-## 🖼️ Product Screens
+## 🖼️ Visual Story: From Install to Deep Links
 
-### Dashboard embedded in modern page
+This is the real journey users and admins follow in SharePoint.
+
+### 1. App is visible in Site Contents
+
+You can quickly confirm install status before touching any page configuration.
+
+![UHV app tile in site contents](assets/uhv-site-contents-app-tile.png)
+
+### 2. Add UHV web part to the dashboard page
+
+Once added, UHV becomes the host layer for your report bundle.
 
 ![UHV dashboard overview](assets/uhv-dashboard-overview.png)
 
-### Dashboard menu and deep navigation
+### 3. Configure source and delivery mode
 
-![UHV dashboard menu](assets/uhv-dashboard-menu.png)
-
-### Property pane: quick setup + source
+Set report source and use `SharePointFileContent` for inline rendering reliability.
 
 ![UHV quick setup](assets/uhv-property-pane-quick-setup.png)
 
-### Property pane: layout + display
+### 4. Tune layout and chrome
+
+Set height strategy, width fit, and viewer chrome for readable dashboards.
 
 ![UHV layout and display](assets/uhv-property-pane-layout-display.png)
 
-### Property pane: security + iframe
+### 5. Lock down security and iframe behavior
+
+Choose URL policy and sandbox preset that match your tenant governance.
 
 ![UHV security and iframe](assets/uhv-property-pane-security-iframe.png)
+
+### 6. Users navigate dashboard menus inline
+
+As users click links, UHV keeps navigation inline and updates page URL state.
+
+![UHV dashboard menu](assets/uhv-dashboard-menu.png)
+
+```mermaid
+flowchart LR
+  A[Install app] --> B[Add web part]
+  B --> C[Configure source]
+  C --> D[Set layout/security]
+  D --> E[Users navigate reports]
+  E --> F[URL updates with uhvPage]
+  F --> G[Back/Forward works]
+```
 
 ## ⚙️ How It Works
 
