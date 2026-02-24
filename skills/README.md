@@ -4,6 +4,8 @@ Reusable operator/contributor playbooks for common UHV workflows.
 
 ## Available Skills
 
+- `skills/QUICKSTART.md`
+  - 60-second operator flow linking profile, deploy, and debug paths.
 - `skills/uhv-release-deploy/SKILL.md`
   - Build/package, deploy to app catalog, update sites, verify installed version.
 - `skills/uhv-sharepoint-debug/SKILL.md`
