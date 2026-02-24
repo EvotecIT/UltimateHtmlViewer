@@ -13,12 +13,12 @@ Use this checklist after deploying the latest package to a test site.
 - [ ] Web part is configured to:
   - `ContentDeliveryMode = SharePointFileContent`
   - `ConfigurationPreset = SharePointLibraryRelaxed` (or stricter as required)
-  - source points to the root dashboard HTML
+  - source points to the root entry HTML file
 
 ## Navigation and Deep Links
 
-- [ ] Open dashboard page with no `uhvPage` query parameter
-  - Expected: default dashboard page loads
+- [ ] Open host page with no `uhvPage` query parameter
+  - Expected: default entry page loads
 - [ ] Navigate to 2-3 subpages via report menu links
   - Expected: page URL updates with `uhvPage=...`
 - [ ] Copy current URL and open it in new browser tab
@@ -30,9 +30,9 @@ Use this checklist after deploying the latest package to a test site.
 
 - [ ] Edit URL manually with invalid/forbidden `uhvPage`
   - Expected: clear error appears
-  - Expected: `Reset to default dashboard` action is shown
-- [ ] Click `Reset to default dashboard`
-  - Expected: returns to default dashboard and removes deep-link override
+  - Expected: `Reset to default` action is shown
+- [ ] Click `Reset to default`
+  - Expected: returns to default entry page and removes deep-link override
 
 ## Access and Request Access Flow
 
@@ -50,9 +50,9 @@ Use this checklist after deploying the latest package to a test site.
 - [ ] Navigate between subpages multiple times
   - Expected: no unexpected file download prompts
 
-## Dashboard Selector (if enabled)
+## Content Selector (if enabled)
 
-- [ ] Change dashboard using selector in header
+- [ ] Change content using selector in header
   - Expected: switches content without direct-file download behavior
   - Expected: URL deep-link updates and remains shareable
 

@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Universal HTML Viewer - Feature Showcase</title>
+  <style>
+    :root {
+      --bg: #f5f9fc;
+      --ink: #102338;
+      --muted: #5d728a;
+      --line: #d8e5f0;
+      --card: #ffffff;
+      --brand-a: #00abd4;
+      --brand-b: #0078d4;
+      --good: #14b89a;
+      --warn: #ebb12d;
+      --risk: #eb5e28;
+      --radius: 18px;
+      --shadow: 0 16px 28px rgba(16, 35, 56, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", "Calibri", "Arial", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1300px 600px at 8% -15%, #d7eef9, transparent 55%),
+        radial-gradient(900px 520px at 100% -8%, #dff7ff, transparent 58%),
+        var(--bg);
+    }
+
+    .wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .top {
+      background: #0a1624;
+      color: #d8e8f8;
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      color: #f6fbff;
+    }
+
+    .mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, #28cae8 0%, #0c89da 100%);
+      box-shadow: 0 10px 18px rgba(12, 137, 218, 0.42);
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .nav a {
+      text-decoration: none;
+      color: #abc8e5;
+      font-size: 12px;
+      padding: 8px 11px;
+      border-radius: 999px;
+      border: 1px solid #1d3953;
+      transition: all 0.2s ease;
+    }
+
+    .nav a:hover {
+      color: #fff;
+      border-color: #2d6a9b;
+      background: rgba(45, 106, 155, 0.35);
+    }
+
+    .stamp {
+      text-align: right;
+      font-size: 12px;
+      color: #91b4d8;
+    }
+
+    .hero {
+      margin-top: 12px;
+      border-radius: var(--radius);
+      background: linear-gradient(120deg, var(--brand-a) 0%, #0097d4 28%, var(--brand-b) 100%);
+      color: #fff;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero h1 {
+      margin: 0 0 8px 0;
+      font-size: 34px;
+      line-height: 1.06;
+      letter-spacing: 0.2px;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 980px;
+      font-size: 14px;
+      color: #d9f4ff;
+    }
+
+    .chip-row {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 999px;
+      font-size: 12px;
+      padding: 6px 10px;
+      color: #f4fcff;
+    }
+
+    .grid {
+      margin-top: 12px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(12, 1fr);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+    }
+
+    .card p {
+      margin: 0 0 10px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .span-12 { grid-column: span 12; }
+    .span-7 { grid-column: span 7; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    .span-4 { grid-column: span 4; }
+    .span-8 { grid-column: span 8; }
+
+    .feature-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .feature {
+      border: 1px solid var(--line);
+      background: #f9fcff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .mode {
+      border: 1px solid var(--line);
+      background: #f9fcff;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .mode h3 {
+      margin: 0 0 5px 0;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: #e8f4ff;
+      color: #2e5f8d;
+      border: 1px solid #cce2f5;
+    }
+
+    .code {
+      margin-top: 10px;
+      background: #0d1725;
+      color: #d2e9ff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      overflow-x: auto;
+      border: 1px solid #1b3148;
+    }
+
+    .steps {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+      align-items: start;
+      border: 1px solid var(--line);
+      background: #f9fcff;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #28cae8 0%, #0c89da 100%);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .security-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .policy {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f9fcff;
+      padding: 10px;
+      font-size: 12px;
+    }
+
+    .policy strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #1e3f60;
+    }
+
+    .pill {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 3px 7px;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .pill.good { background: var(--good); }
+    .pill.warn { background: var(--warn); color: #3e2e00; }
+    .pill.risk { background: var(--risk); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    thead th {
+      background: #edf6ff;
+      color: #2e587e;
+      text-align: left;
+      padding: 9px 10px;
+      border-bottom: 1px solid #d7e7f6;
+    }
+
+    tbody td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #edf3f9;
+      color: #38536c;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #fbfdff;
+    }
+
+    .foot {
+      margin-top: 12px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .span-7, .span-5, .span-6, .span-8, .span-4 {
+        grid-column: span 12;
+      }
+
+      .security-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .top {
+        grid-template-columns: 1fr;
+      }
+
+      .nav {
+        justify-content: flex-start;
+      }
+
+      .stamp {
+        text-align: left;
+      }
+
+      .mode-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="mark">&lt;/&gt;</div>
+        <div>Universal HTML Viewer</div>
+      </div>
+      <nav class="nav" aria-label="Feature navigation">
+        <a href="#what">What it does</a>
+        <a href="#render">Render modes</a>
+        <a href="#deep">Deep links</a>
+        <a href="#security">Security</a>
+        <a href="#ops">Automation</a>
+      </nav>
+      <div class="stamp">Feature Showcase Demo | UHV</div>
+    </header>
+
+    <section class="hero" id="what">
+      <h1>UHV Capability Showcase</h1>
+      <p>
+        This page is a visual product walk-through of UHV itself: how it renders HTML dashboards,
+        enables deep-link sharing, protects URL boundaries, and automates tenant operations.
+      </p>
+      <div class="chip-row">
+        <span class="chip">Deep-link URL state</span>
+        <span class="chip">Inline navigation interception</span>
+        <span class="chip">SharePoint file API mode</span>
+        <span class="chip">Security policy modes</span>
+        <span class="chip">Nested iframe hydration</span>
+        <span class="chip">Build/deploy scripts</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card span-7" id="render">
+        <h2>Render Strategy</h2>
+        <p>Choose mode based on reliability, control, and compatibility.</p>
+        <div class="mode-grid">
+          <div class="mode">
+            <h3>SharePointFileContent (recommended)</h3>
+            <p>Reads HTML via SharePoint API and renders as inline iframe content.</p>
+            <span class="badge">Best for report bundles and anti-download behavior</span>
+          </div>
+          <div class="mode">
+            <h3>DirectUrl</h3>
+            <p>Loads target directly with iframe <code>src</code>. Lighter, but fewer controls.</p>
+            <span class="badge">Good for simple, trusted pages</span>
+          </div>
+        </div>
+        <div class="code">contentDeliveryMode: "SharePointFileContent"
+htmlSourceMode: "FullUrl"
+fullUrl: "&lt;configured-html-target&gt;"</div>
+      </article>
+
+      <article class="card span-5">
+        <h2>Core Features</h2>
+        <div class="feature-list">
+          <div class="feature"><strong>Deep-linking:</strong> current subpage stored in <code>?uhvPage=...</code>.</div>
+          <div class="feature"><strong>Back/Forward support:</strong> browser history replays inline report states.</div>
+          <div class="feature"><strong>Link interception:</strong> approved extensions stay inside UHV host.</div>
+          <div class="feature"><strong>Scroll stabilization:</strong> protects host-page position during hydration.</div>
+          <div class="feature"><strong>Open in new tab:</strong> optional fallback for raw content view.</div>
+        </div>
+      </article>
+
+      <article class="card span-8" id="deep">
+        <h2>Deep-Link Contract and Browser Navigation</h2>
+        <p>UHV keeps the host page URL as the source of truth for current dashboard view.</p>
+        <div class="steps">
+          <div class="step">
+            <div class="dot">1</div>
+            <div>User opens the host page with deep-link query state and UHV resolves requested target.</div>
+          </div>
+          <div class="step">
+            <div class="dot">2</div>
+            <div>Link clicks inside the dashboard are intercepted and pushed into host history state.</div>
+          </div>
+          <div class="step">
+            <div class="dot">3</div>
+            <div>Back/Forward events restore previous report pages inline without leaving host page.</div>
+          </div>
+        </div>
+        <div class="code">Host page URL + encoded deep-link state</div>
+      </article>
+
+      <article class="card span-4" id="security">
+        <h2>Security Modes</h2>
+        <p>Request targets are validated before loading.</p>
+        <div class="security-grid">
+          <div class="policy">
+            <strong>StrictTenant</strong>
+            Only URLs inside current tenant/site policy.
+            <span class="pill good">Default Safe</span>
+          </div>
+          <div class="policy">
+            <strong>Allowlist</strong>
+            Only configured hosts and path prefixes.
+            <span class="pill warn">Controlled</span>
+          </div>
+          <div class="policy">
+            <strong>AnyHttps</strong>
+            Broadest mode for trusted scenarios.
+            <span class="pill risk">Use Carefully</span>
+          </div>
+        </div>
+        <div class="code">securityMode: "StrictTenant"
+sandboxPreset: "Relaxed"
+iframeLoadTimeoutSeconds: 10</div>
+      </article>
+
+      <article class="card span-12" id="ops">
+        <h2>Operations and Reuse</h2>
+        <p>UHV ships with script automation for build, deployment, provisioning, update, and rollback.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Script</th>
+              <th>Purpose</th>
+              <th>Typical usage</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Build-UHV.ps1</code></td>
+              <td>Build/package SPFx solution</td>
+              <td><code>.\scripts\Build-UHV.ps1</code></td>
+            </tr>
+            <tr>
+              <td><code>Deploy-UHV-Wrapper.ps1</code></td>
+              <td>Build + deploy to app catalog</td>
+              <td><code>-AppCatalogUrl ... -Scope Tenant -DeviceLogin</code></td>
+            </tr>
+            <tr>
+              <td><code>Setup-UHVSite.ps1</code></td>
+              <td>One-command site setup</td>
+              <td><code>-SiteUrl ... -SiteRelativeDashboardPath SiteAssets/Index.html</code></td>
+            </tr>
+            <tr>
+              <td><code>Update-UHVSiteApp.ps1</code></td>
+              <td>Update installed app on sites</td>
+              <td><code>-SiteUrls @(...)</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <div class="foot">Universal HTML Viewer visual capability sheet | prepared for screenshots and demos</div>
+  </div>
+</body>
+</html>

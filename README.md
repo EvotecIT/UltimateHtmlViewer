@@ -1,6 +1,6 @@
 # UniversalHtmlViewer (UHV) 🚀
 
-SPFx web part for hosting HTML dashboards in modern SharePoint pages, with deep-link navigation, inline rendering, security controls, and deployment automation.
+SPFx web part for hosting HTML experiences in modern SharePoint pages, with deep-link navigation, inline rendering, security controls, and deployment automation.
 
 [![SPFx Tests](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/spfx-tests.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/spfx-tests.yml)
 [![Release SPPKG](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml)
@@ -8,7 +8,40 @@ SPFx web part for hosting HTML dashboards in modern SharePoint pages, with deep-
 
 ## ✨ What UHV Solves
 
-Static HTML report bundles in SharePoint often cause iframe download behavior, broken relative links, weak deep-linking, and inconsistent page scrolling. UHV provides a predictable host layer for those dashboards.
+Static HTML report/app bundles in SharePoint often cause iframe download behavior, broken relative links, weak deep-linking, and inconsistent page scrolling. UHV provides a predictable host layer for those experiences.
+
+## 🧭 What UHV Really Is
+
+UHV is an SPFx app that delivers a reusable web part.
+
+- It can be added to any modern SharePoint page.
+- The host page name is arbitrary (`Dashboard.aspx`, `Reports.aspx`, `Ops.aspx`, etc.).
+- It can live alongside other web parts on the same page.
+- It hosts HTML content; it is not limited to "dashboards" only.
+
+## 🤝 Contributing: Start Here
+
+If you are new to this repository, use this quick map:
+
+- Product overview and configuration: `README.md`
+- Deployment guide: `docs/Deploy-SharePointOnline.md`
+- Reusable operations runbook: `docs/Operations-Runbook.md`
+
+Most common contributor flows:
+
+```powershell
+# Build/package
+.\scripts\Build-UHV.ps1
+
+# Deploy package to app catalog
+.\scripts\Deploy-UHV-Wrapper.ps1 -AppCatalogUrl "https://<tenant>.sharepoint.com/sites/appcatalog" -Scope Tenant -DeviceLogin
+
+# One-command site setup
+.\scripts\Setup-UHVSite.ps1 -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" -DeviceLogin
+```
+
+Use `ignore/` for local-only files (tenant values, private notes, temporary snippets).  
+Template: `scripts/examples/UHV.LocalProfile.example.ps1` -> local copy: `ignore/UHV.LocalProfile.ps1`.
 
 ## 🧩 Key Capabilities
 
@@ -18,12 +51,18 @@ Static HTML report bundles in SharePoint often cause iframe download behavior, b
 - Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
 - Strong URL policy controls: `StrictTenant`, `Allowlist`, `AnyHttps`.
 - Property-pane presets for fast setup (`SharePointLibraryRelaxed`, `FullPage`, `Strict`).
-- Auto-height and width-fit behavior for big dashboards.
+- Auto-height and width-fit behavior for large HTML pages.
 - Scripted build/deploy/update/rollback workflows.
 
 ## 🖼️ Visual Story: From Install to Deep Links
 
 This is the real journey users and admins follow in SharePoint.
+
+For curated screenshot-friendly demo content, see:
+
+- `samples/siteassets/UHV-Screenshot-Demo.html`
+- `samples/siteassets/UHV-Feature-Showcase.html`
+- `samples/siteassets/README.md`
 
 ### 1. App is visible in Site Contents
 
@@ -31,7 +70,7 @@ You can quickly confirm install status before touching any page configuration.
 
 ![UHV app tile in site contents](assets/uhv-site-contents-app-tile.png)
 
-### 2. Add UHV web part to the dashboard page
+### 2. Add UHV web part to any modern page
 
 Once added, UHV becomes the host layer for your report bundle.
 
@@ -45,7 +84,7 @@ Set report source and use `SharePointFileContent` for inline rendering reliabili
 
 ### 4. Tune layout and chrome
 
-Set height strategy, width fit, and viewer chrome for readable dashboards.
+Set height strategy, width fit, and viewer chrome for readable HTML content.
 
 ![UHV layout and display](assets/uhv-property-pane-layout-display.png)
 
@@ -55,7 +94,7 @@ Choose URL policy and sandbox preset that match your tenant governance.
 
 ![UHV security and iframe](assets/uhv-property-pane-security-iframe.png)
 
-### 6. Users navigate dashboard menus inline
+### 6. Users navigate embedded links inline
 
 As users click links, UHV keeps navigation inline and updates page URL state.
 
@@ -80,7 +119,7 @@ Use this as a quick checklist when reproducing the setup from screenshots.
 | `uhv-property-pane-quick-setup.png` | Quick setup | `Configuration preset` | `SharePoint library (relaxed)` |
 | `uhv-property-pane-quick-setup.png` | Source | `HTML source mode` | `Full URL` |
 | `uhv-property-pane-quick-setup.png` | Source | `Content delivery mode` | `SharePoint file API (inline iframe)` |
-| `uhv-property-pane-quick-setup.png` | Source | `Full URL to HTML page` | `https://<tenant>.sharepoint.com/sites/<site>/SiteAssets/<dashboard>.html` |
+| `uhv-property-pane-quick-setup.png` | Source | `Full URL to HTML page` | `https://<tenant>.sharepoint.com/sites/<site>/SiteAssets/<entry>.html` |
 | `uhv-property-pane-layout-display.png` | Layout | `Height mode` | `Viewport (100vh)` |
 | `uhv-property-pane-layout-display.png` | Layout | `Fit content to width (inline mode)` | `Off` (toggle as needed for wide reports) |
 | `uhv-property-pane-layout-display.png` | Layout | `Fixed height (px)` | `800` (baseline) |
@@ -106,15 +145,15 @@ flowchart LR
   C -->|DirectUrl| D[iframe src]
   C -->|SharePointFileContent| E[Read file from SharePoint API]
   E --> F[iframe srcdoc]
-  D --> G[Dashboard HTML]
-  F --> G[Dashboard HTML]
+  D --> G[Target HTML content]
+  F --> G[Target HTML content]
   G --> H[Inline navigation + nested iframe hydration]
 ```
 
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant P as Dashboard.aspx
+  participant P as HostPage.aspx
   participant W as UHV Web Part
   participant S as SharePoint File API
 
@@ -135,8 +174,8 @@ sequenceDiagram
 | --- | --- | --- |
 | `htmlSourceMode` | `FullUrl`, `BasePathAndRelativePath`, `BasePathAndDashboardId` | Defines how target HTML URL is built. |
 | `contentDeliveryMode` | `DirectUrl`, `SharePointFileContent` | Chooses direct iframe URL vs inline file content from SharePoint API. |
-| `queryStringParamName` | string | Query key used for dashboard ID mode. |
-| `defaultFileName` | string | Default file when dashboard id/path is missing. |
+| `queryStringParamName` | string | Query key used for ID/path source mode. |
+| `defaultFileName` | string | Default file when the requested id/path is missing. |
 
 ### Layout and UX
 
@@ -169,25 +208,25 @@ sequenceDiagram
 
 ## 🔗 URL Contract (Deep-Linking)
 
-UHV treats the host SharePoint page URL as the navigation state for the embedded dashboard.
+UHV treats the host SharePoint page URL as the navigation state for the embedded HTML content.
 
 ### URL shapes
 
-- Base page (default dashboard/file):
-  - `https://<tenant>.sharepoint.com/sites/<site>/SitePages/Dashboard.aspx`
+- Base page (default entry file):
+  - `https://<tenant>.sharepoint.com/sites/<site>/SitePages/HostPage.aspx`
 - Deep-linked subpage/file:
-  - `https://<tenant>.sharepoint.com/sites/<site>/SitePages/Dashboard.aspx?uhvPage=%2Fsites%2F<site>%2FSiteAssets%2FGPO_Permissions.html`
+  - `https://<tenant>.sharepoint.com/sites/<site>/SitePages/HostPage.aspx?uhvPage=%2Fsites%2F<site>%2FSiteAssets%2FReportA.html`
 
 ### What `uhvPage` means
 
-- `uhvPage` points to the dashboard HTML file to render inside UHV.
+- `uhvPage` points to the target HTML file to render inside UHV.
 - Value is URL-encoded.
 - Works with site-relative paths (recommended) and allowed absolute URLs (based on security mode).
 - If `uhvPage` is missing, UHV falls back to configured default file.
 
 ```mermaid
 flowchart LR
-  A[User opens Dashboard.aspx] --> B{uhvPage present?}
+  A[User opens host page] --> B{uhvPage present?}
   B -->|No| C[Load default file]
   B -->|Yes| D[Decode uhvPage]
   D --> E[Validate by security mode and allowed paths]
@@ -198,20 +237,20 @@ flowchart LR
 
 UHV updates the browser URL as users click inline report links, so browser history works naturally.
 
-- Click inside dashboard menu/link:
+- Click inside embedded HTML link/menu:
   - UHV intercepts eligible link and keeps navigation inline.
   - Host URL is updated with `?uhvPage=...`.
 - Press browser Back/Forward:
   - UHV reads current `uhvPage`.
   - Correct report file is reloaded inline.
-  - No full navigation away from `Dashboard.aspx`.
+  - No full navigation away from the host page.
 
 ```mermaid
 sequenceDiagram
   participant U as User
   participant B as Browser History
-  participant H as Dashboard.aspx (UHV host)
-  participant I as Embedded dashboard
+  participant H as Host page (UHV host)
+  participant I as Embedded HTML content
 
   U->>I: Click report link
   I->>H: Intercept + resolve target page
@@ -225,7 +264,7 @@ sequenceDiagram
 ## 🧠 Why This Works Reliably
 
 - Single source of truth:
-  - URL query parameter (`uhvPage`) represents current dashboard subpage.
+  - URL query parameter (`uhvPage`) represents current embedded subpage.
 - Controlled inline navigation:
   - UHV only intercepts approved extensions/links and normalizes paths.
 - Security-gated loading:
@@ -294,6 +333,8 @@ Operations runbook (reusable): `docs/Operations-Runbook.md`
   -Tenant "<tenant>.onmicrosoft.com"
 ```
 
+Note: `-SiteRelativeDashboardPath` is a backward-compatible name and accepts any HTML entry file path.
+
 ## 📜 Scripts Reference
 
 | Script | Purpose |
@@ -336,6 +377,8 @@ Scripts support auth fallbacks from environment variables:
 ```text
 .
 ├─ assets/
+├─ samples/
+│  └─ siteassets/
 ├─ docs/
 │  ├─ Deploy-SharePointOnline.md
 │  └─ Operations-Runbook.md

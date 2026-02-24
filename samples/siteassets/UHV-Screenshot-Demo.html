@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Universal HTML Viewer - Screenshot Demo</title>
+  <style>
+    :root {
+      --bg: #f3f7fb;
+      --bg-accent: #d9edf7;
+      --ink: #102034;
+      --muted: #5b6f86;
+      --brand: #00a7d1;
+      --brand-deep: #006fcb;
+      --mint: #14b89a;
+      --sun: #e8b80c;
+      --warn: #eb5e28;
+      --card: #ffffff;
+      --line: #dbe7f2;
+      --shadow: 0 16px 30px rgba(16, 32, 52, 0.08);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", "Calibri", "Arial", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1100px 600px at 10% -5%, var(--bg-accent), transparent 60%),
+        radial-gradient(800px 500px at 95% 0%, #e6fbff, transparent 58%),
+        var(--bg);
+    }
+
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      background: #09121d;
+      color: #d7e5f4;
+      border-radius: 14px;
+      padding: 12px 18px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 18px;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 250px;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(145deg, #22cae6 0%, #0988d8 100%);
+      display: grid;
+      place-items: center;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 18px;
+      box-shadow: 0 10px 18px rgba(0, 167, 209, 0.45);
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: #f6fbff;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: #8fb2d5;
+    }
+
+    .menu {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .menu a {
+      text-decoration: none;
+      color: #b7cee5;
+      font-size: 13px;
+      padding: 8px 12px;
+      border: 1px solid #19354f;
+      border-radius: 999px;
+      transition: all 0.2s ease;
+    }
+
+    .menu a:hover {
+      color: #ffffff;
+      border-color: #2b6da0;
+      background: rgba(43, 109, 160, 0.35);
+    }
+
+    .meta {
+      text-align: right;
+      font-size: 12px;
+      color: #8fb2d5;
+      min-width: 220px;
+    }
+
+    .hero {
+      margin-top: 14px;
+      border-radius: var(--radius);
+      background: linear-gradient(120deg, #00a7d1 0%, #008bcf 32%, #006fcb 100%);
+      color: #ffffff;
+      padding: 24px 24px 20px 24px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      box-shadow: var(--shadow);
+    }
+
+    .hero h1 {
+      margin: 0 0 8px 0;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0.2px;
+    }
+
+    .hero p {
+      margin: 0;
+      color: #d9f7ff;
+      max-width: 920px;
+      font-size: 14px;
+    }
+
+    .hero-tag {
+      font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.12);
+      white-space: nowrap;
+    }
+
+    .kpis {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .kpi {
+      padding: 16px;
+    }
+
+    .kpi-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+    }
+
+    .kpi-value {
+      font-size: 34px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .kpi-note {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .panel-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 12px;
+    }
+
+    .panel {
+      padding: 16px;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+    }
+
+    .panel p {
+      margin: 0 0 10px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chart-box {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: #f9fcff;
+    }
+
+    .bars {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 130px 1fr 45px;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .bar {
+      height: 10px;
+      border-radius: 999px;
+      background: #e5eff8;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bar > span {
+      position: absolute;
+      inset: 0 auto 0 0;
+      border-radius: 999px;
+    }
+
+    .ring-row {
+      margin-top: 6px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .ring-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 10px 10px 10px;
+      text-align: center;
+      background: #f9fcff;
+    }
+
+    .ring {
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 8px auto;
+      border-radius: 50%;
+      position: relative;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--ink);
+    }
+
+    .ring::before {
+      content: "";
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      background: #f9fcff;
+      position: absolute;
+    }
+
+    .ring > span {
+      position: relative;
+      z-index: 1;
+    }
+
+    .ring-caption {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .table-wrap {
+      margin-top: 12px;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+      font-size: 13px;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 10px 12px;
+      background: #ecf5ff;
+      color: #355472;
+      font-weight: 700;
+      border-bottom: 1px solid #d5e5f4;
+    }
+
+    tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #edf3f9;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #fbfdff;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: #ffffff;
+    }
+
+    .ok {
+      background: var(--mint);
+    }
+
+    .warn {
+      background: var(--sun);
+      color: #3b2f00;
+    }
+
+    .risk {
+      background: var(--warn);
+    }
+
+    .footnote {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    @media (max-width: 1200px) {
+      .kpis {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .panel-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        padding: 10px;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .menu {
+        justify-content: flex-start;
+      }
+
+      .meta {
+        text-align: left;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .kpis {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">&lt;/&gt;</div>
+        <div>
+          <div class="brand-title">Universal HTML Viewer</div>
+          <div class="brand-subtitle">Evotec Screenshot Demo Surface</div>
+        </div>
+      </div>
+      <nav class="menu" aria-label="Demo navigation">
+        <a href="#overview">Overview</a>
+        <a href="#security">Security</a>
+        <a href="#operations">Operations</a>
+        <a href="#deep-links">Deep Links</a>
+      </nav>
+      <div class="meta">
+        <div>Tenant demo mode: <strong>Enabled</strong></div>
+        <div>Rendered via: <strong>SharePointFileContent</strong></div>
+      </div>
+    </header>
+
+    <section class="hero" id="overview">
+      <div>
+        <h1>UHV Showcase Dashboard</h1>
+        <p>
+          This page is intentionally designed for polished screenshots and demos.
+          It is fully static, self-contained, and safe to upload to <code>SiteAssets</code>.
+        </p>
+      </div>
+      <div class="hero-tag">Demo target: <code>UHV-Screenshot-Demo.html</code></div>
+    </section>
+
+    <section class="kpis">
+      <article class="card kpi">
+        <div class="kpi-label">Active Users</div>
+        <div class="kpi-value">423</div>
+        <div class="kpi-note">+12.8% vs last month</div>
+      </article>
+      <article class="card kpi">
+        <div class="kpi-label">Managed Sites</div>
+        <div class="kpi-value">38</div>
+        <div class="kpi-note">Across 4 regions</div>
+      </article>
+      <article class="card kpi">
+        <div class="kpi-label">Security Groups</div>
+        <div class="kpi-value">334</div>
+        <div class="kpi-note">5 pending review</div>
+      </article>
+      <article class="card kpi">
+        <div class="kpi-label">Policy Findings</div>
+        <div class="kpi-value">78</div>
+        <div class="kpi-note">19 resolved this week</div>
+      </article>
+    </section>
+
+    <section class="panel-grid">
+      <article class="card panel" id="operations">
+        <h2>Domain Trend Summary</h2>
+        <p>Representative trend block for screenshots where charts are expected.</p>
+        <div class="chart-box">
+          <svg viewBox="0 0 900 260" width="100%" height="240" role="img" aria-label="Trend chart">
+            <defs>
+              <linearGradient id="lineBlue" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#2aa6f7" />
+                <stop offset="100%" stop-color="#006fcb" />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="900" height="260" fill="#f9fcff" />
+            <g stroke="#deebf7" stroke-width="1">
+              <line x1="60" y1="30" x2="60" y2="220" />
+              <line x1="60" y1="220" x2="870" y2="220" />
+              <line x1="60" y1="70" x2="870" y2="70" />
+              <line x1="60" y1="110" x2="870" y2="110" />
+              <line x1="60" y1="150" x2="870" y2="150" />
+              <line x1="60" y1="190" x2="870" y2="190" />
+            </g>
+            <polyline fill="none" stroke="url(#lineBlue)" stroke-width="4"
+              points="80,180 220,70 360,72 500,69 640,70 780,71 840,68" />
+            <polyline fill="none" stroke="#f29f05" stroke-width="4"
+              points="80,196 220,195 360,186 500,176 640,162 780,145 840,130" />
+            <polyline fill="none" stroke="#e95388" stroke-width="3"
+              points="80,210 220,205 360,202 500,198 640,193 780,186 840,180" />
+            <g fill="#5b6f86" font-size="12">
+              <text x="68" y="238">Nov</text>
+              <text x="200" y="238">Dec</text>
+              <text x="340" y="238">Jan</text>
+              <text x="480" y="238">Feb</text>
+              <text x="620" y="238">Mar</text>
+              <text x="760" y="238">Apr</text>
+            </g>
+          </svg>
+        </div>
+      </article>
+
+      <article class="card panel" id="security">
+        <h2>Compliance Gauges</h2>
+        <p>Simple radial cards mimic dashboard KPI rings without external libraries.</p>
+        <div class="ring-row">
+          <div class="ring-card">
+            <div class="ring" style="background: conic-gradient(#14b89a 0 86%, #e1eef7 86% 100%);">
+              <span>86%</span>
+            </div>
+            <div class="ring-caption">Tenant Baseline</div>
+          </div>
+          <div class="ring-card">
+            <div class="ring" style="background: conic-gradient(#e8b80c 0 67%, #e1eef7 67% 100%);">
+              <span>67%</span>
+            </div>
+            <div class="ring-caption">Policy Coverage</div>
+          </div>
+          <div class="ring-card">
+            <div class="ring" style="background: conic-gradient(#eb5e28 0 34%, #e1eef7 34% 100%);">
+              <span>34%</span>
+            </div>
+            <div class="ring-caption">Open Findings</div>
+          </div>
+        </div>
+
+        <div class="bars" id="deep-links">
+          <div class="bar-row">
+            <span>Deep-link health</span>
+            <div class="bar"><span style="width: 93%; background: #14b89a;"></span></div>
+            <strong>93%</strong>
+          </div>
+          <div class="bar-row">
+            <span>Inline navigation</span>
+            <div class="bar"><span style="width: 89%; background: #00a7d1;"></span></div>
+            <strong>89%</strong>
+          </div>
+          <div class="bar-row">
+            <span>Scroll stability</span>
+            <div class="bar"><span style="width: 95%; background: #006fcb;"></span></div>
+            <strong>95%</strong>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="table-wrap card">
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Owner</th>
+            <th>Status</th>
+            <th>Last Update</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>SharePoint File Content</td>
+            <td>Platform Team</td>
+            <td><span class="status ok">Healthy</span></td>
+            <td>2/24/2026 11:35</td>
+            <td>Inline rendering stable for dashboard bundles.</td>
+          </tr>
+          <tr>
+            <td>Deep-link URL Contract</td>
+            <td>Engineering</td>
+            <td><span class="status ok">Healthy</span></td>
+            <td>2/24/2026 11:31</td>
+            <td><code>?uhvPage=...</code> updates and back/forward confirmed.</td>
+          </tr>
+          <tr>
+            <td>Nested Iframe Hydration</td>
+            <td>Engineering</td>
+            <td><span class="status warn">Review</span></td>
+            <td>2/24/2026 11:29</td>
+            <td>Large pages may still need tuned timeout in edge cases.</td>
+          </tr>
+          <tr>
+            <td>Open in New Tab</td>
+            <td>Operations</td>
+            <td><span class="status ok">Healthy</span></td>
+            <td>2/24/2026 11:20</td>
+            <td>Targets open browser-renderable URL path.</td>
+          </tr>
+          <tr>
+            <td>Legacy Report Compatibility</td>
+            <td>Reporting</td>
+            <td><span class="status risk">Action</span></td>
+            <td>2/24/2026 10:55</td>
+            <td>Legacy pages with nested script loaders require further checks.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="footnote">
+      Universal HTML Viewer Demo Surface | Prepared for SharePoint screenshot sessions
+    </div>
+  </div>
+</body>
+</html>

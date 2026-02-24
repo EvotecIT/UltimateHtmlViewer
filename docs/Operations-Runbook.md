@@ -71,12 +71,14 @@ This is the quickest reusable path for most teams:
 .\scripts\Setup-UHVSite.ps1 `
   -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
   -SiteRelativeDashboardPath "SiteAssets/Index.html" `
-  -PageName "Dashboard" `
-  -PageTitle "Dashboard" `
+  -PageName "Reports" `
+  -PageTitle "Reports" `
   -ConfigurationPreset "SharePointLibraryRelaxed" `
   -ContentDeliveryMode "SharePointFileContent" `
   -DeviceLogin
 ```
+
+Note: `-SiteRelativeDashboardPath` is a backward-compatible parameter name and can point to any HTML entry file.
 
 ## 6) Validate app install/version
 

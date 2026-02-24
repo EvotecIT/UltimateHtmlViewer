@@ -22,6 +22,12 @@ This guide shows how to build, publish, install, update, and rollback UniversalH
 - Update and rollback operations.
 - Troubleshooting for real-world SharePoint behavior.
 
+UHV positioning:
+
+- UHV is an SPFx app delivering a reusable web part.
+- The web part can be added to any modern page and mixed with other web parts.
+- Page names like `Dashboard.aspx` in examples are conventions, not requirements.
+
 ## Prerequisites
 
 - PowerShell 7+ recommended.
@@ -174,14 +180,14 @@ When not using true tenant-wide skip-feature deployment, install app on each tar
 2. Select `Add an app` and install `Universal HTML Viewer` from organization apps.
 3. Refresh page editor and add `Universal HTML Viewer` web part.
 
-## 6) Recommended UHV config for SharePoint-hosted dashboards
+## 6) Recommended UHV config for SharePoint-hosted HTML bundles
 
-For dashboard/report bundles in `SiteAssets` or another SharePoint library:
+For HTML report/app bundles in `SiteAssets` or another SharePoint library:
 
 - `Configuration preset`: `SharePointLibraryRelaxed`
 - `Content delivery mode`: `SharePoint file API (inline iframe)`
 - `HTML source mode`: `Full URL`
-- `Full URL`: your `.../SiteAssets/Index.html`
+- `Full URL`: your `.../SiteAssets/Index.html` (or any entry HTML)
 - `Height mode`: `Auto`
 - `Fit content to width`: `On`
 
@@ -189,7 +195,7 @@ Why this works:
 
 - Avoids direct `.html` iframe download/header behavior.
 - Preserves linked-file navigation for same-tenant report bundles.
-- Supports nested iframe hydration in wrapper dashboards.
+- Supports nested iframe hydration in wrapper pages.
 
 ## 7) Site onboarding and page provisioning
 
@@ -199,8 +205,8 @@ Why this works:
 .\scripts\Setup-UHVSite.ps1 `
   -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
   -SiteRelativeDashboardPath "SiteAssets/Index.html" `
-  -PageName "Dashboard" `
-  -PageTitle "Dashboard" `
+  -PageName "Reports" `
+  -PageTitle "Reports" `
   -ConfigurationPreset "SharePointLibraryRelaxed" `
   -ContentDeliveryMode "SharePointFileContent" `
   -ClientId $clientId `
@@ -208,13 +214,15 @@ Why this works:
   -DeviceLogin
 ```
 
+Note: parameter name `-SiteRelativeDashboardPath` is kept for backward compatibility; it can point to any HTML entry file.
+
 ### Add/configure page directly
 
 ```powershell
 .\scripts\Add-UHVPage.ps1 `
   -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
-  -PageName "Dashboard" `
-  -PageTitle "Dashboard" `
+  -PageName "Operations" `
+  -PageTitle "Operations" `
   -PageLayoutType "Article" `
   -FullUrl "https://<tenant>.sharepoint.com/sites/Reports/SiteAssets/Index.html" `
   -ConfigurationPreset "SharePointLibraryFullPage" `
