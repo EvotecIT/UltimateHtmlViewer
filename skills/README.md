@@ -16,4 +16,4 @@ Reusable operator/contributor playbooks for common UHV workflows.
 1. Open the relevant `SKILL.md`.
 2. Run the steps in order.
 3. Capture outputs in PR notes when making operational changes.
-
+4. If a step fails, use the decision tree in that skill before escalating.
