@@ -24,7 +24,8 @@
       "description": {
         "default": "Displays static HTML pages from SharePoint document libraries inside an iframe."
       },
-      "officeFabricIconFontName": "Page",
+      "iconImageUrl": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2096%2096%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20x2%3D%271%27%20y1%3D%270%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%232ad0ea%27%2F%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%230b8dda%27%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20x%3D%274%27%20y%3D%274%27%20width%3D%2788%27%20height%3D%2788%27%20rx%3D%2720%27%20fill%3D%27url%28%23g%29%27%2F%3E%3Cpath%20d%3D%27M37%2030%2024%2048l13%2018%27%20fill%3D%27none%27%20stroke%3D%27%23fff%27%20stroke-width%3D%277%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3Cpath%20d%3D%27M59%2030%2072%2048%2059%2066%27%20fill%3D%27none%27%20stroke%3D%27%23fff%27%20stroke-width%3D%277%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3Crect%20x%3D%2730%27%20y%3D%2771%27%20width%3D%2736%27%20height%3D%2713%27%20rx%3D%276.5%27%20fill%3D%27rgba%280%2C0%2C0%2C.18%29%27%2F%3E%3Ctext%20x%3D%2748%27%20y%3D%2780.5%27%20text-anchor%3D%27middle%27%20font-family%3D%27Segoe%20UI%2CArial%2Csans-serif%27%20font-size%3D%279%27%20font-weight%3D%27700%27%20fill%3D%27%23fff%27%3EUHV%3C%2Ftext%3E%3C%2Fsvg%3E",
+      "officeFabricIconFontName": "Code",
       "properties": {
         "configurationPreset": "SharePointLibraryRelaxed",
         "lockPresetSettings": false,
