@@ -61,6 +61,8 @@ Most common contributor flows:
 Use `ignore/` for local-only files (tenant values, private notes, temporary snippets).  
 Template: `scripts/examples/UHV.LocalProfile.example.ps1` -> local copy: `ignore/UHV.LocalProfile.ps1`.
 
+Contributor skills (repo-local playbooks): `skills/README.md`
+
 ## 🧩 Key Capabilities
 
 - Render mode selection: `DirectUrl` or `SharePointFileContent` (inline `srcdoc`).
