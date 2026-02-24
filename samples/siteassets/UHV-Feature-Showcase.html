@@ -367,6 +367,7 @@
       <nav class="nav" aria-label="Feature navigation">
         <a href="#what">What it does</a>
         <a href="#render">Render modes</a>
+        <a href="#compare">Why UHV</a>
         <a href="#deep">Deep links</a>
         <a href="#security">Security</a>
         <a href="#ops">Automation</a>
@@ -422,9 +423,55 @@ fullUrl: "&lt;configured-html-target&gt;"</div>
         </div>
       </article>
 
+      <article class="card span-12" id="compare">
+        <h2>Native SharePoint Open vs UHV Host</h2>
+        <p>UHV is designed to solve the practical limits of opening complex HTML directly in SharePoint.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>Native open behavior</th>
+              <th>UHV behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Complex HTML bundles</td>
+              <td>May render partially or fall into file-download/viewer behavior.</td>
+              <td>Inline controlled rendering via <code>SharePointFileContent</code>.</td>
+            </tr>
+            <tr>
+              <td>Relative-link navigation</td>
+              <td>Can break page context or leave host view.</td>
+              <td>Supported links stay inside UHV host flow.</td>
+            </tr>
+            <tr>
+              <td>Shareable subpage links</td>
+              <td>Raw file URLs, no unified host state.</td>
+              <td>Host URL deep-link state with <code>?uhvPage=...</code>.</td>
+            </tr>
+            <tr>
+              <td>Back/Forward consistency</td>
+              <td>Limited for embedded multi-page report flows.</td>
+              <td>History-aware navigation management in host page.</td>
+            </tr>
+            <tr>
+              <td>Load-time scroll stability</td>
+              <td>Can jump on heavy async/nested-frame pages.</td>
+              <td>Host scroll stabilization + nested iframe hydration handling.</td>
+            </tr>
+            <tr>
+              <td>URL policy controls</td>
+              <td>General SharePoint access model only.</td>
+              <td><code>StrictTenant</code>, <code>Allowlist</code>, <code>AnyHttps</code> controls.</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+
       <article class="card span-8" id="deep">
         <h2>Deep-Link Contract and Browser Navigation</h2>
-        <p>UHV keeps the host page URL as the source of truth for current dashboard view.</p>
+        <p>UHV keeps the host page URL as the source of truth for current embedded view.</p>
         <div class="steps">
           <div class="step">
             <div class="dot">1</div>
@@ -432,11 +479,11 @@ fullUrl: "&lt;configured-html-target&gt;"</div>
           </div>
           <div class="step">
             <div class="dot">2</div>
-            <div>Link clicks inside the dashboard are intercepted and pushed into host history state.</div>
+            <div>Link clicks inside embedded pages are intercepted and pushed into host history state.</div>
           </div>
           <div class="step">
             <div class="dot">3</div>
-            <div>Back/Forward events restore previous report pages inline without leaving host page.</div>
+            <div>Back/Forward events restore previous pages inline without leaving host page.</div>
           </div>
         </div>
         <div class="code">Host page URL + encoded deep-link state</div>
@@ -501,6 +548,9 @@ iframeLoadTimeoutSeconds: 10</div>
             </tr>
           </tbody>
         </table>
+        <div class="feature-list" style="margin-top:10px;">
+          <div class="feature"><strong>Who benefits:</strong> security/ops teams, reporting teams, and portal owners embedding reusable HTML experiences.</div>
+        </div>
       </article>
     </section>
 

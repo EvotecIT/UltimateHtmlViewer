@@ -19,6 +19,24 @@ UHV is an SPFx app that delivers a reusable web part.
 - It can live alongside other web parts on the same page.
 - It hosts HTML content; it is not limited to "dashboards" only.
 
+## 🆚 Native SharePoint HTML Open vs UHV
+
+| Capability | Native SharePoint file open | UHV web part host |
+| --- | --- | --- |
+| Complex HTML bundles (scripts + nested iframes) | Can render inconsistently, partially, or trigger file-download behavior depending on headers/viewer context. | `SharePointFileContent` mode renders inline in a controlled host with consistent behavior. |
+| Relative-link navigation between HTML pages | Often leaves current page context or behaves like raw file navigation. | Intercepts supported links and keeps navigation inside UHV host experience. |
+| Shareable links to specific subpages | Usually tied to raw file URLs, not unified host-page state. | Uses host-page URL state (`?uhvPage=...`) for stable, shareable deep links. |
+| Back/Forward browser behavior | Not guaranteed for embedded report-state transitions. | Managed through host URL state and history handling. |
+| Initial load scroll stability on heavy pages | Can jump due to asynchronous layout and nested frame timing. | Adds host-scroll stabilization and nested iframe hydration protections. |
+| URL boundary controls | General SharePoint permissions only. | Adds web-part-level URL policy (`StrictTenant`, `Allowlist`, `AnyHttps`). |
+
+## 👥 Who UHV Helps
+
+- Teams publishing generated report bundles (PowerShell, BI exports, static report generators).
+- Operations/security teams that need stable deep-link sharing for investigations.
+- Knowledge portals combining HTML apps with other SharePoint web parts on the same page.
+- Any tenant needing governance-friendly hosting of custom HTML experiences without custom SPFx coding for each app.
+
 ## 🤝 Contributing: Start Here
 
 If you are new to this repository, use this quick map:
