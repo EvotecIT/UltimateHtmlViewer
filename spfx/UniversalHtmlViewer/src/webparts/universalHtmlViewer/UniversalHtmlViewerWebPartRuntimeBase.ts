@@ -4,6 +4,7 @@ import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import styles from './UniversalHtmlViewerWebPart.module.scss';
 import { buildOpenInNewTabHtml, buildMessageHtml } from './MarkupHelper';
 import { getQueryStringParam } from './QueryStringHelper';
+import { resolveAutoRefreshTarget } from './AutoRefreshHelper';
 import { CacheBusterMode, UrlValidationOptions } from './UrlHelper';
 import {
   ContentDeliveryMode,
@@ -29,7 +30,18 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     this.clearRefreshTimer();
     if (typeof window !== 'undefined') {
       this.refreshTimerId = window.setInterval(() => {
-        this.refreshIframe(baseUrl, cacheBusterMode, cacheBusterParamName, pageUrl).catch(() => {
+        const activeTarget = resolveAutoRefreshTarget({
+          baseUrl,
+          pageUrl,
+          currentBaseUrl: this.currentBaseUrl,
+          currentPageUrl: this.getCurrentPageUrl(),
+        });
+        this.refreshIframe(
+          activeTarget.baseUrl,
+          cacheBusterMode,
+          cacheBusterParamName,
+          activeTarget.pageUrl,
+        ).catch(() => {
           return undefined;
         });
       }, refreshIntervalMs);

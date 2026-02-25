@@ -12,8 +12,7 @@ import {
   IUniversalHtmlViewerWebPartProps,
 } from './UniversalHtmlViewerTypes';
 import {
-  buildPageUrlWithInlineDeepLink,
-  DEFAULT_INLINE_DEEP_LINK_PARAM,
+  buildOpenInNewTabUrl,
 } from './InlineDeepLinkHelper';
 import { UniversalHtmlViewerWebPartRuntimeBase } from './UniversalHtmlViewerWebPartRuntimeBase';
 
@@ -157,7 +156,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       : '';
 
     const openInNewTabHtml: string = showOpenInNewTab
-      ? `<a class="${styles.actionLink}" href="${escape(openInNewTabUrl)}" target="_blank" rel="noopener noreferrer">
+      ? `<a class="${styles.actionLink}" href="${escape(openInNewTabUrl)}" target="_blank" rel="noopener noreferrer" data-uhv-action="open-in-new-tab">
           Open in new tab
         </a>`
       : '';
@@ -211,20 +210,35 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     props: IUniversalHtmlViewerWebPartProps,
   ): string {
     const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(props);
-    if (contentDeliveryMode !== 'SharePointFileContent') {
-      return resolvedUrl;
-    }
-
-    const pageDeepLinkUrl = buildPageUrlWithInlineDeepLink({
+    return buildOpenInNewTabUrl({
+      resolvedUrl,
+      baseUrl,
       pageUrl,
-      targetUrl: this.currentBaseUrl || baseUrl,
-      queryParamName: DEFAULT_INLINE_DEEP_LINK_PARAM,
+      currentPageUrl: this.getCurrentPageUrl(),
+      contentDeliveryMode,
     });
-    if (!pageDeepLinkUrl) {
-      return resolvedUrl;
+  }
+  protected updateOpenInNewTabLink(
+    baseUrl: string,
+    pageUrl: string,
+    props: IUniversalHtmlViewerWebPartProps,
+  ): void {
+    const openInNewTabLink: HTMLAnchorElement | null = this.domElement.querySelector(
+      '[data-uhv-action="open-in-new-tab"]',
+    );
+    if (!openInNewTabLink) {
+      return;
     }
 
-    return pageDeepLinkUrl;
+    const currentHref: string = (openInNewTabLink.getAttribute('href') || '').trim();
+    const resolvedUrlForFallback: string = currentHref || baseUrl;
+    const updatedHref = this.getOpenInNewTabUrl(
+      resolvedUrlForFallback,
+      baseUrl,
+      pageUrl,
+      props,
+    );
+    openInNewTabLink.setAttribute('href', updatedHref);
   }
 
   private buildDashboardSelectorHtml(
@@ -323,11 +337,17 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       refreshButton.addEventListener('click', () => {
         this.setLoadingVisible(true);
         const activeBaseUrl = this.currentBaseUrl || baseUrl;
-        this.refreshIframe(activeBaseUrl, cacheBusterMode, cacheBusterParamName, pageUrl).catch(
-          () => {
-            return undefined;
-          },
-        );
+        const activePageUrl: string = this.getCurrentPageUrl() || pageUrl;
+        const activeCacheBusterMode: CacheBusterMode =
+          this.lastCacheBusterMode || cacheBusterMode;
+        this.refreshIframe(
+          activeBaseUrl,
+          activeCacheBusterMode,
+          cacheBusterParamName,
+          activePageUrl,
+        ).catch(() => {
+          return undefined;
+        });
       });
     }
 
@@ -435,7 +455,8 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       return;
     }
 
-    const validationOptions = this.buildUrlValidationOptions(pageUrl, props);
+    const currentPageUrl: string = this.getCurrentPageUrl() || pageUrl;
+    const validationOptions = this.buildUrlValidationOptions(currentPageUrl, props);
     this.lastValidationOptions = validationOptions;
     if (!isUrlAllowed(url, validationOptions)) {
       return;
@@ -446,17 +467,19 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
 
     this.setLoadingVisible(true);
     this.currentBaseUrl = url;
-    this.onNavigatedToUrl(url, this.getCurrentPageUrl());
+    this.onNavigatedToUrl(url, currentPageUrl);
+    const updatedPageUrl: string = this.getCurrentPageUrl() || currentPageUrl;
+    this.updateOpenInNewTabLink(url, updatedPageUrl, props);
     this.setupIframeLoadFallback(url, props);
     await this.refreshIframe(
       url,
       cacheBusterMode,
       cacheBusterParamName,
-      pageUrl,
+      updatedPageUrl,
       true,
       true,
     );
-    this.setupAutoRefresh(url, cacheBusterMode, cacheBusterParamName, pageUrl, props);
+    this.setupAutoRefresh(url, cacheBusterMode, cacheBusterParamName, updatedPageUrl, props);
     this.updateStatusBadge(validationOptions, cacheBusterMode, props);
   }
 

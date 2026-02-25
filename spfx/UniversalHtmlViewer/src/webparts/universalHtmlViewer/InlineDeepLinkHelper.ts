@@ -1,5 +1,6 @@
 import { getQueryStringParam } from './QueryStringHelper';
 import { isUrlAllowed, UrlValidationOptions } from './UrlHelper';
+import { ContentDeliveryMode } from './UniversalHtmlViewerTypes';
 
 export const DEFAULT_INLINE_DEEP_LINK_PARAM = 'uhvPage';
 
@@ -38,6 +39,38 @@ export interface IBuildPageUrlWithInlineDeepLinkOptions {
   pageUrl: string;
   targetUrl: string;
   queryParamName?: string;
+}
+
+export interface IBuildOpenInNewTabUrlOptions {
+  resolvedUrl: string;
+  baseUrl: string;
+  pageUrl: string;
+  currentPageUrl?: string;
+  contentDeliveryMode: ContentDeliveryMode;
+}
+
+export function buildOpenInNewTabUrl(
+  options: IBuildOpenInNewTabUrlOptions,
+): string {
+  if (options.contentDeliveryMode !== 'SharePointFileContent') {
+    return options.resolvedUrl;
+  }
+
+  const effectivePageUrl: string = (options.currentPageUrl || '').trim() || options.pageUrl;
+  if (!effectivePageUrl) {
+    return options.resolvedUrl;
+  }
+
+  const pageDeepLinkUrl = buildPageUrlWithInlineDeepLink({
+    pageUrl: effectivePageUrl,
+    targetUrl: options.baseUrl,
+    queryParamName: DEFAULT_INLINE_DEEP_LINK_PARAM,
+  });
+  if (!pageDeepLinkUrl) {
+    return options.resolvedUrl;
+  }
+
+  return pageDeepLinkUrl;
 }
 
 export function buildPageUrlWithInlineDeepLink(
