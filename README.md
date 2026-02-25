@@ -81,7 +81,7 @@ Contributor skills (repo-local playbooks): `skills/README.md`
 ## 🧩 Key Capabilities
 
 - Render mode selection: `DirectUrl` or `SharePointFileContent` (inline `srcdoc`).
-- Deep-link support with shareable page URLs via `?uhvPage=...` (enabled by default; controllable via `allowQueryStringPageOverride`).
+- Deep-link support with shareable page URLs via `?uhvPage=...` (disabled by default; enable with `allowQueryStringPageOverride`).
 - Nested iframe hydration for report wrappers.
 - Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
 - Strong URL policy controls: `StrictTenant`, `Allowlist`, `AnyHttps`.
@@ -266,7 +266,7 @@ UHV treats the host SharePoint page URL as the navigation state for the embedded
 - Invalid/unsafe values (control chars, backslashes, oversized payloads) are rejected.
 - Works with site-relative paths (recommended) and allowed absolute URLs (based on security mode).
 - If `uhvPage` is missing, UHV falls back to configured default file.
-- If `allowQueryStringPageOverride` is `false`, UHV ignores `uhvPage` and keeps configured default URL.
+- By default, UHV ignores `uhvPage` and keeps configured default URL unless `allowQueryStringPageOverride` is enabled.
 - In `AnyHttps` mode, UHV intentionally ignores `uhvPage` overrides and keeps configured default URL to reduce open-redirect style abuse.
 
 ```mermaid
@@ -280,7 +280,7 @@ flowchart LR
 
 ## ⬅️➡️ Back/Forward Navigation
 
-When `allowQueryStringPageOverride` is enabled (default), UHV updates the browser URL as users click inline report links, so browser history works naturally.
+When `allowQueryStringPageOverride` is enabled, UHV updates the browser URL as users click inline report links, so browser history works naturally.
 
 - Click inside embedded HTML link/menu:
   - UHV intercepts eligible link and keeps navigation inline.

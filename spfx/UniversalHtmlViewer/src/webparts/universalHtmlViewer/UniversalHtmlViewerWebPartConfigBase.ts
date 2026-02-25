@@ -230,7 +230,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.showLoadingIndicator = true;
     props.showConfigActions = true;
     props.showDashboardSelector = false;
-    props.allowQueryStringPageOverride = true;
+    props.allowQueryStringPageOverride = false;
     props.fitContentWidth = false;
     props.chromeDensity = 'Comfortable';
     props.iframeLoadTimeoutSeconds = 10;

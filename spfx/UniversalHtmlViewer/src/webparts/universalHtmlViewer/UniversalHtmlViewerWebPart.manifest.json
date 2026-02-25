@@ -71,7 +71,7 @@
         "showLoadingIndicator": true,
         "showConfigActions": false,
         "showDashboardSelector": false,
-        "allowQueryStringPageOverride": true
+        "allowQueryStringPageOverride": false
       }
     }
   ]
