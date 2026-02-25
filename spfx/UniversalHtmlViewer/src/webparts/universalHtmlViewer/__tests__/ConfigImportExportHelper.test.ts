@@ -16,6 +16,7 @@ describe('applyImportedConfigToProps', () => {
       showChrome: 'true',
       iframeLoading: 'LAZY',
       chromeDensity: 'compact',
+      allowQueryStringPageOverride: 'false',
     });
 
     expect(result.ignoredEntries).toHaveLength(0);
@@ -31,6 +32,7 @@ describe('applyImportedConfigToProps', () => {
     expect(propsRecord.showChrome).toBe(true);
     expect(propsRecord.iframeLoading).toBe('lazy');
     expect(propsRecord.chromeDensity).toBe('Compact');
+    expect(propsRecord.allowQueryStringPageOverride).toBe(false);
   });
 
   it('ignores unknown keys and invalid values', () => {

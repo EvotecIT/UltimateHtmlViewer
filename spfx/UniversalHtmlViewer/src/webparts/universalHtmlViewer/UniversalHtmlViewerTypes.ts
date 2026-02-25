@@ -59,6 +59,7 @@ export interface IUniversalHtmlViewerWebPartProps {
   showLoadingIndicator?: boolean;
   showConfigActions?: boolean;
   showDashboardSelector?: boolean;
+  allowQueryStringPageOverride?: boolean;
 }
 
 export interface ITenantConfig {
@@ -107,4 +108,5 @@ export interface ITenantConfig {
   showLoadingIndicator?: boolean;
   showConfigActions?: boolean;
   showDashboardSelector?: boolean;
+  allowQueryStringPageOverride?: boolean;
 }

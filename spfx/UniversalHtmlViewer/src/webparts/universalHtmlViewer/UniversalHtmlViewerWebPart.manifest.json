@@ -70,7 +70,8 @@
         "chromeDensity": "Comfortable",
         "showLoadingIndicator": true,
         "showConfigActions": false,
-        "showDashboardSelector": false
+        "showDashboardSelector": false,
+        "allowQueryStringPageOverride": true
       }
     }
   ]

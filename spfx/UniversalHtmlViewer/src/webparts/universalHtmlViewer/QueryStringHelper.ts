@@ -30,12 +30,29 @@ export function getQueryStringParam(url: string, paramName: string): string | un
 
     for (const pair of pairs) {
       const [key, value] = pair.split('=');
+      const decodedKey = tryDecodeQueryComponent(key);
+      if (!decodedKey) {
+        continue;
+      }
 
-      if (decodeURIComponent(key) === paramName) {
-        return value ? decodeURIComponent(value) : undefined;
+      if (decodedKey === paramName) {
+        const decodedValue = tryDecodeQueryComponent(value);
+        return decodedValue || undefined;
       }
     }
 
+    return undefined;
+  }
+}
+
+function tryDecodeQueryComponent(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return decodeURIComponent(value.replace(/\+/g, '%20'));
+  } catch {
     return undefined;
   }
 }

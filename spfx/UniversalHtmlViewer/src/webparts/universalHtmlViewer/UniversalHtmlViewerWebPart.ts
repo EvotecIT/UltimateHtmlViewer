@@ -391,6 +391,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   offText: 'Block',
                   disabled: isPresetLocked,
                 }),
+                PropertyPaneToggle('allowQueryStringPageOverride', {
+                  label: 'Allow uhvPage query override (inline mode)',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                }),
                 PropertyPaneTextField('allowedHosts', {
                   label: 'Allowed hosts (comma-separated)',
                   description:
@@ -610,6 +616,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       fallbackUrl: finalUrl,
       queryParamName: this.inlineDeepLinkParamName,
       validationOptions,
+      allowDeepLinkOverride: effectiveProps.allowQueryStringPageOverride !== false,
     });
     const requestedDeepLinkValue: string = resolvedContentTarget.requestedDeepLinkValue;
     const hasRequestedDeepLink: boolean = resolvedContentTarget.hasRequestedDeepLink;
