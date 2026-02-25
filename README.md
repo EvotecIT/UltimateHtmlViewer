@@ -233,6 +233,9 @@ sequenceDiagram
 | `sandboxPreset` | preset or custom | Controls iframe sandbox behavior. |
 | `iframeAllow` | permissions policy string | Optional iframe permissions (`fullscreen`, etc.). |
 
+- In `SharePointFileContent` mode, UHV injects a defensive `Content-Security-Policy` meta tag into `srcdoc` when the source HTML does not define one.
+- If your report HTML already defines a CSP meta tag, UHV preserves that policy and does not inject a second one.
+
 ## Recommended Setup (SharePoint-hosted report bundles)
 
 - Preset: `SharePointLibraryRelaxed`
