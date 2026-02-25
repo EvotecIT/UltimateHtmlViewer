@@ -616,7 +616,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       fallbackUrl: finalUrl,
       queryParamName: this.inlineDeepLinkParamName,
       validationOptions,
-      allowDeepLinkOverride: effectiveProps.allowQueryStringPageOverride !== false,
+      allowDeepLinkOverride: effectiveProps.allowQueryStringPageOverride === true,
     });
     const requestedDeepLinkValue: string = resolvedContentTarget.requestedDeepLinkValue;
     const hasRequestedDeepLink: boolean = resolvedContentTarget.hasRequestedDeepLink;

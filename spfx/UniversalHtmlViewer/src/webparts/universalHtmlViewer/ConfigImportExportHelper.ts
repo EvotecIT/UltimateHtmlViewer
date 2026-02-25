@@ -256,7 +256,7 @@ export function buildConfigExport(
     showLoadingIndicator: props.showLoadingIndicator !== false,
     showConfigActions: props.showConfigActions === true,
     showDashboardSelector: props.showDashboardSelector === true,
-    allowQueryStringPageOverride: props.allowQueryStringPageOverride !== false,
+    allowQueryStringPageOverride: props.allowQueryStringPageOverride === true,
   };
 }
 
