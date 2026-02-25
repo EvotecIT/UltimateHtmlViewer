@@ -1,4 +1,5 @@
 import {
+  buildOpenInNewTabUrl,
   buildPageUrlWithoutInlineDeepLink,
   buildPageUrlWithInlineDeepLink,
   resolveInlineDeepLinkTarget,
@@ -72,6 +73,36 @@ describe('InlineDeepLinkHelper', () => {
     expect(result).toBe(
       'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops&foo=bar',
     );
+  });
+
+  it('builds open-in-new-tab deep link from current target URL in inline mode', () => {
+    const href = buildOpenInNewTabUrl({
+      resolvedUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Resolved.html',
+      baseUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Current.html',
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?legacy=1',
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops',
+      contentDeliveryMode: 'SharePointFileContent',
+    });
+
+    expect(href).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops&uhvPage=%2Fsites%2FTestSite1%2FSiteAssets%2FReports%2FCurrent.html',
+    );
+  });
+
+  it('returns resolved URL for direct mode open-in-new-tab links', () => {
+    const href = buildOpenInNewTabUrl({
+      resolvedUrl: 'https://external.example/report.html?v=1',
+      baseUrl: 'https://external.example/report.html',
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?legacy=1',
+      contentDeliveryMode: 'DirectUrl',
+    });
+
+    expect(href).toBe('https://external.example/report.html?v=1');
   });
 });
 

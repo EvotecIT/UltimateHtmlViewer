@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import { Version } from '@microsoft/sp-core-library';
+import { SPHttpClient } from '@microsoft/sp-http';
 import {
   IPropertyPaneConfiguration,
   PropertyPaneDropdown,
@@ -572,12 +573,15 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       effectiveProps,
     );
     this.lastValidationOptions = validationOptions;
-    const deepLinkedUrl: string | undefined = resolveInlineDeepLinkTarget({
-      pageUrl,
-      fallbackUrl: finalUrl,
-      queryParamName: this.inlineDeepLinkParamName,
-      validationOptions,
-    });
+    const allowDeepLinkOverride: boolean = validationOptions.securityMode !== 'AnyHttps';
+    const deepLinkedUrl: string | undefined = allowDeepLinkOverride
+      ? resolveInlineDeepLinkTarget({
+          pageUrl,
+          fallbackUrl: finalUrl,
+          queryParamName: this.inlineDeepLinkParamName,
+          validationOptions,
+        })
+      : undefined;
     const requestedDeepLinkValue: string = (
       getQueryStringParam(pageUrl, this.inlineDeepLinkParamName) || ''
     ).trim();
@@ -598,7 +602,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     if (shouldResetHostScrollToTopOnInitialDeepLink) {
       this.applyInitialDeepLinkScrollLock();
     }
-    if (hasRequestedDeepLink && !deepLinkedUrl) {
+    if (hasRequestedDeepLink && allowDeepLinkOverride && !deepLinkedUrl) {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
       const resetToDefaultHtml = this.buildResetToDefaultDashboardHtml(pageUrl);
@@ -667,6 +671,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           resolvedUrl,
           initialContentUrl,
           pageUrl,
+          SPHttpClient.configurations.v1,
         );
       } catch (error) {
         this.clearRefreshTimer();
@@ -711,6 +716,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       }
     }
 
+    this.currentBaseUrl = initialContentUrl;
     this.renderIframe(
       resolvedUrl,
       iframeHeightStyle,
@@ -737,7 +743,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       currentDashboardId,
       inlineHtml,
     );
-    this.currentBaseUrl = initialContentUrl;
     this.setupIframeLoadFallback(resolvedUrl, effectiveProps);
     this.setupAutoRefresh(
       initialContentUrl,
@@ -770,6 +775,18 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         if (contentDeliveryMode === 'SharePointFileContent') {
           this.applyInitialDeepLinkScrollLock();
         }
+        this.setupAutoRefresh(
+          targetUrl,
+          inlineCacheBusterMode,
+          cacheBusterParamName,
+          navigatedPageUrl,
+          this.lastEffectiveProps || this.properties,
+        );
+        this.updateOpenInNewTabLink(
+          targetUrl,
+          navigatedPageUrl,
+          this.lastEffectiveProps || this.properties,
+        );
         this.refreshIframe(
           targetUrl,
           inlineCacheBusterMode,
@@ -792,6 +809,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             sourceUrl,
             baseUrlForRelativeLinks,
             this.getCurrentPageUrl(),
+            SPHttpClient.configurations.v1,
           );
         } catch { return undefined; }
       },
@@ -813,6 +831,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         sourceUrl,
         this.currentBaseUrl || sourceUrl,
         pageUrl,
+        SPHttpClient.configurations.v1,
       );
       iframe.srcdoc = inlineHtml;
       return true;

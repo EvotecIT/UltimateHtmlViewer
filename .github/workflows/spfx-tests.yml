@@ -37,6 +37,10 @@ jobs:
         working-directory: spfx/UniversalHtmlViewer
         run: npm ci --ignore-scripts
 
+      - name: Run lint
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm run lint
+
       - name: Run tests
         working-directory: spfx/UniversalHtmlViewer
         run: npm test
@@ -62,6 +66,10 @@ jobs:
       - name: Install dependencies (skip native build scripts)
         working-directory: spfx/UniversalHtmlViewer
         run: npm ci --ignore-scripts
+
+      - name: Run lint
+        working-directory: spfx/UniversalHtmlViewer
+        run: npm run lint
 
       - name: Run tests
         working-directory: spfx/UniversalHtmlViewer

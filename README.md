@@ -8,6 +8,18 @@ SPFx web part for hosting HTML experiences in modern SharePoint pages, with deep
 
 Security notes and current dependency-alert disposition: `SECURITY.md`
 
+## 📦 Platform and Compatibility
+
+- SPFx runtime target: `1.21.1` packages in `spfx/UniversalHtmlViewer/package.json`.
+- Web part manifest version: `1.0.14` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
+- Node for CI/build: `22.x` (see GitHub workflows and package engine constraint).
+
+## 🔄 CI/CD Workflows
+
+- `spfx-tests.yml`: cross-platform lint + unit tests + bundle validation on push/PR.
+- `release-sppkg.yml`: ship bundle/package build, release artifact generation, and optional GitHub Release creation on `v*` tags or manual dispatch.
+- Release packaging outputs are versioned as `release/universal-html-viewer-<manifest-version>.sppkg` in CI artifacts.
+
 ## ✨ What UHV Solves
 
 Static HTML report/app bundles in SharePoint often cause iframe download behavior, broken relative links, weak deep-linking, and inconsistent page scrolling. UHV provides a predictable host layer for those experiences.
@@ -46,6 +58,7 @@ If you are new to this repository, use this quick map:
 - Product overview and configuration: `README.md`
 - Deployment guide: `docs/Deploy-SharePointOnline.md`
 - Reusable operations runbook: `docs/Operations-Runbook.md`
+- Release checklist: `docs/Release-Checklist.md`
 
 Most common contributor flows:
 
@@ -226,6 +239,7 @@ sequenceDiagram
 - Height mode: `Auto`
 - Fit content to width: `On`
 - Keep reports and linked pages in same tenant/site boundary
+- Avoid `AnyHttps` unless you explicitly accept cross-host embedding risk.
 
 ## 🔗 URL Contract (Deep-Linking)
 
@@ -244,6 +258,7 @@ UHV treats the host SharePoint page URL as the navigation state for the embedded
 - Value is URL-encoded.
 - Works with site-relative paths (recommended) and allowed absolute URLs (based on security mode).
 - If `uhvPage` is missing, UHV falls back to configured default file.
+- In `AnyHttps` mode, UHV intentionally ignores `uhvPage` overrides and keeps configured default URL to reduce open-redirect style abuse.
 
 ```mermaid
 flowchart LR
@@ -310,6 +325,17 @@ sequenceDiagram
   - the underlying report files/folders being loaded
 - If user can open the page but not the target file, content load fails according to SharePoint security response.
 - Shareable deep links still work only for users who have permission to both page and target file.
+
+## 🚦 API and Throttling Considerations
+
+- `SharePointFileContent` mode loads HTML through SharePoint REST (`GetFileByServerRelativeUrl(...)/$value`).
+- With frequent refresh intervals and high traffic, this can increase API pressure.
+- Keep `refreshIntervalMinutes` conservative and prefer `FileLastModified` cache-busting over aggressive timestamp refreshes.
+
+## ♿ Accessibility Notes
+
+- UHV provides an iframe host shell, but accessibility of rendered report content depends on the HTML inside that iframe.
+- Set a meaningful `iframeTitle`, use semantic HTML in report pages, and validate embedded content against your WCAG baseline.
 
 ## 🎛️ Minimal Viewer Mode (Tips & Tricks)
 
