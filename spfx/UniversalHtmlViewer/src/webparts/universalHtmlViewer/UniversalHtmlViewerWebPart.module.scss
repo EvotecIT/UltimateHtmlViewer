@@ -43,6 +43,17 @@
   margin-top: 2px;
 }
 
+.anyHttpsWarning {
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #f1c58a;
+  background: #fff4e5;
+  color: #7a4a00;
+  font-size: 11px;
+  max-width: 420px;
+}
+
 .chromeRight {
   display: flex;
   align-items: center;

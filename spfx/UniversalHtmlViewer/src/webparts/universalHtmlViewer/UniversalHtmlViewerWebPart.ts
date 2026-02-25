@@ -39,9 +39,8 @@ import {
   buildPageUrlWithoutInlineDeepLink,
   buildPageUrlWithInlineDeepLink,
   DEFAULT_INLINE_DEEP_LINK_PARAM,
-  resolveInlineDeepLinkTarget,
+  resolveInlineContentTarget,
 } from './InlineDeepLinkHelper';
-import { getQueryStringParam } from './QueryStringHelper';
 import {
   ConfigurationPreset,
   ContentDeliveryMode,
@@ -62,6 +61,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   private isInlineDeepLinkPopStateWired: boolean = false;
   private isInlineDeepLinkScrollRestorationManaged: boolean = false;
   private previousInlineDeepLinkScrollRestoration: 'auto' | 'manual' | undefined;
+  private hasLoggedAnyHttpsWarning: boolean = false;
   private readonly onInlineDeepLinkPopState = (): void => {
     this.render();
   };
@@ -116,6 +116,17 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return;
     }
 
+    if (propertyPath === 'enableExpertSecurityModes' && newValue === false) {
+      if (this.properties.securityMode === 'AnyHttps') {
+        this.properties.securityMode = 'StrictTenant';
+      }
+      if (this.properties.configurationPreset === 'AnyHttps') {
+        this.properties.configurationPreset = 'Custom';
+        this.properties.lockPresetSettings = false;
+      }
+      this.context.propertyPane.refresh();
+    }
+
     if (
       propertyPath === 'htmlSourceMode' ||
       propertyPath === 'contentDeliveryMode' ||
@@ -124,6 +135,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       propertyPath === 'cacheBusterMode' ||
       propertyPath === 'heightMode' ||
       propertyPath === 'showChrome' ||
+      propertyPath === 'enableExpertSecurityModes' ||
       propertyPath === 'configurationPreset' ||
       propertyPath === 'lockPresetSettings' ||
       propertyPath === 'tenantConfigMode' ||
@@ -141,6 +153,14 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const isRelativePath: boolean = htmlSourceMode === 'BasePathAndRelativePath';
     const isDashboardId: boolean = htmlSourceMode === 'BasePathAndDashboardId';
     const securityMode: UrlSecurityMode = this.properties.securityMode || 'StrictTenant';
+    const enableExpertSecurityModes: boolean = this.properties.enableExpertSecurityModes === true;
+    const securityModeOptions = [
+      { key: 'StrictTenant', text: 'Strict tenant (default)' },
+      { key: 'Allowlist', text: 'Tenant + allowlist' },
+      ...(enableExpertSecurityModes || securityMode === 'AnyHttps'
+        ? [{ key: 'AnyHttps', text: 'Any HTTPS (unsafe expert mode)' }]
+        : []),
+    ];
     const isAllowlistMode: boolean = securityMode === 'Allowlist';
     const heightMode: HeightMode = this.properties.heightMode || 'Fixed';
     const isInlineContentMode: boolean =
@@ -150,6 +170,16 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const isCustomSandbox: boolean = sandboxPreset === 'Custom';
     const showChrome: boolean = this.properties.showChrome !== false;
     const preset: ConfigurationPreset = this.properties.configurationPreset || 'Custom';
+    const configurationPresetOptions = [
+      { key: 'Custom', text: 'Custom (manual settings)' },
+      { key: 'SharePointLibraryRelaxed', text: 'SharePoint library (relaxed)' },
+      { key: 'SharePointLibraryFullPage', text: 'SharePoint library (full page)' },
+      { key: 'SharePointLibraryStrict', text: 'SharePoint library (strict)' },
+      { key: 'AllowlistCDN', text: 'Allowlist CDN' },
+      ...(enableExpertSecurityModes || preset === 'AnyHttps'
+        ? [{ key: 'AnyHttps', text: 'Any HTTPS (unsafe expert mode)' }]
+        : []),
+    ];
     const isPresetLocked: boolean =
       !!this.properties.lockPresetSettings && preset !== 'Custom';
     const showDashboardSelector: boolean = this.properties.showDashboardSelector === true;
@@ -166,14 +196,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
               groupFields: [
                 PropertyPaneDropdown('configurationPreset', {
                   label: 'Configuration preset',
-                  options: [
-                    { key: 'Custom', text: 'Custom (manual settings)' },
-                    { key: 'SharePointLibraryRelaxed', text: 'SharePoint library (relaxed)' },
-                    { key: 'SharePointLibraryFullPage', text: 'SharePoint library (full page)' },
-                    { key: 'SharePointLibraryStrict', text: 'SharePoint library (strict)' },
-                    { key: 'AllowlistCDN', text: 'Allowlist CDN' },
-                    { key: 'AnyHttps', text: 'Any HTTPS (unsafe)' },
-                  ],
+                  options: configurationPresetOptions,
                 }),
                 PropertyPaneToggle('lockPresetSettings', {
                   label: 'Lock preset settings',
@@ -351,13 +374,15 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             {
               groupName: 'Security (Advanced)',
               groupFields: [
+                PropertyPaneToggle('enableExpertSecurityModes', {
+                  label: 'Enable expert security modes (unsafe)',
+                  onText: 'Enabled',
+                  offText: 'Disabled',
+                  disabled: isPresetLocked,
+                }),
                 PropertyPaneDropdown('securityMode', {
                   label: 'Security mode',
-                  options: [
-                    { key: 'StrictTenant', text: 'Strict tenant (default)' },
-                    { key: 'Allowlist', text: 'Tenant + allowlist' },
-                    { key: 'AnyHttps', text: 'Any HTTPS (unsafe)' },
-                  ],
+                  options: securityModeOptions,
                   disabled: isPresetLocked,
                 }),
                 PropertyPaneToggle('allowHttp', {
@@ -439,6 +464,13 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   min: 0,
                   max: 120,
                   step: 1,
+                }),
+                PropertyPaneSlider('inlineContentCacheTtlSeconds', {
+                  label: 'Inline content cache TTL (seconds)',
+                  min: 0,
+                  max: 300,
+                  step: 5,
+                  disabled: !isInlineContentMode,
                 }),
               ],
             },
@@ -573,19 +605,14 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       effectiveProps,
     );
     this.lastValidationOptions = validationOptions;
-    const allowDeepLinkOverride: boolean = validationOptions.securityMode !== 'AnyHttps';
-    const deepLinkedUrl: string | undefined = allowDeepLinkOverride
-      ? resolveInlineDeepLinkTarget({
-          pageUrl,
-          fallbackUrl: finalUrl,
-          queryParamName: this.inlineDeepLinkParamName,
-          validationOptions,
-        })
-      : undefined;
-    const requestedDeepLinkValue: string = (
-      getQueryStringParam(pageUrl, this.inlineDeepLinkParamName) || ''
-    ).trim();
-    const hasRequestedDeepLink: boolean = requestedDeepLinkValue.length > 0;
+    const resolvedContentTarget = resolveInlineContentTarget({
+      pageUrl,
+      fallbackUrl: finalUrl,
+      queryParamName: this.inlineDeepLinkParamName,
+      validationOptions,
+    });
+    const requestedDeepLinkValue: string = resolvedContentTarget.requestedDeepLinkValue;
+    const hasRequestedDeepLink: boolean = resolvedContentTarget.hasRequestedDeepLink;
     const shouldResetHostScrollToTopOnInitialDeepLink: boolean =
       contentDeliveryMode === 'SharePointFileContent' && hasRequestedDeepLink;
     if (this.isScrollTraceEnabled()) {
@@ -602,7 +629,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     if (shouldResetHostScrollToTopOnInitialDeepLink) {
       this.applyInitialDeepLinkScrollLock();
     }
-    if (hasRequestedDeepLink && allowDeepLinkOverride && !deepLinkedUrl) {
+    if (resolvedContentTarget.isRejectedRequestedDeepLink) {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
       const resetToDefaultHtml = this.buildResetToDefaultDashboardHtml(pageUrl);
@@ -625,7 +652,10 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       );
       return;
     }
-    const initialContentUrl: string = deepLinkedUrl || finalUrl;
+    const initialContentUrl: string = resolvedContentTarget.initialContentUrl;
+    if (validationOptions.securityMode === 'AnyHttps') {
+      this.logAnyHttpsWarningOnce();
+    }
 
     if (!isUrlAllowed(initialContentUrl, validationOptions)) {
       this.clearRefreshTimer();
@@ -653,6 +683,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const iframeHeightStyle: string = this.getIframeHeightStyle(effectiveProps);
     const cacheBusterMode: CacheBusterMode = effectiveProps.cacheBusterMode || 'None';
     this.lastCacheBusterMode = cacheBusterMode;
+    const inlineContentCacheTtlMs = this.getInlineContentCacheTtlMs(effectiveProps);
     const cacheBusterParamName: string = this.normalizeCacheBusterParamName(
       effectiveProps.cacheBusterParamName,
     );
@@ -672,6 +703,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           initialContentUrl,
           pageUrl,
           SPHttpClient.configurations.v1,
+          {
+            cacheTtlMs: inlineContentCacheTtlMs,
+          },
         );
       } catch (error) {
         this.clearRefreshTimer();
@@ -810,6 +844,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             baseUrlForRelativeLinks,
             this.getCurrentPageUrl(),
             SPHttpClient.configurations.v1,
+            {
+              cacheTtlMs: this.getInlineContentCacheTtlMs(
+                this.lastEffectiveProps || this.properties,
+              ),
+            },
           );
         } catch { return undefined; }
       },
@@ -820,6 +859,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     sourceUrl: string,
     pageUrl: string,
     props: IUniversalHtmlViewerWebPartProps,
+    bypassInlineContentCache: boolean = false,
   ): Promise<boolean> {
     if (this.getContentDeliveryMode(props) !== 'SharePointFileContent') {
       return false;
@@ -832,10 +872,36 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         this.currentBaseUrl || sourceUrl,
         pageUrl,
         SPHttpClient.configurations.v1,
+        {
+          cacheTtlMs: this.getInlineContentCacheTtlMs(props),
+          bypassCache: bypassInlineContentCache,
+        },
       );
       iframe.srcdoc = inlineHtml;
       return true;
     } catch { return false; }
+  }
+  private getInlineContentCacheTtlMs(props: IUniversalHtmlViewerWebPartProps): number {
+    const rawSeconds = props.inlineContentCacheTtlSeconds;
+    if (typeof rawSeconds !== 'number' || !Number.isFinite(rawSeconds)) {
+      return 15000;
+    }
+    if (rawSeconds <= 0) {
+      return 0;
+    }
+
+    return Math.round(rawSeconds * 1000);
+  }
+  private logAnyHttpsWarningOnce(): void {
+    if (this.hasLoggedAnyHttpsWarning) {
+      return;
+    }
+
+    this.hasLoggedAnyHttpsWarning = true;
+    // eslint-disable-next-line no-console
+    console.warn(
+      'UniversalHtmlViewer: AnyHttps mode is active. Restrict this mode to trusted and controlled scenarios.',
+    );
   }
   protected onNavigatedToUrl(targetUrl: string, pageUrl: string): void {
     const effectiveProps: IUniversalHtmlViewerWebPartProps =

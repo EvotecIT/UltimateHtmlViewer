@@ -11,6 +11,15 @@ export interface IResolveInlineDeepLinkTargetOptions {
   validationOptions: UrlValidationOptions;
 }
 
+export interface IResolvedInlineContentTarget {
+  allowDeepLinkOverride: boolean;
+  requestedDeepLinkValue: string;
+  hasRequestedDeepLink: boolean;
+  deepLinkedUrl?: string;
+  initialContentUrl: string;
+  isRejectedRequestedDeepLink: boolean;
+}
+
 export function resolveInlineDeepLinkTarget(
   options: IResolveInlineDeepLinkTargetOptions,
 ): string | undefined {
@@ -33,6 +42,33 @@ export function resolveInlineDeepLinkTarget(
   } catch {
     return undefined;
   }
+}
+
+export function resolveInlineContentTarget(
+  options: IResolveInlineDeepLinkTargetOptions,
+): IResolvedInlineContentTarget {
+  const paramName: string =
+    (options.queryParamName || '').trim() || DEFAULT_INLINE_DEEP_LINK_PARAM;
+  const requestedDeepLinkValue: string =
+    (getQueryStringParam(options.pageUrl, paramName) || '').trim();
+  const hasRequestedDeepLink: boolean = requestedDeepLinkValue.length > 0;
+  const allowDeepLinkOverride: boolean =
+    options.validationOptions.securityMode !== 'AnyHttps';
+  const deepLinkedUrl: string | undefined = allowDeepLinkOverride
+    ? resolveInlineDeepLinkTarget(options)
+    : undefined;
+  const initialContentUrl: string = deepLinkedUrl || options.fallbackUrl;
+  const isRejectedRequestedDeepLink: boolean =
+    hasRequestedDeepLink && allowDeepLinkOverride && !deepLinkedUrl;
+
+  return {
+    allowDeepLinkOverride,
+    requestedDeepLinkValue,
+    hasRequestedDeepLink,
+    deepLinkedUrl,
+    initialContentUrl,
+    isRejectedRequestedDeepLink,
+  };
 }
 
 export interface IBuildPageUrlWithInlineDeepLinkOptions {

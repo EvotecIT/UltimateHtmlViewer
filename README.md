@@ -10,7 +10,7 @@ Security notes and current dependency-alert disposition: `SECURITY.md`
 
 ## 📦 Platform and Compatibility
 
-- SPFx runtime target: `1.21.1` packages in `spfx/UniversalHtmlViewer/package.json`.
+- SPFx runtime target: `1.22.2` packages in `spfx/UniversalHtmlViewer/package.json`.
 - Web part manifest version: `1.0.14` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
 - Node for CI/build: `22.x` (see GitHub workflows and package engine constraint).
 
@@ -85,6 +85,7 @@ Contributor skills (repo-local playbooks): `skills/README.md`
 - Nested iframe hydration for report wrappers.
 - Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
 - Strong URL policy controls: `StrictTenant`, `Allowlist`, `AnyHttps`.
+- Expert-mode guardrail for unsafe security options (`AnyHttps`).
 - Property-pane presets for fast setup (`SharePointLibraryRelaxed`, `FullPage`, `Strict`).
 - Auto-height and width-fit behavior for large HTML pages.
 - Scripted build/deploy/update/rollback workflows.
@@ -226,6 +227,7 @@ sequenceDiagram
 | Setting | Options | Purpose |
 | --- | --- | --- |
 | `securityMode` | `StrictTenant`, `Allowlist`, `AnyHttps` | URL policy boundary. |
+| `enableExpertSecurityModes` | `true` / `false` | Required to enable unsafe expert options such as `AnyHttps`. |
 | `allowedHosts` | host list | Explicit host allowlist for `Allowlist` mode. |
 | `allowedPathPrefixes` | path list | Optional path constraints for tighter scope. |
 | `sandboxPreset` | preset or custom | Controls iframe sandbox behavior. |
@@ -240,6 +242,7 @@ sequenceDiagram
 - Fit content to width: `On`
 - Keep reports and linked pages in same tenant/site boundary
 - Avoid `AnyHttps` unless you explicitly accept cross-host embedding risk.
+- `AnyHttps` is available only when `enableExpertSecurityModes` is enabled.
 
 ## 🔗 URL Contract (Deep-Linking)
 
@@ -331,6 +334,7 @@ sequenceDiagram
 - `SharePointFileContent` mode loads HTML through SharePoint REST (`GetFileByServerRelativeUrl(...)/$value`).
 - With frequent refresh intervals and high traffic, this can increase API pressure.
 - Keep `refreshIntervalMinutes` conservative and prefer `FileLastModified` cache-busting over aggressive timestamp refreshes.
+- Tune `inlineContentCacheTtlSeconds` (default 15s) to balance freshness and API volume.
 
 ## ♿ Accessibility Notes
 

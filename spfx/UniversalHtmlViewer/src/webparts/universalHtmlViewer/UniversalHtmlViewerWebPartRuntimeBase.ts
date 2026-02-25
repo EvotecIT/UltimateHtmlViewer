@@ -63,6 +63,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     pageUrl: string,
     resetInlineScrollToTop: boolean = false,
     preserveHostScrollPosition: boolean = false,
+    bypassInlineContentCache: boolean = false,
   ): Promise<void> {
     const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
     if (!iframe) {
@@ -94,6 +95,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
         refreshedUrl,
         pageUrl,
         effectiveProps,
+        bypassInlineContentCache,
       );
       if (updatedFromContent) {
         if (resetInlineScrollToTop) {
@@ -553,6 +555,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     _sourceUrl: string,
     _pageUrl: string,
     _props: IUniversalHtmlViewerWebPartProps,
+    _bypassInlineContentCache: boolean = false,
   ): Promise<boolean> {
     return false;
   }
@@ -824,6 +827,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       configurationPreset: props.configurationPreset || 'Custom',
       lockPresetSettings: !!props.lockPresetSettings,
       contentDeliveryMode: this.getContentDeliveryMode(props),
+      enableExpertSecurityModes: props.enableExpertSecurityModes === true,
       allowHttp: !!props.allowHttp,
       allowedHosts: this.parseHosts(props.allowedHosts),
       allowedPathPrefixes: this.parsePathPrefixes(props.allowedPathPrefixes),
@@ -833,6 +837,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       tenantConfigMode: props.tenantConfigMode || 'Merge',
       dashboardList: props.dashboardList || '',
       cacheBusterMode: props.cacheBusterMode || 'None',
+      inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,
       sandboxPreset: props.sandboxPreset || 'None',
       iframeSandbox: props.iframeSandbox || '',
       iframeLoadTimeoutSeconds: this.getIframeLoadTimeoutSeconds(props),

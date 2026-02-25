@@ -35,11 +35,13 @@ const numberRanges: Record<string, { min: number; max: number }> = {
   fixedHeightPx: { min: 200, max: 2000 },
   iframeLoadTimeoutSeconds: { min: 0, max: 60 },
   refreshIntervalMinutes: { min: 0, max: 120 },
+  inlineContentCacheTtlSeconds: { min: 0, max: 300 },
 };
 
 const booleanKeys = new Set<string>([
   'lockPresetSettings',
   'allowHttp',
+  'enableExpertSecurityModes',
   'showDiagnostics',
   'showChrome',
   'fitContentWidth',
@@ -56,6 +58,7 @@ const numberKeys = new Set<string>([
   'fixedHeightPx',
   'iframeLoadTimeoutSeconds',
   'refreshIntervalMinutes',
+  'inlineContentCacheTtlSeconds',
 ]);
 
 const stringKeys = new Set<string>([
@@ -222,6 +225,7 @@ export function buildConfigExport(
     fixedHeightPx: props.fixedHeightPx,
     fitContentWidth: props.fitContentWidth === true,
     securityMode: props.securityMode || 'StrictTenant',
+    enableExpertSecurityModes: props.enableExpertSecurityModes === true,
     allowHttp: !!props.allowHttp,
     allowedHosts: props.allowedHosts || '',
     allowedPathPrefixes: props.allowedPathPrefixes || '',
@@ -230,6 +234,7 @@ export function buildConfigExport(
     tenantConfigMode: props.tenantConfigMode || 'Merge',
     cacheBusterMode: props.cacheBusterMode || 'None',
     cacheBusterParamName: props.cacheBusterParamName || 'v',
+    inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,
     sandboxPreset: props.sandboxPreset || 'None',
     iframeSandbox: props.iframeSandbox || '',
     iframeAllow: props.iframeAllow || '',

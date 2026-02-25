@@ -177,6 +177,12 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     const subtitleHtml: string = subtitle
       ? `<div class="${styles.chromeSubtitle}">${escape(subtitle)}</div>`
       : '';
+    const anyHttpsWarningHtml: string =
+      validationOptions.securityMode === 'AnyHttps'
+        ? `<div class="${styles.anyHttpsWarning}">
+            Warning: Any HTTPS mode is enabled. Restrict usage to trusted, controlled scenarios.
+          </div>`
+        : '';
 
     const chromeClass: string =
       (props.chromeDensity || 'Comfortable') === 'Compact'
@@ -192,6 +198,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
         <div class="${styles.chromeLeft}">
           <div class="${styles.chromeTitle}">${escape(title)}</div>
           ${subtitleHtml}
+          ${anyHttpsWarningHtml}
         </div>
         <div class="${styles.chromeRight}">
           ${statusHtml}
@@ -345,6 +352,9 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
           activeCacheBusterMode,
           cacheBusterParamName,
           activePageUrl,
+          false,
+          false,
+          true,
         ).catch(() => {
           return undefined;
         });

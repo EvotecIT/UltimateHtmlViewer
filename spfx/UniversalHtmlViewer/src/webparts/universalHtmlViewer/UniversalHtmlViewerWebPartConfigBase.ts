@@ -24,7 +24,13 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     currentPageUrl: string,
     effectiveProps: IUniversalHtmlViewerWebPartProps,
   ): UrlValidationOptions {
-    const securityMode: UrlSecurityMode = effectiveProps.securityMode || 'StrictTenant';
+    const requestedSecurityMode: UrlSecurityMode =
+      effectiveProps.securityMode || 'StrictTenant';
+    const securityMode: UrlSecurityMode =
+      requestedSecurityMode === 'AnyHttps' &&
+      effectiveProps.enableExpertSecurityModes !== true
+        ? 'StrictTenant'
+        : requestedSecurityMode;
     const allowHttp: boolean = !!effectiveProps.allowHttp;
     const allowedHosts: string[] = this.parseHosts(effectiveProps.allowedHosts);
     const allowedPathPrefixes: string[] = this.parsePathPrefixes(
@@ -214,6 +220,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const basePathPrefix: string = this.normalizeBasePathForPrefix(props.basePath);
 
     props.allowHttp = false;
+    props.enableExpertSecurityModes = false;
     props.allowedFileExtensions = '.html,.htm,.aspx';
     props.showChrome = true;
     props.showOpenInNewTab = true;
@@ -226,6 +233,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.fitContentWidth = false;
     props.chromeDensity = 'Comfortable';
     props.iframeLoadTimeoutSeconds = 10;
+    props.inlineContentCacheTtlSeconds = 15;
 
     if (!props.chromeTitle || props.chromeTitle.trim().length === 0) {
       props.chromeTitle = 'Universal HTML Viewer';
@@ -268,6 +276,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       case 'AnyHttps':
         props.contentDeliveryMode = 'DirectUrl';
         props.securityMode = 'AnyHttps';
+        props.enableExpertSecurityModes = true;
         props.cacheBusterMode = 'Timestamp';
         props.sandboxPreset = 'None';
         break;
