@@ -32,4 +32,13 @@ describe('QueryStringHelper', () => {
     expect(getQueryStringParam('', 'uhvPage')).toBeUndefined();
     expect(getQueryStringParam('https://contoso.sharepoint.com', '')).toBeUndefined();
   });
+
+  it('returns undefined for malformed encoded query payloads in fallback parser', () => {
+    const value = getQueryStringParam(
+      '/sites/Reports/SitePages/Dashboard.aspx?uhvPage=%E0%A4%A',
+      'uhvPage',
+    );
+
+    expect(value).toBeUndefined();
+  });
 });

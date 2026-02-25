@@ -40,6 +40,31 @@ describe('InlineDeepLinkHelper', () => {
     expect(result).toBeUndefined();
   });
 
+  it('rejects deep-link values with backslashes', () => {
+    const result = resolveInlineDeepLinkTarget({
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=%5Csites%5CTestSite1%5CSiteAssets%5CReports%5CGPO_List.html',
+      fallbackUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
+      validationOptions,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('rejects deep-link values above maximum supported length', () => {
+    const oversizedValue = `/sites/TestSite1/SiteAssets/Reports/${'a'.repeat(2100)}.html`;
+    const pageUrl = `https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=${encodeURIComponent(
+      oversizedValue,
+    )}`;
+    const result = resolveInlineDeepLinkTarget({
+      pageUrl,
+      fallbackUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
+      validationOptions,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
   it('writes deep link param back to current page URL', () => {
     const result = buildPageUrlWithInlineDeepLink({
       pageUrl: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
@@ -134,6 +159,22 @@ describe('InlineDeepLinkHelper', () => {
         'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=https%3A%2F%2Fexternal.example%2Freport.html',
       fallbackUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
       validationOptions: anyHttpsOptions,
+    });
+
+    expect(result.allowDeepLinkOverride).toBe(false);
+    expect(result.hasRequestedDeepLink).toBe(true);
+    expect(result.isRejectedRequestedDeepLink).toBe(false);
+    expect(result.deepLinkedUrl).toBeUndefined();
+    expect(result.initialContentUrl).toBe('/sites/TestSite1/SiteAssets/Reports/index.html');
+  });
+
+  it('supports explicitly disabling deep-link overrides from query string', () => {
+    const result = resolveInlineContentTarget({
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=%2Fsites%2FTestSite1%2FSiteAssets%2FReports%2FOps.html',
+      fallbackUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
+      validationOptions,
+      allowDeepLinkOverride: false,
     });
 
     expect(result.allowDeepLinkOverride).toBe(false);

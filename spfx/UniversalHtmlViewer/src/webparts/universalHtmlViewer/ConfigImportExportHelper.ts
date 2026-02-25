@@ -52,6 +52,7 @@ const booleanKeys = new Set<string>([
   'showLoadingIndicator',
   'showConfigActions',
   'showDashboardSelector',
+  'allowQueryStringPageOverride',
 ]);
 
 const numberKeys = new Set<string>([
@@ -255,6 +256,7 @@ export function buildConfigExport(
     showLoadingIndicator: props.showLoadingIndicator !== false,
     showConfigActions: props.showConfigActions === true,
     showDashboardSelector: props.showDashboardSelector === true,
+    allowQueryStringPageOverride: props.allowQueryStringPageOverride !== false,
   };
 }
 

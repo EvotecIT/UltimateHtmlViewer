@@ -230,6 +230,7 @@ sequenceDiagram
 | `enableExpertSecurityModes` | `true` / `false` | Required to enable unsafe expert options such as `AnyHttps`. |
 | `allowedHosts` | host list | Explicit host allowlist for `Allowlist` mode. |
 | `allowedPathPrefixes` | path list | Optional path constraints for tighter scope. |
+| `allowQueryStringPageOverride` | `true` / `false` | Allows or disables `uhvPage` query-driven deep-link override in inline mode. |
 | `sandboxPreset` | preset or custom | Controls iframe sandbox behavior. |
 | `iframeAllow` | permissions policy string | Optional iframe permissions (`fullscreen`, etc.). |
 
@@ -262,8 +263,10 @@ UHV treats the host SharePoint page URL as the navigation state for the embedded
 
 - `uhvPage` points to the target HTML file to render inside UHV.
 - Value is URL-encoded.
+- Invalid/unsafe values (control chars, backslashes, oversized payloads) are rejected.
 - Works with site-relative paths (recommended) and allowed absolute URLs (based on security mode).
 - If `uhvPage` is missing, UHV falls back to configured default file.
+- If `allowQueryStringPageOverride` is `false`, UHV ignores `uhvPage` and keeps configured default URL.
 - In `AnyHttps` mode, UHV intentionally ignores `uhvPage` overrides and keeps configured default URL to reduce open-redirect style abuse.
 
 ```mermaid

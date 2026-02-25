@@ -9,6 +9,7 @@ export interface IResolveInlineDeepLinkTargetOptions {
   fallbackUrl: string;
   queryParamName?: string;
   validationOptions: UrlValidationOptions;
+  allowDeepLinkOverride?: boolean;
 }
 
 export interface IResolvedInlineContentTarget {
@@ -26,7 +27,7 @@ export function resolveInlineDeepLinkTarget(
   const paramName: string =
     (options.queryParamName || '').trim() || DEFAULT_INLINE_DEEP_LINK_PARAM;
   const rawValue: string | undefined = getQueryStringParam(options.pageUrl, paramName);
-  const value: string = (rawValue || '').trim();
+  const value: string | undefined = sanitizeRequestedDeepLinkValue(rawValue);
   if (!value) {
     return undefined;
   }
@@ -49,10 +50,13 @@ export function resolveInlineContentTarget(
 ): IResolvedInlineContentTarget {
   const paramName: string =
     (options.queryParamName || '').trim() || DEFAULT_INLINE_DEEP_LINK_PARAM;
-  const requestedDeepLinkValue: string =
+  const rawRequestedDeepLinkValue: string =
     (getQueryStringParam(options.pageUrl, paramName) || '').trim();
-  const hasRequestedDeepLink: boolean = requestedDeepLinkValue.length > 0;
+  const requestedDeepLinkValue: string =
+    sanitizeRequestedDeepLinkValue(rawRequestedDeepLinkValue) || '';
+  const hasRequestedDeepLink: boolean = rawRequestedDeepLinkValue.length > 0;
   const allowDeepLinkOverride: boolean =
+    options.allowDeepLinkOverride !== false &&
     options.validationOptions.securityMode !== 'AnyHttps';
   const deepLinkedUrl: string | undefined = allowDeepLinkOverride
     ? resolveInlineDeepLinkTarget(options)
@@ -172,4 +176,35 @@ function toAbsoluteUrl(value: string, pageUrl: string): string {
   } catch {
     return new URL(value, pageUrl).toString();
   }
+}
+
+const MAX_DEEP_LINK_QUERY_VALUE_LENGTH = 2048;
+
+function sanitizeRequestedDeepLinkValue(rawValue?: string): string | undefined {
+  const trimmed = (rawValue || '').trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.length > MAX_DEEP_LINK_QUERY_VALUE_LENGTH) {
+    return undefined;
+  }
+
+  // Block control characters and path-obfuscation backslashes in deep-link payloads.
+  if (hasControlCharacters(trimmed) || trimmed.includes('\\')) {
+    return undefined;
+  }
+
+  return trimmed;
+}
+
+function hasControlCharacters(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const charCode = value.charCodeAt(index);
+    if ((charCode >= 0 && charCode <= 31) || charCode === 127) {
+      return true;
+    }
+  }
+
+  return false;
 }
