@@ -4,6 +4,11 @@ export function prepareInlineHtmlForSrcDoc(
   pageUrl: string,
 ): string {
   const htmlWithNeutralizedNestedFrames = neutralizeNestedIframeSources(html);
+  const srcDocCspTag = hasContentSecurityPolicyMetaTag(htmlWithNeutralizedNestedFrames)
+    ? ''
+    : `<meta data-uhv-inline-csp="1" http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(
+        getDefaultSrcDocContentSecurityPolicy(pageUrl, baseUrlForRelativeLinks),
+      )}">`;
   const baseHref = getAbsoluteUrlWithoutQuery(baseUrlForRelativeLinks, pageUrl);
   const baseTag = /<base\s+/i.test(htmlWithNeutralizedNestedFrames)
     ? ''
@@ -13,7 +18,7 @@ export function prepareInlineHtmlForSrcDoc(
   )
     ? ''
     : `<script data-uhv-history-compat="1">${getHistoryCompatibilityShimScript()}</script>`;
-  const headInjectedMarkup = `${compatibilityShimTag}${baseTag}`;
+  const headInjectedMarkup = `${srcDocCspTag}${compatibilityShimTag}${baseTag}`;
 
   if (!headInjectedMarkup) {
     return htmlWithNeutralizedNestedFrames;
@@ -36,6 +41,10 @@ export function prepareInlineHtmlForSrcDoc(
   return `<head>${headInjectedMarkup}</head>${htmlWithNeutralizedNestedFrames}`;
 }
 
+function hasContentSecurityPolicyMetaTag(html: string): boolean {
+  return /<meta[^>]*http-equiv\s*=\s*["']?\s*content-security-policy\b/i.test(html);
+}
+
 function getAbsoluteUrlWithoutQuery(url: string, pageUrl: string): string {
   try {
     const current = new URL(pageUrl);
@@ -45,6 +54,61 @@ function getAbsoluteUrlWithoutQuery(url: string, pageUrl: string): string {
     return absolute.toString();
   } catch {
     return url;
+  }
+}
+
+function getDefaultSrcDocContentSecurityPolicy(
+  pageUrl: string,
+  baseUrlForRelativeLinks: string,
+): string {
+  const allowedOrigins = getAllowedOriginsForInlineSrcDoc(pageUrl, baseUrlForRelativeLinks);
+  const scriptSources = `${allowedOrigins} blob: 'unsafe-inline' 'unsafe-eval'`;
+  const styleSources = `${allowedOrigins} data: 'unsafe-inline'`;
+  const frameSources = `${allowedOrigins} blob:`;
+  const mediaSources = `${allowedOrigins} data: blob:`;
+
+  return [
+    `default-src ${allowedOrigins} data: blob:`,
+    `script-src ${scriptSources}`,
+    `style-src ${styleSources}`,
+    `img-src ${mediaSources}`,
+    `font-src ${styleSources}`,
+    `connect-src ${allowedOrigins}`,
+    `frame-src ${frameSources}`,
+    `child-src ${frameSources}`,
+    `media-src ${mediaSources}`,
+    "object-src 'none'",
+    `base-uri ${allowedOrigins}`,
+    `form-action ${allowedOrigins}`,
+  ].join('; ');
+}
+
+function getAllowedOriginsForInlineSrcDoc(pageUrl: string, baseUrlForRelativeLinks: string): string {
+  const sourceSet = new Set<string>(["'self'"]);
+  const pageOrigin = tryGetOrigin(pageUrl);
+  if (pageOrigin) {
+    sourceSet.add(pageOrigin);
+  }
+
+  const baseOrigin = tryGetOrigin(baseUrlForRelativeLinks, pageOrigin);
+  if (baseOrigin) {
+    sourceSet.add(baseOrigin);
+  }
+
+  return Array.from(sourceSet.values()).join(' ');
+}
+
+function tryGetOrigin(value: string, fallbackOrigin?: string): string | undefined {
+  const normalized = (value || '').trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  try {
+    const parsedUrl = fallbackOrigin ? new URL(normalized, fallbackOrigin) : new URL(normalized);
+    return parsedUrl.origin;
+  } catch {
+    return undefined;
   }
 }
 

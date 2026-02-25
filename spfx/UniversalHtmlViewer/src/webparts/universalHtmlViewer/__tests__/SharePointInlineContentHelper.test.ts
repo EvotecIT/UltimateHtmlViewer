@@ -13,9 +13,14 @@ describe('prepareInlineHtmlForSrcDoc', () => {
       'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx',
     );
 
+    expect(result).toContain('data-uhv-inline-csp="1"');
+    expect(result).toContain('object-src &#39;none&#39;');
     expect(result).toContain('data-uhv-history-compat="1"');
     expect(result).toContain(
       '<base href="https://contoso.sharepoint.com/sites/TestSite2/SiteAssets/GPOzaurr/">',
+    );
+    expect(result.indexOf('data-uhv-inline-csp="1"')).toBeLessThan(
+      result.indexOf('data-uhv-history-compat="1"'),
     );
     expect(result.indexOf('data-uhv-history-compat="1"')).toBeLessThan(
       result.indexOf('<title>Report</title>'),
@@ -47,6 +52,20 @@ describe('prepareInlineHtmlForSrcDoc', () => {
 
     const shimMatches = result.match(/data-uhv-history-compat="1"/gi) || [];
     expect(shimMatches.length).toBe(1);
+  });
+
+  it('does not add duplicate srcdoc CSP when one already exists', () => {
+    const inputHtml =
+      '<html><head><meta http-equiv="Content-Security-Policy" content="default-src \'self\'"><title>Report</title></head><body></body></html>';
+    const result = prepareInlineHtmlForSrcDoc(
+      inputHtml,
+      '/sites/TestSite2/SiteAssets/GPOzaurr/',
+      'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx',
+    );
+
+    const cspMatches = result.match(/http-equiv="Content-Security-Policy"/gi) || [];
+    expect(cspMatches.length).toBe(1);
+    expect(result).not.toContain('data-uhv-inline-csp="1"');
   });
 
   it('neutralizes nested html iframe src to avoid direct browser download navigation', () => {
