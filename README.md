@@ -11,6 +11,7 @@ Security notes and current dependency-alert disposition: `SECURITY.md`
 ## 📦 Platform and Compatibility
 
 - SPFx runtime target: `1.22.2` packages in `spfx/UniversalHtmlViewer/package.json`.
+- SharePoint package version (`.sppkg`): `1.0.30.0` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
 - Web part manifest version: `1.0.14` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
 - Node for CI/build: `22.x` (see GitHub workflows and package engine constraint).
 
