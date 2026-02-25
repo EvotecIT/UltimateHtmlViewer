@@ -10,7 +10,9 @@ describe('applyImportedConfigToProps', () => {
       heightMode: 'auto',
       fixedHeightPx: '700',
       fitContentWidth: 'yes',
+      enableExpertSecurityModes: 'true',
       refreshIntervalMinutes: 10,
+      inlineContentCacheTtlSeconds: 20,
       showChrome: 'true',
       iframeLoading: 'LAZY',
       chromeDensity: 'compact',
@@ -23,7 +25,9 @@ describe('applyImportedConfigToProps', () => {
     expect(propsRecord.heightMode).toBe('Auto');
     expect(propsRecord.fixedHeightPx).toBe(700);
     expect(propsRecord.fitContentWidth).toBe(true);
+    expect(propsRecord.enableExpertSecurityModes).toBe(true);
     expect(propsRecord.refreshIntervalMinutes).toBe(10);
+    expect(propsRecord.inlineContentCacheTtlSeconds).toBe(20);
     expect(propsRecord.showChrome).toBe(true);
     expect(propsRecord.iframeLoading).toBe('lazy');
     expect(propsRecord.chromeDensity).toBe('Compact');
@@ -37,14 +41,16 @@ describe('applyImportedConfigToProps', () => {
       fixedHeightPx: 5000,
       showChrome: 'not-bool',
       refreshIntervalMinutes: '-2',
+      inlineContentCacheTtlSeconds: 9999,
     });
 
     expect(result.appliedKeys).toHaveLength(0);
-    expect(result.ignoredEntries).toHaveLength(5);
+    expect(result.ignoredEntries).toHaveLength(6);
     expect(propsRecord.unknownKey).toBeUndefined();
     expect(propsRecord.securityMode).toBeUndefined();
     expect(propsRecord.fixedHeightPx).toBeUndefined();
     expect(propsRecord.showChrome).toBeUndefined();
     expect(propsRecord.refreshIntervalMinutes).toBeUndefined();
+    expect(propsRecord.inlineContentCacheTtlSeconds).toBeUndefined();
   });
 });

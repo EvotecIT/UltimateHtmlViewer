@@ -2,6 +2,7 @@ import {
   buildOpenInNewTabUrl,
   buildPageUrlWithoutInlineDeepLink,
   buildPageUrlWithInlineDeepLink,
+  resolveInlineContentTarget,
   resolveInlineDeepLinkTarget,
 } from '../InlineDeepLinkHelper';
 import { UrlValidationOptions } from '../UrlHelper';
@@ -103,6 +104,43 @@ describe('InlineDeepLinkHelper', () => {
     });
 
     expect(href).toBe('https://external.example/report.html?v=1');
+  });
+
+  it('resolves initial content using deep link when allowed', () => {
+    const result = resolveInlineContentTarget({
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=%2Fsites%2FTestSite1%2FSiteAssets%2FReports%2FOps.html',
+      fallbackUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
+      validationOptions,
+    });
+
+    expect(result.allowDeepLinkOverride).toBe(true);
+    expect(result.hasRequestedDeepLink).toBe(true);
+    expect(result.isRejectedRequestedDeepLink).toBe(false);
+    expect(result.initialContentUrl).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Ops.html',
+    );
+  });
+
+  it('ignores deep-link override in AnyHttps mode', () => {
+    const anyHttpsOptions: UrlValidationOptions = {
+      ...validationOptions,
+      securityMode: 'AnyHttps',
+      allowedPathPrefixes: undefined,
+      allowedFileExtensions: undefined,
+    };
+    const result = resolveInlineContentTarget({
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=https%3A%2F%2Fexternal.example%2Freport.html',
+      fallbackUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
+      validationOptions: anyHttpsOptions,
+    });
+
+    expect(result.allowDeepLinkOverride).toBe(false);
+    expect(result.hasRequestedDeepLink).toBe(true);
+    expect(result.isRejectedRequestedDeepLink).toBe(false);
+    expect(result.deepLinkedUrl).toBeUndefined();
+    expect(result.initialContentUrl).toBe('/sites/TestSite1/SiteAssets/Reports/index.html');
   });
 });
 

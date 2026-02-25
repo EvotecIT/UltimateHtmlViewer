@@ -6,7 +6,12 @@ interface IInlineHtmlCacheEntry {
   expiresAt: number;
 }
 
-const INLINE_HTML_CACHE_TTL_MS = 15000;
+export interface ILoadSharePointInlineContentOptions {
+  cacheTtlMs?: number;
+  bypassCache?: boolean;
+}
+
+const DEFAULT_INLINE_HTML_CACHE_TTL_MS = 15000;
 const INLINE_HTML_CACHE_MAX_ENTRIES = 120;
 const inlineHtmlCache = new Map<string, IInlineHtmlCacheEntry>();
 const inlineHtmlInFlightRequests = new Map<string, Promise<string>>();
@@ -18,6 +23,7 @@ export async function loadSharePointFileContentForInline(
   baseUrlForRelativeLinks: string,
   pageUrl: string,
   spHttpClientConfiguration?: unknown,
+  options?: ILoadSharePointInlineContentOptions,
 ): Promise<string> {
   const serverRelativePath = getServerRelativePathForSharePointFile(sourceUrl, pageUrl);
 
@@ -33,14 +39,22 @@ export async function loadSharePointFileContentForInline(
     baseUrlForRelativeLinks,
     pageUrl,
   );
-  const cachedHtml = tryGetCachedInlineHtml(cacheKey);
-  if (cachedHtml) {
-    return cachedHtml;
+  const bypassCache = options?.bypassCache === true;
+  const cacheTtlMs = normalizeCacheTtlMs(options?.cacheTtlMs);
+  const useResponseCache = !bypassCache && cacheTtlMs > 0;
+
+  if (useResponseCache) {
+    const cachedHtml = tryGetCachedInlineHtml(cacheKey);
+    if (cachedHtml) {
+      return cachedHtml;
+    }
   }
 
-  const inFlightRequest = inlineHtmlInFlightRequests.get(cacheKey);
-  if (inFlightRequest) {
-    return inFlightRequest;
+  if (useResponseCache) {
+    const inFlightRequest = inlineHtmlInFlightRequests.get(cacheKey);
+    if (inFlightRequest) {
+      return inFlightRequest;
+    }
   }
 
   const loadRequest = loadSharePointInlineHtmlFromApi(
@@ -52,13 +66,20 @@ export async function loadSharePointFileContentForInline(
     spHttpClientConfiguration,
   )
     .then((preparedHtml) => {
-      setCachedInlineHtml(cacheKey, preparedHtml);
+      if (useResponseCache) {
+        setCachedInlineHtml(cacheKey, preparedHtml, cacheTtlMs);
+      }
       return preparedHtml;
     })
     .finally(() => {
-      inlineHtmlInFlightRequests.delete(cacheKey);
+      if (useResponseCache) {
+        inlineHtmlInFlightRequests.delete(cacheKey);
+      }
     });
-  inlineHtmlInFlightRequests.set(cacheKey, loadRequest);
+
+  if (useResponseCache) {
+    inlineHtmlInFlightRequests.set(cacheKey, loadRequest);
+  }
 
   return loadRequest;
 }
@@ -134,7 +155,7 @@ function tryGetCachedInlineHtml(cacheKey: string): string | undefined {
   return cached.html;
 }
 
-function setCachedInlineHtml(cacheKey: string, html: string): void {
+function setCachedInlineHtml(cacheKey: string, html: string, cacheTtlMs: number): void {
   if (!cacheKey || !html) {
     return;
   }
@@ -142,7 +163,7 @@ function setCachedInlineHtml(cacheKey: string, html: string): void {
   inlineHtmlCache.delete(cacheKey);
   inlineHtmlCache.set(cacheKey, {
     html,
-    expiresAt: Date.now() + INLINE_HTML_CACHE_TTL_MS,
+    expiresAt: Date.now() + cacheTtlMs,
   });
   trimInlineHtmlCache();
 }
@@ -166,6 +187,17 @@ function trimInlineHtmlCache(): void {
     }
     inlineHtmlCache.delete(firstKey);
   }
+}
+
+function normalizeCacheTtlMs(cacheTtlMs?: number): number {
+  if (typeof cacheTtlMs !== 'number' || !Number.isFinite(cacheTtlMs)) {
+    return DEFAULT_INLINE_HTML_CACHE_TTL_MS;
+  }
+  if (cacheTtlMs <= 0) {
+    return 0;
+  }
+
+  return Math.round(cacheTtlMs);
 }
 
 function getServerRelativePathForSharePointFile(

@@ -29,6 +29,7 @@ export interface IUniversalHtmlViewerWebPartProps {
   fixedHeightPx: number;
   fitContentWidth?: boolean;
   securityMode?: UrlSecurityMode;
+  enableExpertSecurityModes?: boolean;
   allowHttp?: boolean;
   allowedHosts?: string;
   allowedPathPrefixes?: string;
@@ -37,6 +38,7 @@ export interface IUniversalHtmlViewerWebPartProps {
   tenantConfigMode?: TenantConfigMode;
   cacheBusterMode?: CacheBusterMode;
   cacheBusterParamName?: string;
+  inlineContentCacheTtlSeconds?: number;
   sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;
@@ -75,6 +77,7 @@ export interface ITenantConfig {
   fixedHeightPx?: number;
   fitContentWidth?: boolean;
   securityMode?: UrlSecurityMode;
+  enableExpertSecurityModes?: boolean;
   allowHttp?: boolean;
   allowedHosts?: string;
   allowedPathPrefixes?: string;
@@ -83,6 +86,7 @@ export interface ITenantConfig {
   tenantConfigMode?: TenantConfigMode;
   cacheBusterMode?: CacheBusterMode;
   cacheBusterParamName?: string;
+  inlineContentCacheTtlSeconds?: number;
   sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;

@@ -228,5 +228,85 @@ describe('loadSharePointFileContentForInline', () => {
 
     expect(mockGet).toHaveBeenCalledTimes(2);
   });
+
+  it('bypasses cache when explicitly requested', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: jest
+        .fn()
+        .mockResolvedValue('<html><head></head><body><h1>Bypass</h1></body></html>'),
+    };
+    const mockGet = jest.fn().mockResolvedValue(mockResponse);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      undefined,
+      {
+        bypassCache: true,
+      },
+    );
+    await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      undefined,
+      {
+        bypassCache: true,
+      },
+    );
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('disables response cache when TTL is set to zero', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: jest
+        .fn()
+        .mockResolvedValue('<html><head></head><body><h1>NoCache</h1></body></html>'),
+    };
+    const mockGet = jest.fn().mockResolvedValue(mockResponse);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      undefined,
+      {
+        cacheTtlMs: 0,
+      },
+    );
+    await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      undefined,
+      {
+        cacheTtlMs: 0,
+      },
+    );
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+  });
 });
 

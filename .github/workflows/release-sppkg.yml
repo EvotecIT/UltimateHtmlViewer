@@ -86,6 +86,25 @@ jobs:
           fi
           echo "should_release=$SHOULD_RELEASE" >> "$GITHUB_OUTPUT"
 
+      - name: Validate release tag matches manifest version
+        if: steps.meta.outputs.should_release == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.meta.outputs.version }}"
+          RELEASE_TAG="${{ steps.meta.outputs.release_tag }}"
+          EXPECTED_TAG="v${VERSION}"
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "Release tag is required when creating a GitHub release."
+            exit 1
+          fi
+
+          if [[ "$RELEASE_TAG" != "$EXPECTED_TAG" ]]; then
+            echo "Release tag '$RELEASE_TAG' does not match manifest version '$VERSION' (expected '$EXPECTED_TAG')."
+            exit 1
+          fi
+
       - name: Prepare release files
         shell: bash
         run: |

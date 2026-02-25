@@ -27,6 +27,7 @@ git push origin v<version>
 ```
 
 Tag push triggers `.github/workflows/release-sppkg.yml`.
+The workflow now enforces `tag == v<manifest-version>`.
 
 ## 4) Verify workflow output
 
