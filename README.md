@@ -339,6 +339,8 @@ sequenceDiagram
 
 - `SharePointFileContent` mode loads HTML through SharePoint REST (`GetFileByServerRelativeUrl(...)/$value`).
 - With frequent refresh intervals and high traffic, this can increase API pressure.
+- UHV now retries transient SharePoint API failures (`429`, `502`, `503`, `504`) with bounded backoff and honors `Retry-After` when provided.
+- Auto-refresh skips hidden browser tabs and avoids overlapping refresh runs, reducing unnecessary background API traffic.
 - Keep `refreshIntervalMinutes` conservative and prefer `FileLastModified` cache-busting over aggressive timestamp refreshes.
 - Tune `inlineContentCacheTtlSeconds` (default 15s) to balance freshness and API volume.
 

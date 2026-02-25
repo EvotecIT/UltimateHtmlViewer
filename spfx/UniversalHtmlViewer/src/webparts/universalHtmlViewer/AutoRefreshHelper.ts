@@ -5,6 +5,12 @@ export interface IResolveAutoRefreshTargetOptions {
   currentPageUrl?: string;
 }
 
+export interface IShouldExecuteAutoRefreshOptions {
+  refreshInProgress: boolean;
+  documentHidden?: boolean;
+  pauseWhenHidden?: boolean;
+}
+
 export function resolveAutoRefreshTarget(
   options: IResolveAutoRefreshTargetOptions,
 ): { baseUrl: string; pageUrl: string } {
@@ -15,4 +21,18 @@ export function resolveAutoRefreshTarget(
     baseUrl: activeBaseUrl,
     pageUrl: activePageUrl,
   };
+}
+
+export function shouldExecuteAutoRefresh(
+  options: IShouldExecuteAutoRefreshOptions,
+): boolean {
+  if (options.refreshInProgress) {
+    return false;
+  }
+
+  if (options.pauseWhenHidden !== false && options.documentHidden === true) {
+    return false;
+  }
+
+  return true;
 }

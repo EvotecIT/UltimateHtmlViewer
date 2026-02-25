@@ -9,10 +9,16 @@ interface IInlineHtmlCacheEntry {
 export interface ILoadSharePointInlineContentOptions {
   cacheTtlMs?: number;
   bypassCache?: boolean;
+  maxRetryAttempts?: number;
+  retryBaseDelayMs?: number;
+  retryMaxDelayMs?: number;
 }
 
 const DEFAULT_INLINE_HTML_CACHE_TTL_MS = 15000;
 const INLINE_HTML_CACHE_MAX_ENTRIES = 120;
+const DEFAULT_MAX_RETRY_ATTEMPTS = 3;
+const DEFAULT_RETRY_BASE_DELAY_MS = 750;
+const DEFAULT_RETRY_MAX_DELAY_MS = 8000;
 const inlineHtmlCache = new Map<string, IInlineHtmlCacheEntry>();
 const inlineHtmlInFlightRequests = new Map<string, Promise<string>>();
 
@@ -64,6 +70,7 @@ export async function loadSharePointFileContentForInline(
     baseUrlForRelativeLinks,
     pageUrl,
     spHttpClientConfiguration,
+    options,
   )
     .then((preparedHtml) => {
       if (useResponseCache) {
@@ -96,20 +103,16 @@ async function loadSharePointInlineHtmlFromApi(
   baseUrlForRelativeLinks: string,
   pageUrl: string,
   spHttpClientConfiguration?: unknown,
+  options?: ILoadSharePointInlineContentOptions,
 ): Promise<string> {
   const encodedPath = encodeURIComponent(serverRelativePath);
   const apiUrl = `${webAbsoluteUrl}/_api/web/GetFileByServerRelativeUrl(@p1)/$value?@p1='${encodedPath}'`;
 
-  const response: SPHttpClientResponse = await spHttpClient.get(
+  const response: SPHttpClientResponse = await getInlineHtmlResponseWithRetry(
+    spHttpClient,
     apiUrl,
-    spHttpClientConfiguration as never,
-    {
-      headers: {
-        Accept: 'text/html,*/*',
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    },
+    spHttpClientConfiguration,
+    options,
   );
 
   if (!response.ok) {
@@ -124,6 +127,58 @@ async function loadSharePointInlineHtmlFromApi(
   }
 
   return prepareInlineHtmlForSrcDoc(html, baseUrlForRelativeLinks, pageUrl);
+}
+
+async function getInlineHtmlResponseWithRetry(
+  spHttpClient: SPHttpClient,
+  apiUrl: string,
+  spHttpClientConfiguration?: unknown,
+  options?: ILoadSharePointInlineContentOptions,
+): Promise<SPHttpClientResponse> {
+  const maxRetryAttempts = normalizeMaxRetryAttempts(options?.maxRetryAttempts);
+  const retryBaseDelayMs = normalizeRetryDelayMs(
+    options?.retryBaseDelayMs,
+    DEFAULT_RETRY_BASE_DELAY_MS,
+  );
+  const retryMaxDelayMs = normalizeRetryDelayMs(
+    options?.retryMaxDelayMs,
+    DEFAULT_RETRY_MAX_DELAY_MS,
+  );
+  let response: SPHttpClientResponse | undefined;
+
+  for (let attempt = 1; attempt <= maxRetryAttempts; attempt += 1) {
+    response = await spHttpClient.get(apiUrl, spHttpClientConfiguration as never, {
+      headers: {
+        Accept: 'text/html,*/*',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
+
+    if (response.ok) {
+      return response;
+    }
+
+    const isFinalAttempt = attempt >= maxRetryAttempts;
+    if (isFinalAttempt || !isRetryableStatusCode(response.status)) {
+      return response;
+    }
+
+    const retryAfterMs = tryGetRetryAfterDelayMs(response);
+    const computedBackoffMs = getRetryBackoffDelayMs(
+      attempt,
+      retryBaseDelayMs,
+      retryMaxDelayMs,
+    );
+    const delayMs = retryAfterMs !== undefined ? retryAfterMs : computedBackoffMs;
+    await sleep(delayMs);
+  }
+
+  if (!response) {
+    throw new Error('SharePoint API call did not produce a response.');
+  }
+
+  return response;
 }
 
 function buildInlineHtmlCacheKey(
@@ -198,6 +253,97 @@ function normalizeCacheTtlMs(cacheTtlMs?: number): number {
   }
 
   return Math.round(cacheTtlMs);
+}
+
+function normalizeMaxRetryAttempts(value?: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_MAX_RETRY_ATTEMPTS;
+  }
+
+  const rounded = Math.floor(value);
+  if (rounded <= 1) {
+    return 1;
+  }
+
+  if (rounded > 5) {
+    return 5;
+  }
+
+  return rounded;
+}
+
+function normalizeRetryDelayMs(value: number | undefined, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  if (value <= 0) {
+    return 0;
+  }
+
+  return Math.round(value);
+}
+
+function isRetryableStatusCode(statusCode: number): boolean {
+  return statusCode === 429 || statusCode === 502 || statusCode === 503 || statusCode === 504;
+}
+
+function tryGetRetryAfterDelayMs(response: SPHttpClientResponse): number | undefined {
+  const headers = response.headers;
+  const retryAfterRaw = headers?.get?.('Retry-After');
+  if (!retryAfterRaw) {
+    return undefined;
+  }
+
+  const retryAfter = retryAfterRaw.trim();
+  if (!retryAfter) {
+    return undefined;
+  }
+
+  const retryAfterSeconds = Number(retryAfter);
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0) {
+    return Math.round(retryAfterSeconds * 1000);
+  }
+
+  const retryDateMs = Date.parse(retryAfter);
+  if (!Number.isFinite(retryDateMs)) {
+    return undefined;
+  }
+
+  const deltaMs = retryDateMs - Date.now();
+  if (deltaMs <= 0) {
+    return 0;
+  }
+
+  return Math.round(deltaMs);
+}
+
+function getRetryBackoffDelayMs(
+  attempt: number,
+  retryBaseDelayMs: number,
+  retryMaxDelayMs: number,
+): number {
+  if (retryBaseDelayMs <= 0) {
+    return 0;
+  }
+
+  const exponent = Math.max(0, attempt - 1);
+  const computedDelay = retryBaseDelayMs * Math.pow(2, exponent);
+  if (retryMaxDelayMs <= 0) {
+    return Math.round(computedDelay);
+  }
+
+  return Math.round(Math.min(computedDelay, retryMaxDelayMs));
+}
+
+function sleep(delayMs: number): Promise<void> {
+  if (delayMs <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
 }
 
 function getServerRelativePathForSharePointFile(
