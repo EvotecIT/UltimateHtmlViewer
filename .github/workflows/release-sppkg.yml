@@ -69,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(node -p "require('./spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json').version")"
+          VERSION="$(node -p "require('./spfx/UniversalHtmlViewer/config/package-solution.json').solution.version")"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
           RELEASE_TAG=""
@@ -86,7 +86,7 @@ jobs:
           fi
           echo "should_release=$SHOULD_RELEASE" >> "$GITHUB_OUTPUT"
 
-      - name: Validate release tag matches manifest version
+      - name: Validate release tag matches package version
         if: steps.meta.outputs.should_release == 'true'
         shell: bash
         run: |
@@ -101,7 +101,7 @@ jobs:
           fi
 
           if [[ "$RELEASE_TAG" != "$EXPECTED_TAG" ]]; then
-            echo "Release tag '$RELEASE_TAG' does not match manifest version '$VERSION' (expected '$EXPECTED_TAG')."
+            echo "Release tag '$RELEASE_TAG' does not match package version '$VERSION' (expected '$EXPECTED_TAG')."
             exit 1
           fi
 

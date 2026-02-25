@@ -5,7 +5,7 @@ Use this checklist before publishing a new release tag.
 ## 1) Preflight
 
 - [ ] Confirm working tree is clean.
-- [ ] Confirm target version in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
+- [ ] Confirm target package version in `spfx/UniversalHtmlViewer/config/package-solution.json` (`solution.version`).
 - [ ] Confirm Node version matches project/tooling requirements (`>=22.14.0 <23.0.0` for local SPFx build scripts).
 
 ## 2) Validate locally
@@ -27,7 +27,7 @@ git push origin v<version>
 ```
 
 Tag push triggers `.github/workflows/release-sppkg.yml`.
-The workflow now enforces `tag == v<manifest-version>`.
+The workflow now enforces `tag == v<package-solution-version>`.
 
 ## 4) Verify workflow output
 
@@ -45,6 +45,6 @@ The workflow now enforces `tag == v<manifest-version>`.
 
 ## 6) Post-release sanity checks
 
-- [ ] Downloaded `sppkg` filename and manifest version match.
+- [ ] Downloaded `sppkg` filename and package solution version match.
 - [ ] Deployment docs still reflect current process (`docs/Deploy-SharePointOnline.md`).
 - [ ] Communicate release notes to operators/site admins.
