@@ -81,12 +81,12 @@ Contributor skills (repo-local playbooks): `skills/README.md`
 ## 🧩 Key Capabilities
 
 - Render mode selection: `DirectUrl` or `SharePointFileContent` (inline `srcdoc`).
-- Deep-link support with shareable page URLs via `?uhvPage=...`.
+- Deep-link support with shareable page URLs via `?uhvPage=...` (enabled by default; controllable via `allowQueryStringPageOverride`).
 - Nested iframe hydration for report wrappers.
 - Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
 - Strong URL policy controls: `StrictTenant`, `Allowlist`, `AnyHttps`.
 - Expert-mode guardrail for unsafe security options (`AnyHttps`).
-- Property-pane presets for fast setup (`SharePointLibraryRelaxed`, `FullPage`, `Strict`).
+- Property-pane presets for fast setup (`SharePointLibraryRelaxed`, `SharePointLibraryFullPage`, `SharePointLibraryStrict`).
 - Auto-height and width-fit behavior for large HTML pages.
 - Scripted build/deploy/update/rollback workflows.
 
@@ -280,7 +280,7 @@ flowchart LR
 
 ## ⬅️➡️ Back/Forward Navigation
 
-UHV updates the browser URL as users click inline report links, so browser history works naturally.
+When `allowQueryStringPageOverride` is enabled (default), UHV updates the browser URL as users click inline report links, so browser history works naturally.
 
 - Click inside embedded HTML link/menu:
   - UHV intercepts eligible link and keeps navigation inline.
@@ -308,7 +308,7 @@ sequenceDiagram
 
 ## 🧠 Why This Works Reliably
 
-- Single source of truth:
+- Single source of truth (when query override is enabled):
   - URL query parameter (`uhvPage`) represents current embedded subpage.
 - Controlled inline navigation:
   - UHV only intercepts approved extensions/links and normalizes paths.
@@ -321,7 +321,7 @@ sequenceDiagram
 
 ## 🧭 Deep Links and Scroll Behavior
 
-- Deep links are represented by `?uhvPage=<encoded-site-relative-or-absolute-path>`.
+- With query override enabled, deep links are represented by `?uhvPage=<encoded-site-relative-or-absolute-path>`.
 - UHV enforces top positioning during initial deep-link render.
 - Scroll lock now waits for host/iframe stability and nested iframe hydration before release.
 - If debugging is needed, append `?uhvTraceScroll=1` and inspect `[UHV scroll trace]` console events.
