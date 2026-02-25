@@ -4,7 +4,7 @@ import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import styles from './UniversalHtmlViewerWebPart.module.scss';
 import { buildOpenInNewTabHtml, buildMessageHtml } from './MarkupHelper';
 import { getQueryStringParam } from './QueryStringHelper';
-import { resolveAutoRefreshTarget } from './AutoRefreshHelper';
+import { resolveAutoRefreshTarget, shouldExecuteAutoRefresh } from './AutoRefreshHelper';
 import { CacheBusterMode, UrlValidationOptions } from './UrlHelper';
 import {
   ContentDeliveryMode,
@@ -13,6 +13,8 @@ import {
 import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPartConfigBase';
 
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
+  protected refreshInProgress: boolean = false;
+
   protected setupAutoRefresh(
     baseUrl: string,
     cacheBusterMode: CacheBusterMode,
@@ -30,6 +32,14 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     this.clearRefreshTimer();
     if (typeof window !== 'undefined') {
       this.refreshTimerId = window.setInterval(() => {
+        const shouldRunRefresh = shouldExecuteAutoRefresh({
+          refreshInProgress: this.refreshInProgress,
+          documentHidden: typeof document !== 'undefined' ? document.hidden : false,
+        });
+        if (!shouldRunRefresh) {
+          return;
+        }
+
         const activeTarget = resolveAutoRefreshTarget({
           baseUrl,
           pageUrl,
@@ -65,73 +75,82 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     preserveHostScrollPosition: boolean = false,
     bypassInlineContentCache: boolean = false,
   ): Promise<void> {
-    const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
-    if (!iframe) {
+    if (this.refreshInProgress) {
       return;
     }
 
-    const hostScrollPosition = preserveHostScrollPosition
-      ? this.captureHostScrollPosition()
-      : undefined;
-
-    this.setLoadingVisible(true);
-
-    const refreshedUrl: string = await this.resolveUrlWithCacheBuster(
-      baseUrl,
-      cacheBusterMode,
-      cacheBusterParamName,
-      pageUrl,
-    );
-
-    const effectiveProps: IUniversalHtmlViewerWebPartProps =
-      this.lastEffectiveProps || this.properties;
-    const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
-      effectiveProps,
-    );
-
-    if (contentDeliveryMode === 'SharePointFileContent') {
-      const updatedFromContent: boolean = await this.trySetIframeSrcDocFromSource(
-        iframe,
-        refreshedUrl,
-        pageUrl,
-        effectiveProps,
-        bypassInlineContentCache,
-      );
-      if (updatedFromContent) {
-        if (resetInlineScrollToTop) {
-          this.resetIframeScrollPosition(iframe, refreshedUrl);
-        }
-        if (hostScrollPosition) {
-          this.restoreHostScrollPosition(hostScrollPosition);
-        }
-        this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
+    this.refreshInProgress = true;
+    try {
+      const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
+      if (!iframe) {
         return;
       }
 
-      // Keep the current inline content when refresh fails to avoid direct SharePoint file
-      // navigation, which can trigger browser downloads instead of rendering.
-      this.setLoadingVisible(false);
-      if (hostScrollPosition) {
-        this.restoreHostScrollPosition(hostScrollPosition);
+      const hostScrollPosition = preserveHostScrollPosition
+        ? this.captureHostScrollPosition()
+        : undefined;
+
+      this.setLoadingVisible(true);
+
+      const refreshedUrl: string = await this.resolveUrlWithCacheBuster(
+        baseUrl,
+        cacheBusterMode,
+        cacheBusterParamName,
+        pageUrl,
+      );
+
+      const effectiveProps: IUniversalHtmlViewerWebPartProps =
+        this.lastEffectiveProps || this.properties;
+      const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
+        effectiveProps,
+      );
+
+      if (contentDeliveryMode === 'SharePointFileContent') {
+        const updatedFromContent: boolean = await this.trySetIframeSrcDocFromSource(
+          iframe,
+          refreshedUrl,
+          pageUrl,
+          effectiveProps,
+          bypassInlineContentCache,
+        );
+        if (updatedFromContent) {
+          if (resetInlineScrollToTop) {
+            this.resetIframeScrollPosition(iframe, refreshedUrl);
+          }
+          if (hostScrollPosition) {
+            this.restoreHostScrollPosition(hostScrollPosition);
+          }
+          this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
+          return;
+        }
+
+        // Keep the current inline content when refresh fails to avoid direct SharePoint file
+        // navigation, which can trigger browser downloads instead of rendering.
+        this.setLoadingVisible(false);
+        if (hostScrollPosition) {
+          this.restoreHostScrollPosition(hostScrollPosition);
+        }
+        return;
       }
-      return;
-    }
 
-    const activeIframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
-    if (!activeIframe || activeIframe !== iframe) {
-      return;
-    }
+      const activeIframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
+      if (!activeIframe || activeIframe !== iframe) {
+        return;
+      }
 
-    if (hostScrollPosition) {
-      const restoreAfterLoad = (): void => {
-        activeIframe.removeEventListener('load', restoreAfterLoad);
-        this.restoreHostScrollPosition(hostScrollPosition);
-      };
-      activeIframe.addEventListener('load', restoreAfterLoad);
-    }
+      if (hostScrollPosition) {
+        const restoreAfterLoad = (): void => {
+          activeIframe.removeEventListener('load', restoreAfterLoad);
+          this.restoreHostScrollPosition(hostScrollPosition);
+        };
+        activeIframe.addEventListener('load', restoreAfterLoad);
+      }
 
-    activeIframe.src = refreshedUrl;
-    this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
+      activeIframe.src = refreshedUrl;
+      this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
+    } finally {
+      this.refreshInProgress = false;
+    }
   }
 
   protected resetIframeScrollPosition(iframe: HTMLIFrameElement, targetUrl?: string): void {

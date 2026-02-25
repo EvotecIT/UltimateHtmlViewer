@@ -201,6 +201,10 @@ describe('loadSharePointFileContentForInline', () => {
         sourceUrl,
         baseUrlForRelativeLinks,
         pageUrl,
+        undefined,
+        {
+          maxRetryAttempts: 1,
+        },
       ),
     ).rejects.toThrow('SharePoint API returned 503 Service Unavailable');
 
@@ -210,10 +214,92 @@ describe('loadSharePointFileContentForInline', () => {
       sourceUrl,
       baseUrlForRelativeLinks,
       pageUrl,
+      undefined,
+      {
+        maxRetryAttempts: 1,
+      },
     );
 
     expect(mockGet).toHaveBeenCalledTimes(2);
     expect(recovered).toContain('<h1>Recovered</h1>');
+  });
+
+  it('retries throttled responses and succeeds on a subsequent attempt', async () => {
+    const throttledResponse = {
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: {
+        get: jest.fn().mockReturnValue(undefined),
+      },
+      text: jest.fn().mockResolvedValue(''),
+    };
+    const successResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: jest
+        .fn()
+        .mockResolvedValue('<html><head></head><body><h1>Retried</h1></body></html>'),
+    };
+    const mockGet = jest
+      .fn()
+      .mockResolvedValueOnce(throttledResponse)
+      .mockResolvedValueOnce(successResponse);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    const result = await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      undefined,
+      {
+        maxRetryAttempts: 3,
+        retryBaseDelayMs: 0,
+        retryMaxDelayMs: 0,
+      },
+    );
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(result).toContain('<h1>Retried</h1>');
+  });
+
+  it('does not retry non-throttling errors', async () => {
+    const notFoundResponse = {
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      headers: {
+        get: jest.fn().mockReturnValue(undefined),
+      },
+      text: jest.fn().mockResolvedValue(''),
+    };
+    const mockGet = jest.fn().mockResolvedValue(notFoundResponse);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    await expect(
+      loadSharePointFileContentForInline(
+        mockSpHttpClient as never,
+        webAbsoluteUrl,
+        sourceUrl,
+        baseUrlForRelativeLinks,
+        pageUrl,
+        undefined,
+        {
+          maxRetryAttempts: 4,
+          retryBaseDelayMs: 0,
+          retryMaxDelayMs: 0,
+        },
+      ),
+    ).rejects.toThrow('SharePoint API returned 404 Not Found');
+
+    expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
   it('treats cache-busted source URLs as distinct cache keys', async () => {

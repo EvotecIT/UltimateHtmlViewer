@@ -1,4 +1,4 @@
-import { resolveAutoRefreshTarget } from '../AutoRefreshHelper';
+import { resolveAutoRefreshTarget, shouldExecuteAutoRefresh } from '../AutoRefreshHelper';
 
 describe('AutoRefreshHelper', () => {
   it('uses current navigation target when available', () => {
@@ -27,5 +27,33 @@ describe('AutoRefreshHelper', () => {
       baseUrl: 'https://contoso.sharepoint.com/sites/Reports/SiteAssets/report-default.html',
       pageUrl: 'https://contoso.sharepoint.com/sites/Reports/SitePages/Dashboard.aspx',
     });
+  });
+
+  it('skips auto-refresh while a refresh is already in progress', () => {
+    const shouldExecute = shouldExecuteAutoRefresh({
+      refreshInProgress: true,
+      documentHidden: false,
+    });
+
+    expect(shouldExecute).toBe(false);
+  });
+
+  it('skips auto-refresh when page is hidden by default', () => {
+    const shouldExecute = shouldExecuteAutoRefresh({
+      refreshInProgress: false,
+      documentHidden: true,
+    });
+
+    expect(shouldExecute).toBe(false);
+  });
+
+  it('allows auto-refresh when hidden pause is disabled', () => {
+    const shouldExecute = shouldExecuteAutoRefresh({
+      refreshInProgress: false,
+      documentHidden: true,
+      pauseWhenHidden: false,
+    });
+
+    expect(shouldExecute).toBe(true);
   });
 });
