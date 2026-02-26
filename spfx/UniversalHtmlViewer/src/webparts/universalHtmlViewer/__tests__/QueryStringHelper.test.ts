@@ -19,6 +19,20 @@ describe('QueryStringHelper', () => {
     expect(value).toBeUndefined();
   });
 
+  it('preserves empty parameter values for absolute URL input', () => {
+    const valueWithEquals = getQueryStringParam(
+      'https://contoso.sharepoint.com/sites/Reports/SitePages/Dashboard.aspx?uhvPage=',
+      'uhvPage',
+    );
+    const valueWithoutEquals = getQueryStringParam(
+      'https://contoso.sharepoint.com/sites/Reports/SitePages/Dashboard.aspx?uhvPage',
+      'uhvPage',
+    );
+
+    expect(valueWithEquals).toBe('');
+    expect(valueWithoutEquals).toBe('');
+  });
+
   it('supports site-relative URL parsing through fallback logic', () => {
     const value = getQueryStringParam(
       '/sites/Reports/SitePages/Dashboard.aspx?uhvPage=%2Fsites%2FReports%2FSiteAssets%2Fnested%2Freport.html',
@@ -26,6 +40,20 @@ describe('QueryStringHelper', () => {
     );
 
     expect(value).toBe('/sites/Reports/SiteAssets/nested/report.html');
+  });
+
+  it('preserves empty parameter values in fallback parser', () => {
+    const valueWithEquals = getQueryStringParam(
+      '/sites/Reports/SitePages/Dashboard.aspx?uhvPage=',
+      'uhvPage',
+    );
+    const valueWithoutEquals = getQueryStringParam(
+      '/sites/Reports/SitePages/Dashboard.aspx?uhvPage&foo=bar',
+      'uhvPage',
+    );
+
+    expect(valueWithEquals).toBe('');
+    expect(valueWithoutEquals).toBe('');
   });
 
   it('returns undefined when url or parameter name is empty', () => {
