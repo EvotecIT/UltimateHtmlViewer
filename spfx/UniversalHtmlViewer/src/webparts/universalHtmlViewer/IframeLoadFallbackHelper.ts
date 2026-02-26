@@ -6,7 +6,7 @@ export interface IIframeLoadFallbackState {
 
 export interface ISetupIframeLoadFallbackLifecycleOptions {
   state: IIframeLoadFallbackState;
-  iframe: HTMLIFrameElement;
+  iframe?: HTMLIFrameElement;
   timeoutMs: number;
   onLoad: () => void;
   onTimeout: () => void;
@@ -40,12 +40,14 @@ export function setupIframeLoadFallbackLifecycleState(
     return;
   }
 
+  const iframe: HTMLIFrameElement = options.iframe;
+
   const onIframeLoad = (): void => {
     clearIframeLoadFallbackLifecycleState(options.state, options.clearTimeoutFn);
     options.onLoad();
   };
-  options.iframe.addEventListener('load', onIframeLoad);
-  options.state.iframe = options.iframe;
+  iframe.addEventListener('load', onIframeLoad);
+  options.state.iframe = iframe;
   options.state.loadHandler = onIframeLoad;
 
   options.state.timeoutId = options.setTimeoutFn(() => {

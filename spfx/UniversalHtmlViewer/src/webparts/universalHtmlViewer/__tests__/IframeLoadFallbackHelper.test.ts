@@ -112,6 +112,77 @@ describe('IframeLoadFallbackHelper', () => {
     expect(state.loadHandler).toBeUndefined();
   });
 
+  it('clears existing state and does not wire lifecycle when timeout is disabled', () => {
+    const previousRemoveEventListenerSpy = jest.fn();
+    const previousLoadHandler = jest.fn();
+    const previousIframe = {
+      removeEventListener: previousRemoveEventListenerSpy,
+    } as unknown as HTMLIFrameElement;
+    const nextAddEventListenerSpy = jest.fn();
+    const nextIframe = {
+      addEventListener: nextAddEventListenerSpy,
+      removeEventListener: jest.fn(),
+    } as unknown as HTMLIFrameElement;
+
+    const state: IIframeLoadFallbackState = {
+      timeoutId: 222,
+      iframe: previousIframe,
+      loadHandler: previousLoadHandler,
+    };
+    const setTimeoutFn = jest.fn().mockReturnValue(999);
+    const clearTimeoutFn = jest.fn();
+
+    setupIframeLoadFallbackLifecycleState({
+      state,
+      iframe: nextIframe,
+      timeoutMs: 0,
+      onLoad: jest.fn(),
+      onTimeout: jest.fn(),
+      setTimeoutFn,
+      clearTimeoutFn,
+    });
+
+    expect(clearTimeoutFn).toHaveBeenCalledWith(222);
+    expect(previousRemoveEventListenerSpy).toHaveBeenCalledWith('load', previousLoadHandler);
+    expect(nextAddEventListenerSpy).not.toHaveBeenCalled();
+    expect(setTimeoutFn).not.toHaveBeenCalled();
+    expect(state.timeoutId).toBeUndefined();
+    expect(state.iframe).toBeUndefined();
+    expect(state.loadHandler).toBeUndefined();
+  });
+
+  it('clears existing state and does not wire lifecycle when iframe is missing', () => {
+    const previousRemoveEventListenerSpy = jest.fn();
+    const previousLoadHandler = jest.fn();
+    const previousIframe = {
+      removeEventListener: previousRemoveEventListenerSpy,
+    } as unknown as HTMLIFrameElement;
+
+    const state: IIframeLoadFallbackState = {
+      timeoutId: 333,
+      iframe: previousIframe,
+      loadHandler: previousLoadHandler,
+    };
+    const setTimeoutFn = jest.fn().mockReturnValue(777);
+    const clearTimeoutFn = jest.fn();
+
+    setupIframeLoadFallbackLifecycleState({
+      state,
+      timeoutMs: 500,
+      onLoad: jest.fn(),
+      onTimeout: jest.fn(),
+      setTimeoutFn,
+      clearTimeoutFn,
+    });
+
+    expect(clearTimeoutFn).toHaveBeenCalledWith(333);
+    expect(previousRemoveEventListenerSpy).toHaveBeenCalledWith('load', previousLoadHandler);
+    expect(setTimeoutFn).not.toHaveBeenCalled();
+    expect(state.timeoutId).toBeUndefined();
+    expect(state.iframe).toBeUndefined();
+    expect(state.loadHandler).toBeUndefined();
+  });
+
   it('clears existing lifecycle state explicitly', () => {
     const removeEventListenerSpy = jest.fn();
     const state: IIframeLoadFallbackState = {
