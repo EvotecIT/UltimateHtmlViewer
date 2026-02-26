@@ -1,4 +1,4 @@
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
 param(
     [string]$ClientId,
     [string]$Tenant,
@@ -99,6 +99,14 @@ if (-not $SkipSiteUpdate.IsPresent) {
             throw "Each SiteUrls host must match AppCatalogUrl host '$appCatalogHost'. Invalid value: $siteUrl"
         }
     }
+}
+$plannedAction = if ($SkipSiteUpdate.IsPresent) {
+    "Build and deploy UHV package to app catalog"
+} else {
+    "Build/deploy UHV package and update target site app instances"
+}
+if (-not $PSCmdlet.ShouldProcess($AppCatalogUrl, $plannedAction)) {
+    return
 }
 
 $scriptRoot = $PSScriptRoot

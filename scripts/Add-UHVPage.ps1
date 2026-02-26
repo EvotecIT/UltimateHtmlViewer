@@ -1,4 +1,4 @@
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
     [Parameter(Mandatory = $true)]
     [string]$SiteUrl,
@@ -57,6 +57,15 @@ if (
 
 if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
     throw "PnP.PowerShell module not found. Install-Module PnP.PowerShell -Scope CurrentUser"
+}
+
+$plannedAction = if ($SkipAddWebPart.IsPresent) {
+    "Provision SharePoint page '$PageName' without adding the UHV web part"
+} else {
+    "Provision SharePoint page '$PageName' and configure the UHV web part"
+}
+if (-not $PSCmdlet.ShouldProcess($SiteUrl, $plannedAction)) {
+    return
 }
 
 function Get-StringPropertyValue {
