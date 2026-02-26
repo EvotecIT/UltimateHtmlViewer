@@ -127,6 +127,11 @@ export function validateTenantConfigUrl(value?: string, currentPageUrl?: string)
   if (!trimmed) {
     return '';
   }
+
+  if (trimmed.includes('\\')) {
+    return 'Tenant config URL must use forward slashes (/).';
+  }
+
   const trimmedLower: string = trimmed.toLowerCase();
 
   if (trimmedLower.startsWith('http://')) {

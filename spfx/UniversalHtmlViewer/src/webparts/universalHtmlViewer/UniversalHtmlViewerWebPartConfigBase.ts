@@ -158,6 +158,11 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     if (!trimmed) {
       return undefined;
     }
+
+    if (trimmed.includes('\\')) {
+      return undefined;
+    }
+
     const trimmedLower: string = trimmed.toLowerCase();
 
     const currentUrl: URL = new URL(pageUrl || this.context.pageContext.web.absoluteUrl);

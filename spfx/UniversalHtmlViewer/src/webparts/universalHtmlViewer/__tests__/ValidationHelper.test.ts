@@ -136,6 +136,12 @@ describe('ValidationHelper', () => {
       ).toBe('Tenant config must be site-relative or an absolute HTTPS URL.');
       expect(
         validateTenantConfigUrl(
+          '\\sites\\Reports\\SiteAssets\\uhv-config.json',
+          currentPageUrl,
+        ),
+      ).toBe('Tenant config URL must use forward slashes (/).');
+      expect(
+        validateTenantConfigUrl(
           'https://fabrikam.sharepoint.com/sites/Reports/SiteAssets/uhv-config.json',
           currentPageUrl,
         ),
