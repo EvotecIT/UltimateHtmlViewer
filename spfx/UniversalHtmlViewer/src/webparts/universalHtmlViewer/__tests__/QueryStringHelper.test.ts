@@ -70,6 +70,15 @@ describe('QueryStringHelper', () => {
     expect(value).toBeUndefined();
   });
 
+  it('continues to later matching values when an earlier fallback value is malformed', () => {
+    const value = getQueryStringParam(
+      '/sites/Reports/SitePages/Dashboard.aspx?uhvPage=%E0%A4%A&uhvPage=%2Fsites%2FReports%2FSiteAssets%2Freport.html',
+      'uhvPage',
+    );
+
+    expect(value).toBe('/sites/Reports/SiteAssets/report.html');
+  });
+
   it('supports plus as space and keeps first matching value in fallback parser', () => {
     const value = getQueryStringParam(
       '/sites/Reports/SitePages/Dashboard.aspx?dashboard=report+name&dashboard=override',

@@ -48,7 +48,10 @@ export function getQueryStringParam(url: string, paramName: string): string | un
 
       if (decodedKey === paramName) {
         const decodedValue: string | undefined = tryDecodeQueryComponent(value);
-        return decodedValue;
+        if (decodedValue !== undefined) {
+          return decodedValue;
+        }
+        continue;
       }
     }
 
