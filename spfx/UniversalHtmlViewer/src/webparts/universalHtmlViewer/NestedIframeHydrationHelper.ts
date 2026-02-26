@@ -17,24 +17,44 @@ export function wireNestedIframeHydration(
 ): () => void {
   let observer: MutationObserver | undefined;
   const frameCleanupMap = new Map<HTMLIFrameElement, () => void>();
+  const pruneStaleFrameCleanup = (activeFrames?: Set<HTMLIFrameElement>): void => {
+    frameCleanupMap.forEach((cleanup, frame) => {
+      const isFrameActive = activeFrames
+        ? activeFrames.has(frame)
+        : frame.isConnected;
+      if (isFrameActive) {
+        return;
+      }
+
+      cleanup();
+      frameCleanupMap.delete(frame);
+    });
+  };
 
   const scanFrames = (): void => {
     const iframeDocument = tryGetIframeDocument(options.iframe);
     if (!iframeDocument) {
+      pruneStaleFrameCleanup();
       return;
     }
 
     const nestedFrames = iframeDocument.querySelectorAll(
       'iframe[src], iframe[data-uhv-inline-src]',
     );
+    const activeFrames = new Set<HTMLIFrameElement>();
     nestedFrames.forEach((frame) => {
+      activeFrames.add(frame as HTMLIFrameElement);
+    });
+    pruneStaleFrameCleanup(activeFrames);
+
+    activeFrames.forEach((frame) => {
       ensureNestedFrameNavigationWired(
-        frame as HTMLIFrameElement,
+        frame,
         options,
         frameCleanupMap,
       );
       hydrateNestedFrame(
-        frame as HTMLIFrameElement,
+        frame,
         iframeDocument.baseURI || options.currentPageUrl,
         options,
       );

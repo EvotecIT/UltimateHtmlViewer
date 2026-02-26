@@ -82,4 +82,40 @@ describe('NestedIframeHydrationHelper lifecycle', () => {
     );
     expect(nestedDocument.documentElement?.getAttribute('data-uhv-inline-nav')).toBeNull();
   });
+
+  it('removes handlers for nested frames deleted from DOM before final cleanup', async () => {
+    document.body.innerHTML = '<iframe src="nested.html"></iframe>';
+    const nestedFrame = document.querySelector('iframe') as HTMLIFrameElement;
+    const nestedDocument = document.implementation.createHTMLDocument('nested');
+    Object.defineProperty(nestedFrame, 'contentDocument', {
+      value: nestedDocument,
+      configurable: true,
+    });
+
+    const removeNestedDocumentListenerSpy = jest.spyOn(nestedDocument, 'removeEventListener');
+    const { iframe: parentIframe } = createIframeWithListeners(document);
+    const cleanup = wireNestedIframeHydration({
+      iframe: parentIframe,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      loadInlineHtml: jest.fn().mockResolvedValue('<html><body>ok</body></html>'),
+    });
+
+    expect(nestedDocument.documentElement?.getAttribute('data-uhv-inline-nav')).toBe('1');
+
+    nestedFrame.remove();
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(removeNestedDocumentListenerSpy).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function),
+      true,
+    );
+    expect(nestedDocument.documentElement?.getAttribute('data-uhv-inline-nav')).toBeNull();
+
+    cleanup();
+  });
 });
