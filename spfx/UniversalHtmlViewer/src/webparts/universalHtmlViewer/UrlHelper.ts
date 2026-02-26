@@ -298,11 +298,20 @@ function hasDotSegments(pathname: string): boolean {
 }
 
 function decodePathSegment(segment: string): string {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return segment;
+  let decoded: string = segment;
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    try {
+      const nextDecoded: string = decodeURIComponent(decoded);
+      if (nextDecoded === decoded) {
+        return decoded;
+      }
+      decoded = nextDecoded;
+    } catch {
+      return decoded;
+    }
   }
+
+  return decoded;
 }
 
 function stripQueryAndHash(value: string): string {
