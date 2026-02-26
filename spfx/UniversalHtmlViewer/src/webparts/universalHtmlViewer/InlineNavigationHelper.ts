@@ -129,14 +129,14 @@ function isPrimaryClick(event: MouseEvent): boolean {
 }
 
 function getAnchorFromEvent(event: MouseEvent): HTMLAnchorElement | undefined {
-  const target = event.target as Element | undefined;
-  if (!target) {
+  const targetElement: Element | undefined = getEventTargetElement(event);
+  if (!targetElement) {
     return undefined;
   }
 
-  const anchor = target.closest('a[href]');
+  const anchor = targetElement.closest('a[href]');
   if (!anchor || anchor.tagName.toLowerCase() !== 'a') {
-    const forcedUrlContainer = target.closest('.fc-event-forced-url');
+    const forcedUrlContainer = targetElement.closest('.fc-event-forced-url');
     if (!forcedUrlContainer) {
       return undefined;
     }
@@ -150,6 +150,23 @@ function getAnchorFromEvent(event: MouseEvent): HTMLAnchorElement | undefined {
   }
 
   return anchor as HTMLAnchorElement;
+}
+
+function getEventTargetElement(event: MouseEvent): Element | undefined {
+  const target = event.target as EventTarget | null;
+  if (!target) {
+    return undefined;
+  }
+
+  if (target instanceof Element) {
+    return target;
+  }
+
+  if (target instanceof Node) {
+    return target.parentElement || undefined;
+  }
+
+  return undefined;
 }
 
 function isNonHttpProtocol(value: string): boolean {
