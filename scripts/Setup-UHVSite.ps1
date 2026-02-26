@@ -1,4 +1,4 @@
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
     [Parameter(Mandatory = $true)]
     [string]$SiteUrl,
@@ -84,6 +84,10 @@ if (-not $scriptRoot) {
 }
 
 if ($InstallOnly.IsPresent) {
+    if (-not $PSCmdlet.ShouldProcess($SiteUrl, "Install or update UHV app on site")) {
+        return
+    }
+
     $updateScript = Join-Path $scriptRoot "Update-UHVSiteApp.ps1"
     if (-not (Test-Path $updateScript)) {
         throw "Update script not found at $updateScript"
@@ -119,6 +123,9 @@ if ($ContentDeliveryMode -eq "SharePointFileContent") {
     if ($effectiveFullUri.Host.ToLowerInvariant() -ne $siteUri.Host.ToLowerInvariant()) {
         throw "For SharePointFileContent mode, FullUrl must use the same host as SiteUrl. SiteUrl host='$($siteUri.Host)', FullUrl host='$($effectiveFullUri.Host)'."
     }
+}
+if (-not $PSCmdlet.ShouldProcess($SiteUrl, "Provision UHV page '$PageName'")) {
+    return
 }
 
 Write-Host "Running one-command UHV site setup..."

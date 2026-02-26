@@ -241,6 +241,7 @@ Useful switches:
 - `-SkipAddWebPart`
 - `-SkipConfigureWebPartProperties`
 - `-SetAsHomePage`
+- `-WhatIf` (preview actions without applying tenant/site changes)
 
 ## 8) Update existing sites after publishing new package
 
