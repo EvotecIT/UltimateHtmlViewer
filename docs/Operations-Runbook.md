@@ -98,7 +98,7 @@ Get-PnPApp -Scope Site | Where-Object { $_.Title -like "*Universal HTML Viewer*"
 
 ```powershell
 .\scripts\Rollback-UHV.ps1 `
-  -PreviousSppkgPath ".\release\universal-html-viewer.previous.sppkg" `
+  -RollbackSppkgPath ".\release\universal-html-viewer.previous.sppkg" `
   -AppCatalogUrl "https://<tenant>.sharepoint.com/sites/appcatalog" `
   -SiteUrls @("https://<tenant>.sharepoint.com/sites/Reports") `
   -Scope Tenant `

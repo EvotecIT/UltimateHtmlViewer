@@ -236,7 +236,7 @@ Note: parameter name `-SiteRelativeDashboardPath` is kept for backward compatibi
 Useful switches:
 
 - `-ForceOverwrite`
-- `-EnsureSitePagesForceCheckout`
+- `-EnsureSitePagesForceCheckout` (off by default; temporarily enables checkout during provisioning and restores afterward)
 - `-SkipAddWebPart`
 - `-SkipConfigureWebPartProperties`
 - `-SetAsHomePage`
