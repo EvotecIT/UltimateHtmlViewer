@@ -107,15 +107,33 @@ describe('ValidationHelper', () => {
       expect(validateTenantConfigUrl('/sites/Reports/SiteAssets/uhv-config.json', currentPageUrl)).toBe(
         '',
       );
+      expect(
+        validateTenantConfigUrl(
+          'HTTPS://contoso.sharepoint.com/sites/Reports/SiteAssets/uhv-config.json',
+          currentPageUrl,
+        ),
+      ).toBe('');
     });
 
-    it('rejects http and cross-host tenant config URLs', () => {
+    it('rejects http, unsupported schemes, and cross-host tenant config URLs', () => {
       expect(
         validateTenantConfigUrl(
           'http://contoso.sharepoint.com/sites/Reports/SiteAssets/uhv-config.json',
           currentPageUrl,
         ),
       ).toBe('Tenant config should use HTTPS.');
+      expect(
+        validateTenantConfigUrl(
+          'HTTP://contoso.sharepoint.com/sites/Reports/SiteAssets/uhv-config.json',
+          currentPageUrl,
+        ),
+      ).toBe('Tenant config should use HTTPS.');
+      expect(
+        validateTenantConfigUrl(
+          'ftp://contoso.sharepoint.com/sites/Reports/SiteAssets/uhv-config.json',
+          currentPageUrl,
+        ),
+      ).toBe('Tenant config must be site-relative or an absolute HTTPS URL.');
       expect(
         validateTenantConfigUrl(
           'https://fabrikam.sharepoint.com/sites/Reports/SiteAssets/uhv-config.json',
