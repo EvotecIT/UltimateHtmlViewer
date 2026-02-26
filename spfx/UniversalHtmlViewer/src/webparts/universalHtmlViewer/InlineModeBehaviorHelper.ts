@@ -33,7 +33,7 @@ export function applyInlineModeBehaviors(
     return undefined;
   }
 
-  wireInlineIframeNavigation({
+  const navigationCleanup = wireInlineIframeNavigation({
     iframe,
     currentPageUrl: options.pageUrl,
     validationOptions: options.validationOptions,
@@ -59,6 +59,7 @@ export function applyInlineModeBehaviors(
   });
 
   return (): void => {
+    navigationCleanup();
     hydrationCleanup();
     layoutCleanup();
   };

@@ -168,7 +168,21 @@ function ensureNestedFrameNavigationWired(
     return;
   }
 
+  let wiredDocument: Document | undefined;
+  let wiredClickHandler: ((event: Event) => void) | undefined;
+  const clearDocumentHandler = (): void => {
+    if (wiredDocument && wiredClickHandler) {
+      wiredDocument.removeEventListener('click', wiredClickHandler, true);
+    }
+    if (wiredDocument?.documentElement?.getAttribute('data-uhv-inline-nav') === '1') {
+      wiredDocument.documentElement.removeAttribute('data-uhv-inline-nav');
+    }
+    wiredDocument = undefined;
+    wiredClickHandler = undefined;
+  };
+
   const onFrameLoad = (): void => {
+    clearDocumentHandler();
     resetNestedFrameScrollPosition(frame);
     if (typeof window !== 'undefined') {
       window.setTimeout(() => {
@@ -190,7 +204,7 @@ function ensureNestedFrameNavigationWired(
     }
 
     root.setAttribute('data-uhv-inline-nav', '1');
-    frameDocument.addEventListener('click', (event) => {
+    const onClick = (event: Event): void => {
       const currentPageUrl =
         frame.getAttribute('data-uhv-nested-src') ||
         frameDocument.baseURI ||
@@ -226,7 +240,10 @@ function ensureNestedFrameNavigationWired(
         .catch(() => {
           frame.setAttribute('data-uhv-nested-state', 'failed');
         });
-    }, true);
+    };
+    wiredDocument = frameDocument;
+    wiredClickHandler = onClick;
+    frameDocument.addEventListener('click', onClick, true);
   };
 
   frame.addEventListener('load', onFrameLoad);
@@ -234,6 +251,7 @@ function ensureNestedFrameNavigationWired(
 
   frameCleanupMap.set(frame, () => {
     frame.removeEventListener('load', onFrameLoad);
+    clearDocumentHandler();
   });
 }
 
@@ -246,7 +264,11 @@ function resolveNestedFrameUrl(
   try {
     absoluteUrl = new URL(rawSrc, baseUrl);
   } catch {
-    return undefined;
+    try {
+      absoluteUrl = new URL(rawSrc, options.currentPageUrl);
+    } catch {
+      return undefined;
+    }
   }
 
   if (!isSameHostAsCurrentPage(absoluteUrl, options.currentPageUrl)) {
