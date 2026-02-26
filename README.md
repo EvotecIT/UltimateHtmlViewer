@@ -6,7 +6,8 @@ SPFx web part for hosting HTML experiences in modern SharePoint pages, with deep
 [![Release SPPKG](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml/badge.svg)](https://github.com/EvotecIT/UltimateHtmlViewer/actions/workflows/release-sppkg.yml)
 [![license](https://img.shields.io/github/license/EvotecIT/UltimateHtmlViewer.svg)](https://github.com/EvotecIT/UltimateHtmlViewer)
 
-Security notes and current dependency-alert disposition: `SECURITY.md`
+Security notes and current dependency-alert disposition: `SECURITY.md`  
+SPFx security-uplift spike runbook: `docs/SPFx-Security-Uplift-Spike.md`
 
 ## 📦 Platform and Compatibility
 

@@ -8,7 +8,7 @@ Please report security issues privately through GitHub Security Advisories for t
 
 ## Current Open Dependabot Alerts
 
-Status captured on **2026-02-24** from:
+Status captured on **2026-02-26** from:
 
 - `repos/EvotecIT/UltimateHtmlViewer/dependabot/alerts?state=open`
 
@@ -24,6 +24,24 @@ Status captured on **2026-02-24** from:
 | GHSA-72xf-g2v4-qvf3 | `tough-cookie` | medium | development | Open. Transitive tooling dependency; SPFx upgrade path required. |
 | GHSA-p8p7-x288-28g6 | `request` | medium | development | Open. Legacy transitive dependency in tooling chain. |
 
+## Security Ownership Matrix (As Of 2026-02-26)
+
+| Workstream | Advisory focus | Exposure class | Current mitigation | Owner | Next checkpoint | Target date | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Lockfile and override hygiene | `webpack` (`GHSA-8fgc-7cc6-rx7x`, `GHSA-38r7-794h-5758`) | Build-time only | Override pinned to `webpack@5.105.3`; lockfile refreshed in PR #25 | Repo maintainers | Re-run `npm audit` and Dependabot triage | 2026-03-05 | In progress |
+| SPFx toolchain transitive chain | `braces`, `validator`, `postcss`, `tough-cookie`, `request` | Build/dev chain | Keep direct dependencies patched where safe; avoid forced SPFx-major drift | Repo maintainers | Execute controlled uplift spike runbook | 2026-03-12 | In progress |
+| Runtime package safety | `ajv` (indirect path) | Runtime policy + shared libs | Continue runtime boundary checks and strict URL policy defaults in UHV | Repo maintainers | Re-validate after each SPFx lockfile refresh | 2026-03-12 | Monitoring |
+
+## Controlled SPFx Uplift Spike
+
+A controlled spike plan is now tracked in:
+
+- `docs/SPFx-Security-Uplift-Spike.md`
+
+Spike objective:
+
+- Reduce remaining high-severity transitive tooling findings without destabilizing production SPFx builds.
+
 ## What We Do Today
 
 - Patch direct and safely-overridable transitive dependencies where possible.
@@ -38,4 +56,3 @@ npm audit --omit=dev
 npm audit
 gh api -X GET "repos/EvotecIT/UltimateHtmlViewer/dependabot/alerts?state=open&per_page=100"
 ```
-
