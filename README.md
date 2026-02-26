@@ -438,7 +438,7 @@ Operations runbook (reusable): `docs/Operations-Runbook.md`
   -DeviceLogin
 ```
 
-`Deploy-UHV-All.ps1` validates that `-AppCatalogUrl`, `-TenantAdminUrl`, and `-SiteUrls` are absolute HTTPS URLs.
+`Deploy-UHV-All.ps1` validates that `-AppCatalogUrl`, `-TenantAdminUrl`, and `-SiteUrls` are absolute HTTPS URLs, and enforces host consistency between app catalog and target site URLs.
 
 Note: `-SiteRelativeDashboardPath` is a backward-compatible name and accepts any HTML entry file path.
 

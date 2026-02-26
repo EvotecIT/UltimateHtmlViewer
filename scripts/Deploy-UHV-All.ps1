@@ -33,6 +33,19 @@ function Test-IsHttpsAbsoluteUrl {
     return $parsed.Scheme -eq "https"
 }
 
+function ConvertTo-HttpsUri {
+    param(
+        [string]$Value,
+        [string]$ParameterName
+    )
+
+    if (-not (Test-IsHttpsAbsoluteUrl -Value $Value)) {
+        throw "$ParameterName must be an absolute HTTPS URL."
+    }
+
+    return [Uri]$Value
+}
+
 if ([string]::IsNullOrWhiteSpace($ClientId)) {
     $ClientId = $env:UHV_CLIENT_ID
 }
@@ -52,19 +65,38 @@ if ([string]::IsNullOrWhiteSpace($AppCatalogUrl)) {
 if ([string]::IsNullOrWhiteSpace($TenantAdminUrl)) {
     throw "TenantAdminUrl is required. Pass -TenantAdminUrl 'https://<tenant>-admin.sharepoint.com'."
 }
-if (-not (Test-IsHttpsAbsoluteUrl -Value $AppCatalogUrl)) {
-    throw "AppCatalogUrl must be an absolute HTTPS URL."
-}
-if (-not (Test-IsHttpsAbsoluteUrl -Value $TenantAdminUrl)) {
-    throw "TenantAdminUrl must be an absolute HTTPS URL."
-}
 if (-not $SkipSiteUpdate.IsPresent -and (-not $SiteUrls -or $SiteUrls.Count -eq 0)) {
     throw "SiteUrls are required unless -SkipSiteUpdate is used."
 }
+
+$appCatalogUri = ConvertTo-HttpsUri -Value $AppCatalogUrl -ParameterName "AppCatalogUrl"
+$tenantAdminUri = ConvertTo-HttpsUri -Value $TenantAdminUrl -ParameterName "TenantAdminUrl"
+$appCatalogHost = $appCatalogUri.Host.ToLowerInvariant()
+$tenantAdminHost = $tenantAdminUri.Host.ToLowerInvariant()
+
+$expectedTenantAdminHost = ""
+$appCatalogHostLabels = $appCatalogHost.Split('.')
+if ($appCatalogHostLabels.Length -ge 2) {
+    $tenantLabel = $appCatalogHostLabels[0]
+    if ($tenantLabel.EndsWith("-admin", [System.StringComparison]::OrdinalIgnoreCase)) {
+        $tenantLabel = $tenantLabel.Substring(0, $tenantLabel.Length - 6)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($tenantLabel)) {
+        $suffix = ($appCatalogHostLabels[1..($appCatalogHostLabels.Length - 1)] -join ".")
+        $expectedTenantAdminHost = "$tenantLabel-admin.$suffix"
+    }
+}
+if ($expectedTenantAdminHost -and $tenantAdminHost -ne $expectedTenantAdminHost) {
+    throw "TenantAdminUrl host '$tenantAdminHost' does not match AppCatalogUrl tenant host '$appCatalogHost'. Expected: '$expectedTenantAdminHost'."
+}
+
 if (-not $SkipSiteUpdate.IsPresent) {
     foreach ($siteUrl in $SiteUrls) {
-        if (-not (Test-IsHttpsAbsoluteUrl -Value $siteUrl)) {
-            throw "Each SiteUrls entry must be an absolute HTTPS URL. Invalid value: $siteUrl"
+        $siteUri = ConvertTo-HttpsUri -Value $siteUrl -ParameterName "SiteUrls"
+        $siteHost = $siteUri.Host.ToLowerInvariant()
+        if ($siteHost -ne $appCatalogHost) {
+            throw "Each SiteUrls host must match AppCatalogUrl host '$appCatalogHost'. Invalid value: $siteUrl"
         }
     }
 }

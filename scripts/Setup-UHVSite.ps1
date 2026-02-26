@@ -38,6 +38,24 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function ConvertTo-HttpsUri {
+    param(
+        [string]$Value,
+        [string]$ParameterName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        throw "$ParameterName is required."
+    }
+
+    $parsed = $null
+    if (-not [Uri]::TryCreate($Value, [UriKind]::Absolute, [ref]$parsed) -or $parsed.Scheme -ne "https") {
+        throw "$ParameterName must be an absolute HTTPS URL."
+    }
+
+    return $parsed
+}
+
 function Resolve-FullUrl {
     param(
         [string]$TargetSiteUrl,
@@ -93,6 +111,15 @@ $effectiveFullUrl = Resolve-FullUrl `
     -TargetSiteUrl $SiteUrl `
     -ExplicitFullUrl $FullUrl `
     -RelativePath $SiteRelativeDashboardPath
+
+$siteUri = ConvertTo-HttpsUri -Value $SiteUrl -ParameterName "SiteUrl"
+$effectiveFullUri = ConvertTo-HttpsUri -Value $effectiveFullUrl -ParameterName "FullUrl"
+
+if ($ContentDeliveryMode -eq "SharePointFileContent") {
+    if ($effectiveFullUri.Host.ToLowerInvariant() -ne $siteUri.Host.ToLowerInvariant()) {
+        throw "For SharePointFileContent mode, FullUrl must use the same host as SiteUrl. SiteUrl host='$($siteUri.Host)', FullUrl host='$($effectiveFullUri.Host)'."
+    }
+}
 
 Write-Host "Running one-command UHV site setup..."
 Write-Host "Site: $SiteUrl"
