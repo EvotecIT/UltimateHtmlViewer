@@ -7,6 +7,11 @@ import { getQueryStringParam } from './QueryStringHelper';
 import { resolveAutoRefreshTarget, shouldExecuteAutoRefresh } from './AutoRefreshHelper';
 import { CacheBusterMode, UrlValidationOptions } from './UrlHelper';
 import {
+  clearIframeLoadFallbackLifecycleState,
+  IIframeLoadFallbackState,
+  setupIframeLoadFallbackLifecycleState,
+} from './IframeLoadFallbackHelper';
+import {
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
 } from './UniversalHtmlViewerTypes';
@@ -14,8 +19,7 @@ import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPa
 
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
   protected refreshInProgress: boolean = false;
-  private iframeLoadFallbackTarget: HTMLIFrameElement | undefined;
-  private iframeLoadFallbackHandler: (() => void) | undefined;
+  private readonly iframeLoadFallbackState: IIframeLoadFallbackState = {};
 
   protected setupAutoRefresh(
     baseUrl: string,
@@ -596,8 +600,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     url: string,
     effectiveProps?: IUniversalHtmlViewerWebPartProps,
   ): void {
-    this.clearIframeLoadTimeout();
-    this.clearIframeLoadFallbackListener();
+    this.clearIframeLoadFallbackLifecycle();
 
     const props: IUniversalHtmlViewerWebPartProps =
       effectiveProps || this.lastEffectiveProps || this.properties;
@@ -611,29 +614,37 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       return;
     }
 
-    const onIframeLoad = (): void => {
-      this.clearIframeLoadTimeout();
-      this.setLoadingVisible(false);
-    };
-    iframe.addEventListener('load', onIframeLoad);
-    this.iframeLoadFallbackTarget = iframe;
-    this.iframeLoadFallbackHandler = onIframeLoad;
-
-    this.iframeLoadTimeoutId = window.setTimeout(() => {
-      this.clearRefreshTimer();
-      this.domElement.innerHTML = buildMessageHtml(
-        'UniversalHtmlViewer: The content did not load in time. It may be blocked by SharePoint security headers.',
-        `${buildOpenInNewTabHtml(url, styles.fallback, styles.fallbackLink)}${this.buildDiagnosticsHtml(
-          this.buildDiagnosticsData({
-            resolvedUrl: url,
-            timeoutSeconds,
-          }, props),
-          props,
-        )}`,
-        styles.universalHtmlViewer,
-        styles.message,
-      );
-    }, timeoutSeconds * 1000);
+    setupIframeLoadFallbackLifecycleState({
+      state: this.iframeLoadFallbackState,
+      iframe,
+      timeoutMs: timeoutSeconds * 1000,
+      setTimeoutFn: (handler: () => void, timeoutMs: number): number =>
+        window.setTimeout(handler, timeoutMs),
+      clearTimeoutFn: (timeoutId: number): void => {
+        window.clearTimeout(timeoutId);
+      },
+      onLoad: (): void => {
+        this.iframeLoadTimeoutId = undefined;
+        this.setLoadingVisible(false);
+      },
+      onTimeout: (): void => {
+        this.iframeLoadTimeoutId = undefined;
+        this.clearRefreshTimer();
+        this.domElement.innerHTML = buildMessageHtml(
+          'UniversalHtmlViewer: The content did not load in time. It may be blocked by SharePoint security headers.',
+          `${buildOpenInNewTabHtml(url, styles.fallback, styles.fallbackLink)}${this.buildDiagnosticsHtml(
+            this.buildDiagnosticsData({
+              resolvedUrl: url,
+              timeoutSeconds,
+            }, props),
+            props,
+          )}`,
+          styles.universalHtmlViewer,
+          styles.message,
+        );
+      },
+    });
+    this.iframeLoadTimeoutId = this.iframeLoadFallbackState.timeoutId;
   }
 
   private getIframeLoadTimeoutSeconds(props: IUniversalHtmlViewerWebPartProps): number {
@@ -648,20 +659,24 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   }
 
   protected clearIframeLoadTimeout(): void {
-    if (this.iframeLoadTimeoutId && typeof window !== 'undefined') {
-      window.clearTimeout(this.iframeLoadTimeoutId);
-    }
-    this.iframeLoadTimeoutId = undefined;
+    this.clearIframeLoadFallbackLifecycle();
   }
   protected clearIframeLoadFallbackListener(): void {
-    if (this.iframeLoadFallbackTarget && this.iframeLoadFallbackHandler) {
-      this.iframeLoadFallbackTarget.removeEventListener(
-        'load',
-        this.iframeLoadFallbackHandler,
-      );
-    }
-    this.iframeLoadFallbackTarget = undefined;
-    this.iframeLoadFallbackHandler = undefined;
+    this.clearIframeLoadFallbackLifecycle();
+  }
+  private clearIframeLoadFallbackLifecycle(): void {
+    clearIframeLoadFallbackLifecycleState(
+      this.iframeLoadFallbackState,
+      (timeoutId: number): void => {
+        if (typeof window !== 'undefined' && typeof window.clearTimeout === 'function') {
+          window.clearTimeout(timeoutId);
+          return;
+        }
+
+        clearTimeout(timeoutId as unknown as ReturnType<typeof setTimeout>);
+      },
+    );
+    this.iframeLoadTimeoutId = this.iframeLoadFallbackState.timeoutId;
   }
 
   protected async resolveUrlWithCacheBuster(
