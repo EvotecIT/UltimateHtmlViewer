@@ -17,6 +17,11 @@ import {
   setupIframeLoadListenerLifecycleState,
 } from './IframeLoadListenerHelper';
 import {
+  clearScheduledTimeoutState,
+  IScheduledTimeoutState,
+  scheduleTimeoutWithState,
+} from './ScheduledTimeoutHelper';
+import {
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
 } from './UniversalHtmlViewerTypes';
@@ -26,6 +31,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   protected refreshInProgress: boolean = false;
   private readonly iframeLoadFallbackState: IIframeLoadFallbackState = {};
   private readonly hostScrollRestoreState: IIframeLoadListenerState = {};
+  private readonly deferredScrollTimeoutState: IScheduledTimeoutState = {};
 
   protected setupAutoRefresh(
     baseUrl: string,
@@ -197,10 +203,10 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
 
     applyReset();
     if (typeof window !== 'undefined') {
-      window.setTimeout(applyReset, 0);
-      window.setTimeout(applyReset, 120);
-      window.setTimeout(applyReset, 350);
-      window.setTimeout(applyReset, 800);
+      this.scheduleDeferredScrollTimeout(applyReset, 0);
+      this.scheduleDeferredScrollTimeout(applyReset, 120);
+      this.scheduleDeferredScrollTimeout(applyReset, 350);
+      this.scheduleDeferredScrollTimeout(applyReset, 800);
     }
   }
   protected getIframeDeepMaxScrollTop(iframe: HTMLIFrameElement): number {
@@ -298,10 +304,10 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     };
 
     applyRestore();
-    window.setTimeout(applyRestore, 0);
-    window.setTimeout(applyRestore, 120);
-    window.setTimeout(applyRestore, 350);
-    window.setTimeout(applyRestore, 800);
+    this.scheduleDeferredScrollTimeout(applyRestore, 0);
+    this.scheduleDeferredScrollTimeout(applyRestore, 120);
+    this.scheduleDeferredScrollTimeout(applyRestore, 350);
+    this.scheduleDeferredScrollTimeout(applyRestore, 800);
   }
   protected forceHostScrollTop(): void {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -690,6 +696,32 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   private clearHostScrollRestoreOnLoadListener(): void {
     clearIframeLoadListenerLifecycleState(this.hostScrollRestoreState);
   }
+  private scheduleDeferredScrollTimeout(
+    handler: () => void,
+    timeoutMs: number,
+  ): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    scheduleTimeoutWithState({
+      state: this.deferredScrollTimeoutState,
+      timeoutMs,
+      handler,
+      setTimeoutFn: (timeoutHandler: () => void, delayMs: number): number =>
+        window.setTimeout(timeoutHandler, delayMs),
+    });
+  }
+  private clearDeferredScrollTimeouts(): void {
+    clearScheduledTimeoutState(this.deferredScrollTimeoutState, (timeoutId: number): void => {
+      if (typeof window !== 'undefined' && typeof window.clearTimeout === 'function') {
+        window.clearTimeout(timeoutId);
+        return;
+      }
+
+      clearTimeout(timeoutId as unknown as ReturnType<typeof setTimeout>);
+    });
+  }
 
   protected async resolveUrlWithCacheBuster(
     baseUrl: string,
@@ -931,6 +963,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     this.clearIframeLoadTimeout();
     this.clearIframeLoadFallbackListener();
     this.clearHostScrollRestoreOnLoadListener();
+    this.clearDeferredScrollTimeouts();
   }
   private getDocumentDeepMaxScrollTop(
     iframeDocument?: Document,
