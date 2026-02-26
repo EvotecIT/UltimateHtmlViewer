@@ -106,7 +106,7 @@ describe('NestedIframeHydrationHelper lifecycle', () => {
 
     nestedFrame.remove();
     await new Promise<void>((resolve) => {
-      setTimeout(resolve, 0);
+      setTimeout(resolve, 60);
     });
 
     expect(removeNestedDocumentListenerSpy).toHaveBeenCalledWith(
@@ -117,6 +117,50 @@ describe('NestedIframeHydrationHelper lifecycle', () => {
     expect(nestedDocument.documentElement?.getAttribute('data-uhv-inline-nav')).toBeNull();
 
     cleanup();
+  });
+
+  it('debounces mutation-triggered nested scans under bursty DOM updates', async () => {
+    jest.useFakeTimers();
+    try {
+      document.body.innerHTML = '';
+      Object.defineProperty(document, 'baseURI', {
+        value: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
+        configurable: true,
+      });
+      const { iframe: parentIframe } = createIframeWithListeners(document);
+      const loadInlineHtml = jest.fn().mockResolvedValue('<html><body>ok</body></html>');
+      const cleanup = wireNestedIframeHydration({
+        iframe: parentIframe,
+        currentPageUrl: validationOptions.currentPageUrl,
+        validationOptions,
+        cacheBusterParamName: 'v',
+        loadInlineHtml,
+      });
+
+      const firstFrame = document.createElement('iframe');
+      firstFrame.setAttribute('src', '/sites/TestSite1/SitePages/frame-one.html');
+      const secondFrame = document.createElement('iframe');
+      secondFrame.setAttribute('src', '/sites/TestSite1/SitePages/frame-two.html');
+      document.body.appendChild(firstFrame);
+      document.body.appendChild(secondFrame);
+
+      await Promise.resolve();
+      expect(loadInlineHtml).toHaveBeenCalledTimes(0);
+
+      jest.advanceTimersByTime(39);
+      await Promise.resolve();
+      expect(loadInlineHtml).toHaveBeenCalledTimes(0);
+
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(loadInlineHtml).toHaveBeenCalledTimes(2);
+
+      cleanup();
+    } finally {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+    }
   });
 
   it('does not apply async nested hydration completion to detached frames', async () => {

@@ -17,6 +17,43 @@ export function wireNestedIframeHydration(
 ): () => void {
   let observer: MutationObserver | undefined;
   const frameCleanupMap = new Map<HTMLIFrameElement, () => void>();
+  const mutationScanDebounceMs = 40;
+  let scheduledScanTimeoutId: number | undefined;
+
+  const clearScheduledScan = (): void => {
+    if (scheduledScanTimeoutId === undefined) {
+      return;
+    }
+
+    if (typeof window !== 'undefined' && typeof window.clearTimeout === 'function') {
+      window.clearTimeout(scheduledScanTimeoutId);
+    } else {
+      clearTimeout(scheduledScanTimeoutId as unknown as ReturnType<typeof setTimeout>);
+    }
+    scheduledScanTimeoutId = undefined;
+  };
+
+  const scheduleScan = (): void => {
+    if (scheduledScanTimeoutId !== undefined) {
+      return;
+    }
+
+    const executeScan = (): void => {
+      scheduledScanTimeoutId = undefined;
+      scanFrames();
+    };
+
+    if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+      scheduledScanTimeoutId = window.setTimeout(executeScan, mutationScanDebounceMs);
+      return;
+    }
+
+    scheduledScanTimeoutId = setTimeout(
+      executeScan,
+      mutationScanDebounceMs,
+    ) as unknown as number;
+  };
+
   const pruneStaleFrameCleanup = (activeFrames?: Set<HTMLIFrameElement>): void => {
     frameCleanupMap.forEach((cleanup, frame) => {
       const isFrameActive = activeFrames
@@ -31,7 +68,7 @@ export function wireNestedIframeHydration(
     });
   };
 
-  const scanFrames = (): void => {
+  function scanFrames(): void {
     const iframeDocument = tryGetIframeDocument(options.iframe);
     if (!iframeDocument) {
       pruneStaleFrameCleanup();
@@ -59,7 +96,7 @@ export function wireNestedIframeHydration(
         options,
       );
     });
-  };
+  }
 
   const attachObserver = (): void => {
     const iframeDocument = tryGetIframeDocument(options.iframe);
@@ -86,7 +123,7 @@ export function wireNestedIframeHydration(
       });
 
       if (shouldScan) {
-        scanFrames();
+        scheduleScan();
       }
     });
     observer.observe(iframeDocument.documentElement, {
@@ -98,6 +135,7 @@ export function wireNestedIframeHydration(
   };
 
   const onLoad = (): void => {
+    clearScheduledScan();
     if (observer) {
       observer.disconnect();
       observer = undefined;
@@ -110,6 +148,7 @@ export function wireNestedIframeHydration(
   onLoad();
 
   return (): void => {
+    clearScheduledScan();
     options.iframe.removeEventListener('load', onLoad);
     if (observer) {
       observer.disconnect();
