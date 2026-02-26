@@ -51,6 +51,17 @@ describe('InlineDeepLinkHelper', () => {
     expect(result).toBeUndefined();
   });
 
+  it('rejects deep-link values containing decoded control characters', () => {
+    const result = resolveInlineDeepLinkTarget({
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=%2Fsites%2FTestSite1%2FSiteAssets%2FReports%2FLine%0ABreak.html',
+      fallbackUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
+      validationOptions,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
   it('rejects deep-link values above maximum supported length', () => {
     const oversizedValue = `/sites/TestSite1/SiteAssets/Reports/${'a'.repeat(2100)}.html`;
     const pageUrl = `https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=${encodeURIComponent(
@@ -171,6 +182,22 @@ describe('InlineDeepLinkHelper', () => {
     expect(result.initialContentUrl).toBe(
       'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Ops.html',
     );
+  });
+
+  it('marks control-character deep-link requests as rejected', () => {
+    const result = resolveInlineContentTarget({
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?uhvPage=%2Fsites%2FTestSite1%2FSiteAssets%2FReports%2FTab%09Character.html',
+      fallbackUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
+      validationOptions,
+    });
+
+    expect(result.allowDeepLinkOverride).toBe(true);
+    expect(result.hasRequestedDeepLink).toBe(true);
+    expect(result.requestedDeepLinkValue).toBe('');
+    expect(result.deepLinkedUrl).toBeUndefined();
+    expect(result.isRejectedRequestedDeepLink).toBe(true);
+    expect(result.initialContentUrl).toBe('/sites/TestSite1/SiteAssets/Reports/index.html');
   });
 
   it('ignores deep-link override in AnyHttps mode', () => {
