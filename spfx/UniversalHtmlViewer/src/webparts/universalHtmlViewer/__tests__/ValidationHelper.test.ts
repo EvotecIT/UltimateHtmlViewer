@@ -49,6 +49,9 @@ describe('ValidationHelper', () => {
       expect(validateBasePath('/sites/reports/%2e%2e%5Csecret/')).toBe(
         'Base path must not include "." or ".." segments.',
       );
+      expect(validateBasePath('/sites/reports/%252e%252e%252fsecret/')).toBe(
+        'Base path must not include "." or ".." segments.',
+      );
     });
   });
 
@@ -81,6 +84,9 @@ describe('ValidationHelper', () => {
         'must not include "." or ".."',
       );
       expect(validateAllowedPathPrefixes('/sites/reports/%2e%2e%2Fsecret/')).toContain(
+        'must not include "." or ".."',
+      );
+      expect(validateAllowedPathPrefixes('/sites/reports/%252e%252e%252fsecret/')).toContain(
         'must not include "." or ".."',
       );
     });

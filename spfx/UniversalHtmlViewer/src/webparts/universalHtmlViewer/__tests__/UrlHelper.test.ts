@@ -275,6 +275,19 @@ describe('isUrlAllowed', () => {
     ).toBe(false);
   });
 
+  it('rejects double-encoded dot-segment paths', () => {
+    expect(
+      isUrlAllowed('/sites/Reports/Dashboards/%252e%252e%252fSecret/index.html', strictOptions),
+    ).toBe(false);
+
+    expect(
+      isUrlAllowed(
+        'https://contoso.sharepoint.com/sites/Reports/Dashboards/%252e%252e%252fSecret/index.html',
+        strictOptions,
+      ),
+    ).toBe(false);
+  });
+
   it('rejects backslash dot-segment paths', () => {
     expect(
       isUrlAllowed('/sites/Reports/Dashboards/..\\Secret/index.html', strictOptions),
