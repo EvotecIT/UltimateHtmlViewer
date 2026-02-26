@@ -25,18 +25,29 @@ export function getQueryStringParam(url: string, paramName: string): string | un
       return undefined;
     }
 
-    const queryPart: string = url.substring(questionMarkIndex + 1);
+    const queryPartWithFragment: string = url.substring(questionMarkIndex + 1);
+    const hashIndex: number = queryPartWithFragment.indexOf('#');
+    const queryPart: string =
+      hashIndex === -1
+        ? queryPartWithFragment
+        : queryPartWithFragment.substring(0, hashIndex);
     const pairs: string[] = queryPart.split('&');
 
     for (const pair of pairs) {
-      const [key, value] = pair.split('=');
-      const decodedKey = tryDecodeQueryComponent(key);
+      if (!pair) {
+        continue;
+      }
+
+      const equalsIndex: number = pair.indexOf('=');
+      const key: string = equalsIndex === -1 ? pair : pair.substring(0, equalsIndex);
+      const value: string = equalsIndex === -1 ? '' : pair.substring(equalsIndex + 1);
+      const decodedKey: string | undefined = tryDecodeQueryComponent(key);
       if (!decodedKey) {
         continue;
       }
 
       if (decodedKey === paramName) {
-        const decodedValue = tryDecodeQueryComponent(value);
+        const decodedValue: string | undefined = tryDecodeQueryComponent(value);
         return decodedValue || undefined;
       }
     }
