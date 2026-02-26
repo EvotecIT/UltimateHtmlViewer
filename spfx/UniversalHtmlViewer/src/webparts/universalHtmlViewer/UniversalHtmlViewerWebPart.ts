@@ -127,6 +127,19 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.context.propertyPane.refresh();
     }
 
+    if (propertyPath === 'tenantConfigUrl') {
+      const normalizedTenantConfigUrl: string = (this.properties.tenantConfigUrl || '').trim();
+      this.properties.tenantConfigUrl = normalizedTenantConfigUrl;
+      if (
+        !normalizedTenantConfigUrl &&
+        this.properties.tenantConfigMode &&
+        this.properties.tenantConfigMode !== 'Merge'
+      ) {
+        this.properties.tenantConfigMode = 'Merge';
+      }
+      this.context.propertyPane.refresh();
+    }
+
     if (
       propertyPath === 'htmlSourceMode' ||
       propertyPath === 'contentDeliveryMode' ||
@@ -444,7 +457,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                     { key: 'Merge', text: 'Merge (use when fields are empty)' },
                     { key: 'Override', text: 'Override (config wins)' },
                   ],
-                  disabled: !this.properties.tenantConfigUrl,
+                  disabled: !(this.properties.tenantConfigUrl || '').trim(),
                 }),
               ],
             },
