@@ -41,4 +41,31 @@ describe('QueryStringHelper', () => {
 
     expect(value).toBeUndefined();
   });
+
+  it('supports plus as space and keeps first matching value in fallback parser', () => {
+    const value = getQueryStringParam(
+      '/sites/Reports/SitePages/Dashboard.aspx?dashboard=report+name&dashboard=override',
+      'dashboard',
+    );
+
+    expect(value).toBe('report name');
+  });
+
+  it('preserves equals signs in fallback parser values', () => {
+    const value = getQueryStringParam(
+      '/sites/Reports/SitePages/Dashboard.aspx?token=abc=def==&foo=bar',
+      'token',
+    );
+
+    expect(value).toBe('abc=def==');
+  });
+
+  it('does not include hash fragments in fallback parser values', () => {
+    const value = getQueryStringParam(
+      '/sites/Reports/SitePages/Dashboard.aspx?uhvPage=%2Fsites%2FReports%2FSiteAssets%2Freport.html#section-a',
+      'uhvPage',
+    );
+
+    expect(value).toBe('/sites/Reports/SiteAssets/report.html');
+  });
 });
