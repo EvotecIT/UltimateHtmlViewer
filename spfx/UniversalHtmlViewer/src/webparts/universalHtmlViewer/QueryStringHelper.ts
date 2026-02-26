@@ -13,7 +13,7 @@ export function getQueryStringParam(url: string, paramName: string): string | un
     const parsed: URL = new URL(url);
     const value: string | null = parsed.searchParams.get(paramName);
 
-    if (!value) {
+    if (value === null) {
       return undefined;
     }
 
@@ -48,7 +48,7 @@ export function getQueryStringParam(url: string, paramName: string): string | un
 
       if (decodedKey === paramName) {
         const decodedValue: string | undefined = tryDecodeQueryComponent(value);
-        return decodedValue || undefined;
+        return decodedValue;
       }
     }
 
@@ -57,7 +57,7 @@ export function getQueryStringParam(url: string, paramName: string): string | un
 }
 
 function tryDecodeQueryComponent(value?: string): string | undefined {
-  if (!value) {
+  if (value === undefined) {
     return undefined;
   }
 
