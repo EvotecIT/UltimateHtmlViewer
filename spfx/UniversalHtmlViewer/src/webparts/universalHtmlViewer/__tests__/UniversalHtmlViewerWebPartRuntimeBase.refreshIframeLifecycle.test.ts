@@ -132,4 +132,83 @@ describe('UniversalHtmlViewerWebPartRuntimeBase refreshIframe lifecycle', () => 
     expect((runtime as any).hostScrollRestoreState.iframe).toBeUndefined();
     expect((runtime as any).hostScrollRestoreState.loadHandler).toBeUndefined();
   });
+
+  it('clears deferred iframe scroll reset timers during dispose', () => {
+    jest.useFakeTimers();
+    const clearTimeoutSpy = jest.spyOn(window, 'clearTimeout');
+    try {
+      const iframeDocument = document.implementation.createHTMLDocument('iframe');
+      const iframeWindowScrollToSpy = jest.fn();
+      const iframe = {
+        contentWindow: {
+          scrollTo: iframeWindowScrollToSpy,
+        },
+        contentDocument: iframeDocument,
+      } as unknown as HTMLIFrameElement;
+      const container = document.createElement('div');
+      const runtime = createRuntimeHarness(container);
+      runtime.resetIframeDeepScrollPosition = jest.fn();
+
+      (runtime as any).resetIframeScrollPosition(
+        iframe,
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Report.html',
+      );
+
+      expect(iframeWindowScrollToSpy).toHaveBeenCalledTimes(1);
+      expect((runtime as any).deferredScrollTimeoutState.timeoutIds).toHaveLength(4);
+
+      (runtime as any).onDispose();
+
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+      expect((runtime as any).deferredScrollTimeoutState.timeoutIds).toEqual([]);
+
+      jest.runOnlyPendingTimers();
+      expect(iframeWindowScrollToSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      clearTimeoutSpy.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  it('clears deferred host scroll restore timers during dispose', () => {
+    jest.useFakeTimers();
+    const clearTimeoutSpy = jest.spyOn(window, 'clearTimeout');
+    const originalScrollTo = window.scrollTo;
+    const scrollToSpy = jest.fn();
+    Object.defineProperty(window, 'scrollTo', {
+      configurable: true,
+      value: scrollToSpy,
+      writable: true,
+    });
+
+    try {
+      const container = document.createElement('div');
+      const runtime = createRuntimeHarness(container);
+      runtime.getPotentialHostScrollContainers = jest.fn().mockReturnValue([]);
+      runtime.restoreHostScrollPosition = (
+        UniversalHtmlViewerWebPartRuntimeBase.prototype as any
+      ).restoreHostScrollPosition.bind(runtime);
+
+      (runtime as any).restoreHostScrollPosition({ x: 12, y: 34 });
+
+      expect(scrollToSpy).toHaveBeenCalledTimes(1);
+      expect((runtime as any).deferredScrollTimeoutState.timeoutIds).toHaveLength(4);
+
+      (runtime as any).onDispose();
+
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+      expect((runtime as any).deferredScrollTimeoutState.timeoutIds).toEqual([]);
+
+      jest.runOnlyPendingTimers();
+      expect(scrollToSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, 'scrollTo', {
+        configurable: true,
+        value: originalScrollTo,
+        writable: true,
+      });
+      clearTimeoutSpy.mockRestore();
+      jest.useRealTimers();
+    }
+  });
 });
