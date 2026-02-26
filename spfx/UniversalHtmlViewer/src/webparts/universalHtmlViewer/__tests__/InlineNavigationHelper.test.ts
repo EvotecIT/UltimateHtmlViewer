@@ -212,6 +212,83 @@ describe('InlineNavigationHelper', () => {
     );
   });
 
+  it('resolves link when click target is a text node inside anchor', () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html';
+    anchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html',
+    );
+    anchor.appendChild(document.createTextNode('Open report'));
+
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor.firstChild,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html',
+    );
+  });
+
+  it('handles text-node targets in forced-url containers', () => {
+    const container = document.createElement('div');
+    container.className = 'fc-event-forced-url';
+    const anchor = document.createElement('a');
+    anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/calendar-item-2.html';
+    anchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/calendar-item-2.html',
+    );
+    const inner = document.createElement('span');
+    inner.appendChild(document.createTextNode('Calendar event 2'));
+    container.appendChild(anchor);
+    container.appendChild(inner);
+
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: inner.firstChild,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/calendar-item-2.html',
+    );
+  });
+
+  it('returns undefined for detached text-node targets', () => {
+    const detachedTextNode = document.createTextNode('Detached');
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: detachedTextNode,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBeUndefined();
+  });
+
   it('still resolves when event is already defaultPrevented', () => {
     const anchor = document.createElement('a');
     anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html';
