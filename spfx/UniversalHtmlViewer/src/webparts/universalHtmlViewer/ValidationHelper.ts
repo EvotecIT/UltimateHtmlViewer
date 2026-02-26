@@ -153,6 +153,28 @@ export function validateTenantConfigUrl(value?: string, currentPageUrl?: string)
 }
 
 function hasDotSegments(pathname: string): boolean {
-  const segments = pathname.split('/').filter((segment) => segment.length > 0);
-  return segments.some((segment) => segment === '.' || segment === '..');
+  const segments: string[] = pathname
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((segment) => segment.length > 0);
+
+  return segments.some((segment) => {
+    const decodedSegment: string = decodePathSegment(segment);
+    const decodedSubSegments: string[] = decodedSegment
+      .replace(/\\/g, '/')
+      .split('/')
+      .filter((subSegment) => subSegment.length > 0);
+
+    return decodedSubSegments.some(
+      (subSegment) => subSegment === '.' || subSegment === '..',
+    );
+  });
+}
+
+function decodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
