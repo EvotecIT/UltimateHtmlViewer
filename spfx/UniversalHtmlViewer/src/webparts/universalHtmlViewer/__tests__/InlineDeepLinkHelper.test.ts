@@ -77,6 +77,15 @@ describe('InlineDeepLinkHelper', () => {
     );
   });
 
+  it('returns undefined when deep-link target URL is empty', () => {
+    const result = buildPageUrlWithInlineDeepLink({
+      pageUrl: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
+      targetUrl: '   ',
+    });
+
+    expect(result).toBeUndefined();
+  });
+
   it('preserves existing page query parameters when writing deep links', () => {
     const result = buildPageUrlWithInlineDeepLink({
       pageUrl:
@@ -116,6 +125,23 @@ describe('InlineDeepLinkHelper', () => {
 
     expect(href).toBe(
       'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops&uhvPage=%2Fsites%2FTestSite1%2FSiteAssets%2FReports%2FCurrent.html',
+    );
+  });
+
+  it('falls back to resolved URL when base URL is empty in inline mode', () => {
+    const href = buildOpenInNewTabUrl({
+      resolvedUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Resolved.html',
+      baseUrl: '   ',
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?legacy=1',
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops',
+      contentDeliveryMode: 'SharePointFileContent',
+    });
+
+    expect(href).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Resolved.html',
     );
   });
 

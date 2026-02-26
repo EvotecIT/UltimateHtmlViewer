@@ -118,13 +118,15 @@ export function buildPageUrlWithInlineDeepLink(
 ): string | undefined {
   const paramName: string =
     (options.queryParamName || '').trim() || DEFAULT_INLINE_DEEP_LINK_PARAM;
-  if (!paramName) {
+  const pageUrl: string = (options.pageUrl || '').trim();
+  const targetUrl: string = (options.targetUrl || '').trim();
+  if (!paramName || !pageUrl || !targetUrl) {
     return undefined;
   }
 
   try {
-    const current = new URL(options.pageUrl);
-    const target = new URL(options.targetUrl, current.toString());
+    const current = new URL(pageUrl);
+    const target = new URL(targetUrl, current.toString());
 
     const encodedTarget =
       target.host.toLowerCase() === current.host.toLowerCase()
