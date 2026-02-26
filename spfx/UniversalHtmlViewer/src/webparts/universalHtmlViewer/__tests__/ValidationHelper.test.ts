@@ -38,6 +38,18 @@ describe('ValidationHelper', () => {
         'Base path must not include "." or ".." segments.',
       );
     });
+
+    it('rejects encoded and backslash traversal-like segments', () => {
+      expect(validateBasePath('/sites/reports/%2e%2e/secret/')).toBe(
+        'Base path must not include "." or ".." segments.',
+      );
+      expect(validateBasePath('/sites/reports/..\\secret/')).toBe(
+        'Base path must not include "." or ".." segments.',
+      );
+      expect(validateBasePath('/sites/reports/%2e%2e%5Csecret/')).toBe(
+        'Base path must not include "." or ".." segments.',
+      );
+    });
   });
 
   describe('validateAllowedHosts', () => {
@@ -58,6 +70,18 @@ describe('ValidationHelper', () => {
       );
       expect(validateAllowedPathPrefixes('/sites/reports/dashboard/?foo=1')).toContain(
         'must not include query strings',
+      );
+    });
+
+    it('rejects encoded and backslash traversal-like segments in path prefixes', () => {
+      expect(validateAllowedPathPrefixes('/sites/reports/%2e%2e/secret/')).toContain(
+        'must not include "." or ".."',
+      );
+      expect(validateAllowedPathPrefixes('/sites/reports/..\\secret/')).toContain(
+        'must not include "." or ".."',
+      );
+      expect(validateAllowedPathPrefixes('/sites/reports/%2e%2e%2Fsecret/')).toContain(
+        'must not include "." or ".."',
       );
     });
   });
