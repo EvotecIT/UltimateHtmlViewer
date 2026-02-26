@@ -266,6 +266,8 @@ function normalizePath(pathname: string): string {
 
   let normalized: string = value;
 
+  normalized = normalized.replace(/\\/g, '/');
+
   if (!normalized.startsWith('/')) {
     normalized = `/${normalized}`;
   }
@@ -278,10 +280,20 @@ function normalizePath(pathname: string): string {
 }
 
 function hasDotSegments(pathname: string): boolean {
-  const segments = pathname.split('/').filter((segment) => segment.length > 0);
+  const segments = pathname
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((segment) => segment.length > 0);
   return segments.some((segment) => {
     const decodedSegment: string = decodePathSegment(segment);
-    return decodedSegment === '.' || decodedSegment === '..';
+    const decodedSubSegments: string[] = decodedSegment
+      .replace(/\\/g, '/')
+      .split('/')
+      .filter((subSegment) => subSegment.length > 0);
+
+    return decodedSubSegments.some(
+      (subSegment) => subSegment === '.' || subSegment === '..',
+    );
   });
 }
 

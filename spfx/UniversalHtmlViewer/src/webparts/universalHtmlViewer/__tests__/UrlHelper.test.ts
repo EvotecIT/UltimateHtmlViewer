@@ -274,4 +274,33 @@ describe('isUrlAllowed', () => {
       ),
     ).toBe(false);
   });
+
+  it('rejects backslash dot-segment paths', () => {
+    expect(
+      isUrlAllowed('/sites/Reports/Dashboards/..\\Secret/index.html', strictOptions),
+    ).toBe(false);
+
+    expect(
+      isUrlAllowed(
+        'https://contoso.sharepoint.com/sites/Reports/Dashboards/..\\Secret/index.html',
+        strictOptions,
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects encoded slash and backslash in dot-segment traversal paths', () => {
+    expect(
+      isUrlAllowed(
+        '/sites/Reports/Dashboards/%2e%2e%5CSecret/index.html',
+        strictOptions,
+      ),
+    ).toBe(false);
+
+    expect(
+      isUrlAllowed(
+        'https://contoso.sharepoint.com/sites/Reports/Dashboards/%2e%2e%2FSecret/index.html',
+        strictOptions,
+      ),
+    ).toBe(false);
+  });
 });
