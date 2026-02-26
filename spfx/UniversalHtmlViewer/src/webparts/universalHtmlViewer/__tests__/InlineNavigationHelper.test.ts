@@ -77,6 +77,94 @@ describe('InlineNavigationHelper', () => {
     expect(result).toBeUndefined();
   });
 
+  it('does not intercept middle-click navigation', () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html';
+    anchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html',
+    );
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 1 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('does not intercept modified-click navigation', () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html';
+    anchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html',
+    );
+
+    const modifierEvents: MouseEvent[] = [
+      new MouseEvent('click', { bubbles: true, button: 0, ctrlKey: true }),
+      new MouseEvent('click', { bubbles: true, button: 0, metaKey: true }),
+      new MouseEvent('click', { bubbles: true, button: 0, shiftKey: true }),
+      new MouseEvent('click', { bubbles: true, button: 0, altKey: true }),
+    ];
+
+    modifierEvents.forEach((clickEvent) => {
+      Object.defineProperty(clickEvent, 'target', {
+        value: anchor,
+        configurable: true,
+      });
+
+      const result = resolveInlineNavigationTarget(clickEvent, {
+        currentPageUrl:
+          'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+        validationOptions,
+        cacheBusterParamName: 'v',
+      });
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  it('does not intercept mailto and tel links', () => {
+    const createClickEventForHref = (href: string): MouseEvent => {
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.setAttribute('href', href);
+      const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+      Object.defineProperty(clickEvent, 'target', {
+        value: anchor,
+        configurable: true,
+      });
+      return clickEvent;
+    };
+
+    const mailtoResult = resolveInlineNavigationTarget(
+      createClickEventForHref('mailto:owner@contoso.com'),
+      {
+        currentPageUrl:
+          'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+        validationOptions,
+        cacheBusterParamName: 'v',
+      },
+    );
+    const telResult = resolveInlineNavigationTarget(createClickEventForHref('tel:+12065551212'), {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(mailtoResult).toBeUndefined();
+    expect(telResult).toBeUndefined();
+  });
+
   it('resolves .aspx links when extension is allowed', () => {
     const anchor = document.createElement('a');
     anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/page.aspx?v=123';
