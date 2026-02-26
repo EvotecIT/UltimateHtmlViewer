@@ -5,7 +5,7 @@ export interface IIframeLoadListenerState {
 
 export interface ISetupIframeLoadListenerLifecycleOptions {
   state: IIframeLoadListenerState;
-  iframe: HTMLIFrameElement;
+  iframe?: HTMLIFrameElement;
   onLoad: () => void;
 }
 
@@ -29,12 +29,14 @@ export function setupIframeLoadListenerLifecycleState(
     return;
   }
 
+  const iframe: HTMLIFrameElement = options.iframe;
+
   const onIframeLoad = (): void => {
     clearIframeLoadListenerLifecycleState(options.state);
     options.onLoad();
   };
 
-  options.iframe.addEventListener('load', onIframeLoad);
-  options.state.iframe = options.iframe;
+  iframe.addEventListener('load', onIframeLoad);
+  options.state.iframe = iframe;
   options.state.loadHandler = onIframeLoad;
 }

@@ -107,4 +107,26 @@ describe('IframeLoadListenerHelper', () => {
     expect(state.iframe).toBeUndefined();
     expect(state.loadHandler).toBeUndefined();
   });
+
+  it('clears existing listener and does not wire when iframe is missing', () => {
+    const previousRemoveEventListenerSpy = jest.fn();
+    const previousLoadHandler = jest.fn();
+    const state: IIframeLoadListenerState = {
+      iframe: {
+        removeEventListener: previousRemoveEventListenerSpy,
+      } as unknown as HTMLIFrameElement,
+      loadHandler: previousLoadHandler,
+    };
+    const onLoad = jest.fn();
+
+    setupIframeLoadListenerLifecycleState({
+      state,
+      onLoad,
+    });
+
+    expect(previousRemoveEventListenerSpy).toHaveBeenCalledWith('load', previousLoadHandler);
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(state.iframe).toBeUndefined();
+    expect(state.loadHandler).toBeUndefined();
+  });
 });
