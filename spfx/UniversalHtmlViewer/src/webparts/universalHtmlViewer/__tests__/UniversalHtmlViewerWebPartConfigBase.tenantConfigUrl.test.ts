@@ -61,9 +61,14 @@ describe('UniversalHtmlViewerWebPartConfigBase resolveTenantConfigUrl', () => {
       'ftp://contoso.sharepoint.com/sites/TestSite1/SiteAssets/uhv-config.json',
       pageUrl,
     );
+    const backslashResolved = (configBase as any).resolveTenantConfigUrl(
+      '\\sites\\TestSite1\\SiteAssets\\uhv-config.json',
+      pageUrl,
+    );
 
     expect(httpResolved).toBeUndefined();
     expect(ftpResolved).toBeUndefined();
+    expect(backslashResolved).toBeUndefined();
   });
 
   it('rejects cross-host HTTPS tenant config URLs', () => {
