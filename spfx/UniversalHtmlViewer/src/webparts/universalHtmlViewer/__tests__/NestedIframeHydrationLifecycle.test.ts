@@ -118,4 +118,50 @@ describe('NestedIframeHydrationHelper lifecycle', () => {
 
     cleanup();
   });
+
+  it('does not apply async nested hydration completion to detached frames', async () => {
+    document.body.innerHTML = '<iframe src="/sites/TestSite1/SitePages/nested.html"></iframe>';
+    Object.defineProperty(document, 'baseURI', {
+      value: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
+      configurable: true,
+    });
+    const nestedFrame = document.querySelector('iframe') as HTMLIFrameElement;
+    const nestedDocument = document.implementation.createHTMLDocument('nested');
+    Object.defineProperty(nestedFrame, 'contentDocument', {
+      value: nestedDocument,
+      configurable: true,
+    });
+
+    let resolveInlineHtml: ((value: string) => void) | undefined;
+    const loadInlineHtml = jest.fn().mockImplementation(
+      () => new Promise<string>((resolve) => {
+        resolveInlineHtml = resolve;
+      }),
+    );
+    const { iframe: parentIframe } = createIframeWithListeners(document);
+    const cleanup = wireNestedIframeHydration({
+      iframe: parentIframe,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      loadInlineHtml,
+    });
+
+    expect(loadInlineHtml).toHaveBeenCalled();
+    nestedFrame.remove();
+
+    if (!resolveInlineHtml) {
+      throw new Error('Expected inline hydration resolver to be initialized.');
+    }
+    resolveInlineHtml('<html><body>Detached content</body></html>');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(nestedFrame.getAttribute('data-uhv-nested-state')).not.toBe('done');
+    expect((nestedFrame as unknown as { srcdoc?: string }).srcdoc || '').not.toContain(
+      'Detached content',
+    );
+
+    cleanup();
+  });
 });
