@@ -158,15 +158,16 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     if (!trimmed) {
       return undefined;
     }
+    const trimmedLower: string = trimmed.toLowerCase();
 
     const currentUrl: URL = new URL(pageUrl || this.context.pageContext.web.absoluteUrl);
     const origin: string = currentUrl.origin;
 
-    if (trimmed.startsWith('http://')) {
+    if (trimmedLower.startsWith('http://')) {
       return undefined;
     }
 
-    if (trimmed.startsWith('https://')) {
+    if (trimmedLower.startsWith('https://')) {
       try {
         const target: URL = new URL(trimmed);
         if (target.hostname.toLowerCase() !== currentUrl.hostname.toLowerCase()) {
@@ -176,6 +177,10 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       } catch {
         return undefined;
       }
+    }
+
+    if (trimmedLower.includes('://')) {
+      return undefined;
     }
 
     if (trimmed.startsWith('/')) {
