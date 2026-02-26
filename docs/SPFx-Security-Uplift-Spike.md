@@ -65,3 +65,23 @@ npm run bundle
 - Initial spike branch created: **2026-02-26**
 - First spike findings review: **2026-03-05**
 - Decision checkpoint (merge, split, or defer): **2026-03-12**
+
+## Iteration Log
+
+### Iteration 1 (2026-02-26)
+
+- Branch: `spike/spfx-toolchain-uplift-2026-02`
+- Change:
+  - added lockfile overrides for:
+    - `braces` -> `3.0.3`
+    - `tough-cookie` -> `4.1.4`
+- Audit delta (`spfx/UniversalHtmlViewer`):
+  - before: `total 73`, `high 12`, `moderate 61`
+  - after: `total 71`, `high 0`, `moderate 71`
+- Validation:
+  - `npm run lint` passed
+  - `npm test -- --runInBand` passed
+  - `npm run bundle` blocked in this environment due Node `v24.13.0` (SPFx requires `<23`)
+- Notes:
+  - This iteration intentionally avoided SPFx major-version changes.
+  - Dependabot alert state should be re-checked after merge and GitHub re-scan.
