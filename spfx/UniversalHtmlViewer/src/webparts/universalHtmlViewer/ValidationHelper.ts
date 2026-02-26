@@ -127,12 +127,13 @@ export function validateTenantConfigUrl(value?: string, currentPageUrl?: string)
   if (!trimmed) {
     return '';
   }
+  const trimmedLower: string = trimmed.toLowerCase();
 
-  if (trimmed.startsWith('http://')) {
+  if (trimmedLower.startsWith('http://')) {
     return 'Tenant config should use HTTPS.';
   }
 
-  if (trimmed.startsWith('https://')) {
+  if (trimmedLower.startsWith('https://')) {
     try {
       const target = new URL(trimmed);
       const current = new URL(currentPageUrl || 'https://invalid.local/');
@@ -145,7 +146,7 @@ export function validateTenantConfigUrl(value?: string, currentPageUrl?: string)
     }
   }
 
-  if (trimmed.includes('://')) {
+  if (trimmedLower.includes('://')) {
     return 'Tenant config must be site-relative or an absolute HTTPS URL.';
   }
 
