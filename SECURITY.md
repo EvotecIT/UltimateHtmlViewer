@@ -45,6 +45,12 @@ Spike objective:
 
 - Reduce remaining high-severity transitive tooling findings without destabilizing production SPFx builds.
 
+Latest local spike snapshot (2026-02-26, iteration 1):
+
+- `npm audit` moved from `73 total / 12 high / 61 moderate` to `71 total / 0 high / 71 moderate`
+- based on constrained lockfile overrides for `braces` and `tough-cookie`
+- GitHub Dependabot alert closure is pending post-merge re-scan
+
 ## What We Do Today
 
 - Patch direct and safely-overridable transitive dependencies where possible.
