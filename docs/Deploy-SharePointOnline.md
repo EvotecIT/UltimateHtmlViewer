@@ -215,6 +215,7 @@ Why this works:
 ```
 
 Note: parameter name `-SiteRelativeDashboardPath` is kept for backward compatibility; it can point to any HTML entry file.
+For `SharePointFileContent` mode, resolved `FullUrl` must use the same host as `SiteUrl`.
 
 ### Add/configure page directly
 
