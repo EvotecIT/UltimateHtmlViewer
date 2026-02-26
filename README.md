@@ -427,10 +427,18 @@ Operations runbook (reusable): `docs/Operations-Runbook.md`
 
 # All-in-one deploy/update pipeline (tenant + target sites)
 .\scripts\Deploy-UHV-All.ps1 `
+  -AppCatalogUrl "https://<tenant>.sharepoint.com/sites/appcatalog" `
+  -TenantAdminUrl "https://<tenant>-admin.sharepoint.com" `
+  -SiteUrls @(
+    "https://<tenant>.sharepoint.com/sites/SiteA",
+    "https://<tenant>.sharepoint.com/sites/SiteB"
+  ) `
   -ClientId "<client-guid>" `
   -Tenant "<tenant>.onmicrosoft.com" `
   -DeviceLogin
 ```
+
+`Deploy-UHV-All.ps1` validates that `-AppCatalogUrl`, `-TenantAdminUrl`, and `-SiteUrls` are absolute HTTPS URLs.
 
 Note: `-SiteRelativeDashboardPath` is a backward-compatible name and accepts any HTML entry file path.
 

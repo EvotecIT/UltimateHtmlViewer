@@ -14,6 +14,8 @@ import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPa
 
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
   protected refreshInProgress: boolean = false;
+  private iframeLoadFallbackTarget: HTMLIFrameElement | undefined;
+  private iframeLoadFallbackHandler: (() => void) | undefined;
 
   protected setupAutoRefresh(
     baseUrl: string,
@@ -595,6 +597,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     effectiveProps?: IUniversalHtmlViewerWebPartProps,
   ): void {
     this.clearIframeLoadTimeout();
+    this.clearIframeLoadFallbackListener();
 
     const props: IUniversalHtmlViewerWebPartProps =
       effectiveProps || this.lastEffectiveProps || this.properties;
@@ -608,10 +611,13 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       return;
     }
 
-    iframe.addEventListener('load', () => {
+    const onIframeLoad = (): void => {
       this.clearIframeLoadTimeout();
       this.setLoadingVisible(false);
-    });
+    };
+    iframe.addEventListener('load', onIframeLoad);
+    this.iframeLoadFallbackTarget = iframe;
+    this.iframeLoadFallbackHandler = onIframeLoad;
 
     this.iframeLoadTimeoutId = window.setTimeout(() => {
       this.clearRefreshTimer();
@@ -646,6 +652,16 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       window.clearTimeout(this.iframeLoadTimeoutId);
     }
     this.iframeLoadTimeoutId = undefined;
+  }
+  protected clearIframeLoadFallbackListener(): void {
+    if (this.iframeLoadFallbackTarget && this.iframeLoadFallbackHandler) {
+      this.iframeLoadFallbackTarget.removeEventListener(
+        'load',
+        this.iframeLoadFallbackHandler,
+      );
+    }
+    this.iframeLoadFallbackTarget = undefined;
+    this.iframeLoadFallbackHandler = undefined;
   }
 
   protected async resolveUrlWithCacheBuster(
@@ -886,6 +902,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   protected onDispose(): void {
     this.clearRefreshTimer();
     this.clearIframeLoadTimeout();
+    this.clearIframeLoadFallbackListener();
   }
   private getDocumentDeepMaxScrollTop(
     iframeDocument?: Document,

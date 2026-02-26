@@ -242,7 +242,7 @@ export function buildConfigExport(
     iframeReferrerPolicy: props.iframeReferrerPolicy || '',
     iframeLoading: props.iframeLoading || '',
     iframeTitle: props.iframeTitle || '',
-    iframeLoadTimeoutSeconds: props.iframeLoadTimeoutSeconds ?? 0,
+    iframeLoadTimeoutSeconds: props.iframeLoadTimeoutSeconds ?? 10,
     refreshIntervalMinutes: props.refreshIntervalMinutes ?? 0,
     showDiagnostics: !!props.showDiagnostics,
     showChrome: props.showChrome !== false,

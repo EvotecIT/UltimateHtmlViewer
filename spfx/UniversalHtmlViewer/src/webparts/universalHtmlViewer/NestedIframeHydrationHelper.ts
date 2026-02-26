@@ -17,24 +17,44 @@ export function wireNestedIframeHydration(
 ): () => void {
   let observer: MutationObserver | undefined;
   const frameCleanupMap = new Map<HTMLIFrameElement, () => void>();
+  const pruneStaleFrameCleanup = (activeFrames?: Set<HTMLIFrameElement>): void => {
+    frameCleanupMap.forEach((cleanup, frame) => {
+      const isFrameActive = activeFrames
+        ? activeFrames.has(frame)
+        : frame.isConnected;
+      if (isFrameActive) {
+        return;
+      }
+
+      cleanup();
+      frameCleanupMap.delete(frame);
+    });
+  };
 
   const scanFrames = (): void => {
     const iframeDocument = tryGetIframeDocument(options.iframe);
     if (!iframeDocument) {
+      pruneStaleFrameCleanup();
       return;
     }
 
     const nestedFrames = iframeDocument.querySelectorAll(
       'iframe[src], iframe[data-uhv-inline-src]',
     );
+    const activeFrames = new Set<HTMLIFrameElement>();
     nestedFrames.forEach((frame) => {
+      activeFrames.add(frame as HTMLIFrameElement);
+    });
+    pruneStaleFrameCleanup(activeFrames);
+
+    activeFrames.forEach((frame) => {
       ensureNestedFrameNavigationWired(
-        frame as HTMLIFrameElement,
+        frame,
         options,
         frameCleanupMap,
       );
       hydrateNestedFrame(
-        frame as HTMLIFrameElement,
+        frame,
         iframeDocument.baseURI || options.currentPageUrl,
         options,
       );
@@ -168,7 +188,21 @@ function ensureNestedFrameNavigationWired(
     return;
   }
 
+  let wiredDocument: Document | undefined;
+  let wiredClickHandler: ((event: Event) => void) | undefined;
+  const clearDocumentHandler = (): void => {
+    if (wiredDocument && wiredClickHandler) {
+      wiredDocument.removeEventListener('click', wiredClickHandler, true);
+    }
+    if (wiredDocument?.documentElement?.getAttribute('data-uhv-inline-nav') === '1') {
+      wiredDocument.documentElement.removeAttribute('data-uhv-inline-nav');
+    }
+    wiredDocument = undefined;
+    wiredClickHandler = undefined;
+  };
+
   const onFrameLoad = (): void => {
+    clearDocumentHandler();
     resetNestedFrameScrollPosition(frame);
     if (typeof window !== 'undefined') {
       window.setTimeout(() => {
@@ -190,7 +224,7 @@ function ensureNestedFrameNavigationWired(
     }
 
     root.setAttribute('data-uhv-inline-nav', '1');
-    frameDocument.addEventListener('click', (event) => {
+    const onClick = (event: Event): void => {
       const currentPageUrl =
         frame.getAttribute('data-uhv-nested-src') ||
         frameDocument.baseURI ||
@@ -226,7 +260,10 @@ function ensureNestedFrameNavigationWired(
         .catch(() => {
           frame.setAttribute('data-uhv-nested-state', 'failed');
         });
-    }, true);
+    };
+    wiredDocument = frameDocument;
+    wiredClickHandler = onClick;
+    frameDocument.addEventListener('click', onClick, true);
   };
 
   frame.addEventListener('load', onFrameLoad);
@@ -234,6 +271,7 @@ function ensureNestedFrameNavigationWired(
 
   frameCleanupMap.set(frame, () => {
     frame.removeEventListener('load', onFrameLoad);
+    clearDocumentHandler();
   });
 }
 
@@ -246,7 +284,11 @@ function resolveNestedFrameUrl(
   try {
     absoluteUrl = new URL(rawSrc, baseUrl);
   } catch {
-    return undefined;
+    try {
+      absoluteUrl = new URL(rawSrc, options.currentPageUrl);
+    } catch {
+      return undefined;
+    }
   }
 
   if (!isSameHostAsCurrentPage(absoluteUrl, options.currentPageUrl)) {

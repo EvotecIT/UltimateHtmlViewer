@@ -8,7 +8,9 @@ export interface IInlineNavigationOptions {
   onNavigate: (targetUrl: string) => void;
 }
 
-export function wireInlineIframeNavigation(options: IInlineNavigationOptions): void {
+export function wireInlineIframeNavigation(options: IInlineNavigationOptions): () => void {
+  const clickHandlers = new Map<Document, (event: Event) => void>();
+
   const attachHandler = (): void => {
     const iframeDocument: Document | undefined = tryGetIframeDocument(options.iframe);
     if (!iframeDocument) {
@@ -20,9 +22,16 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): v
       return;
     }
 
+    if (clickHandlers.has(iframeDocument)) {
+      return;
+    }
+
     rootElement.setAttribute('data-uhv-inline-nav', '1');
-    iframeDocument.addEventListener('click', (event) => {
-      const targetUrl: string | undefined = resolveInlineNavigationTarget(event, options);
+    const onClick = (event: Event): void => {
+      const targetUrl: string | undefined = resolveInlineNavigationTarget(
+        event as MouseEvent,
+        options,
+      );
       if (!targetUrl) {
         return;
       }
@@ -30,11 +39,25 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): v
       event.preventDefault();
       event.stopPropagation();
       options.onNavigate(targetUrl);
-    }, true);
+    };
+    clickHandlers.set(iframeDocument, onClick);
+    iframeDocument.addEventListener('click', onClick, true);
   };
 
   options.iframe.addEventListener('load', attachHandler);
   attachHandler();
+
+  return (): void => {
+    options.iframe.removeEventListener('load', attachHandler);
+    clickHandlers.forEach((handler, iframeDocument) => {
+      iframeDocument.removeEventListener('click', handler, true);
+      const rootElement: HTMLElement | undefined = iframeDocument.documentElement || undefined;
+      if (rootElement && rootElement.getAttribute('data-uhv-inline-nav') === '1') {
+        rootElement.removeAttribute('data-uhv-inline-nav');
+      }
+    });
+    clickHandlers.clear();
+  };
 }
 
 export function resolveInlineNavigationTarget(

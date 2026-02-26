@@ -1,4 +1,7 @@
-import { applyImportedConfigToProps } from '../ConfigImportExportHelper';
+import {
+  applyImportedConfigToProps,
+  buildConfigExport,
+} from '../ConfigImportExportHelper';
 
 describe('applyImportedConfigToProps', () => {
   it('applies valid values and normalizes enum casing', () => {
@@ -54,5 +57,18 @@ describe('applyImportedConfigToProps', () => {
     expect(propsRecord.showChrome).toBeUndefined();
     expect(propsRecord.refreshIntervalMinutes).toBeUndefined();
     expect(propsRecord.inlineContentCacheTtlSeconds).toBeUndefined();
+  });
+});
+
+describe('buildConfigExport', () => {
+  it('uses runtime-compatible defaults for unset timeout fields', () => {
+    const exported = buildConfigExport({
+      htmlSourceMode: 'FullUrl',
+      heightMode: 'Fixed',
+      fixedHeightPx: 800,
+    });
+
+    expect(exported.iframeLoadTimeoutSeconds).toBe(10);
+    expect(exported.inlineContentCacheTtlSeconds).toBe(15);
   });
 });

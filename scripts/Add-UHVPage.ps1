@@ -273,45 +273,169 @@ if ($DeviceLogin.IsPresent) {
     }
 }
 
+$sitePagesForceCheckoutWasChanged = $false
 if ($EnsureSitePagesForceCheckout.IsPresent) {
-    Set-PnPList -Identity "Site Pages" -ForceCheckout:$true
-}
-
-if (-not $SkipEnsureUhvAppOnSite.IsPresent) {
-    Ensure-UhvAppInstalledOnSite -PreferredScope $AppCatalogScope
-}
-
-$pageFileName = $PageName.Trim()
-if (-not $pageFileName) {
-    throw "PageName cannot be empty."
-}
-if (-not $pageFileName.EndsWith(".aspx", [System.StringComparison]::OrdinalIgnoreCase)) {
-    $pageFileName = "$pageFileName.aspx"
-}
-$pageNameWithoutExtension = [System.IO.Path]::GetFileNameWithoutExtension($pageFileName)
-
-$existingPage = $null
-try {
-    $existingPage = Get-PnPPage -Identity $pageFileName -ErrorAction Stop
-} catch {
-    $existingPage = $null
-}
-
-if ($existingPage) {
-    if (-not $ForceOverwrite.IsPresent) {
-        throw "Page '$pageFileName' already exists. Use -ForceOverwrite to recreate it."
+    $sitePagesList = Get-PnPList -Identity "Site Pages" -Includes ForceCheckout
+    $sitePagesForceCheckoutEnabled = $false
+    if ($sitePagesList -and $sitePagesList.PSObject.Properties["ForceCheckout"]) {
+        $sitePagesForceCheckoutEnabled = [bool]$sitePagesList.ForceCheckout
     }
-    Remove-PnPPage -Identity $pageFileName -Force
+
+    if (-not $sitePagesForceCheckoutEnabled) {
+        Write-Host "Temporarily enabling Site Pages force checkout."
+        Set-PnPList -Identity "Site Pages" -ForceCheckout:$true
+        $sitePagesForceCheckoutWasChanged = $true
+    } else {
+        Write-Host "Site Pages force checkout is already enabled."
+    }
 }
 
-Write-Host "Creating page $pageFileName on $SiteUrl"
-Add-PnPPage -Name $pageNameWithoutExtension -Title $PageTitle -LayoutType $PageLayoutType | Out-Null
+try {
+    if (-not $SkipEnsureUhvAppOnSite.IsPresent) {
+        Ensure-UhvAppInstalledOnSite -PreferredScope $AppCatalogScope
+    }
 
-if (-not $SkipAddWebPart.IsPresent -and $PageLayoutType -ne "SingleWebPartAppPage") {
-    Add-PnPPageSection -Page $pageFileName -SectionTemplate OneColumn -Order 1 | Out-Null
-}
+    $pageFileName = $PageName.Trim()
+    if (-not $pageFileName) {
+        throw "PageName cannot be empty."
+    }
+    if (-not $pageFileName.EndsWith(".aspx", [System.StringComparison]::OrdinalIgnoreCase)) {
+        $pageFileName = "$pageFileName.aspx"
+    }
+    $pageNameWithoutExtension = [System.IO.Path]::GetFileNameWithoutExtension($pageFileName)
 
-if ($SkipAddWebPart.IsPresent) {
+    $existingPage = $null
+    try {
+        $existingPage = Get-PnPPage -Identity $pageFileName -ErrorAction Stop
+    } catch {
+        $existingPage = $null
+    }
+
+    if ($existingPage) {
+        if (-not $ForceOverwrite.IsPresent) {
+            throw "Page '$pageFileName' already exists. Use -ForceOverwrite to recreate it."
+        }
+        Remove-PnPPage -Identity $pageFileName -Force
+    }
+
+    Write-Host "Creating page $pageFileName on $SiteUrl"
+    Add-PnPPage -Name $pageNameWithoutExtension -Title $PageTitle -LayoutType $PageLayoutType | Out-Null
+
+    if (-not $SkipAddWebPart.IsPresent -and $PageLayoutType -ne "SingleWebPartAppPage") {
+        Add-PnPPageSection -Page $pageFileName -SectionTemplate OneColumn -Order 1 | Out-Null
+    }
+
+    if ($SkipAddWebPart.IsPresent) {
+        if ($Publish.IsPresent) {
+            Set-PnPPage -Identity $pageFileName -Publish | Out-Null
+        }
+
+        if ($SetAsHomePage.IsPresent) {
+            Set-PnPHomePage -RootFolderRelativeUrl "SitePages/$pageFileName"
+        }
+
+        $pageUrl = "$($SiteUrl.TrimEnd('/'))/SitePages/$pageFileName"
+        Write-Host "Done (page only, no web part). Page URL: $pageUrl"
+        return
+    }
+
+    $uhvComponent = $null
+    for ($attempt = 1; $attempt -le $ComponentRetryCount; $attempt++) {
+        $uhvComponent = Get-UhvComponentFromPage -PageIdentity $pageFileName
+        if ($uhvComponent) {
+            break
+        }
+
+        if ($attempt -lt $ComponentRetryCount) {
+            Start-Sleep -Seconds $ComponentRetryDelaySeconds
+        }
+    }
+
+    $uhvManifestId = "b5e51af1-1d0c-4b57-9b90-4f2af5120a4d"
+    if (-not $uhvComponent) {
+        Write-Warning "Universal HTML Viewer component was not found in page toolbox after waiting. Trying direct add using manifest id."
+    }
+
+    $webPartProperties = @{
+        configurationPreset = $ConfigurationPreset
+        contentDeliveryMode = $ContentDeliveryMode
+        htmlSourceMode = "FullUrl"
+        fullUrl = $FullUrl
+    }
+    $webPartPropertiesJson = ConvertTo-PnPPropertiesJsonString -Properties $webPartProperties
+
+    Write-Host "Adding Universal HTML Viewer web part with FullUrl=$FullUrl"
+    $webPartAdded = $false
+    $addedWebPartInstanceId = ""
+    if ($uhvComponent) {
+        try {
+            if ($PageLayoutType -eq "SingleWebPartAppPage") {
+                $addedControl = Add-PnPPageWebPart `
+                    -Page $pageFileName `
+                    -Component $uhvComponent `
+                    -Order 1
+            } else {
+                $addedControl = Add-PnPPageWebPart `
+                    -Page $pageFileName `
+                    -Component $uhvComponent `
+                    -Section 1 `
+                    -Column 1 `
+                    -Order 1
+            }
+            $addedWebPartInstanceId = (Get-StringPropertyValue -InputObject $addedControl -PropertyNames @("InstanceId", "Id")).Trim()
+            $webPartAdded = $true
+        } catch {
+            Write-Warning "Adding UHV via discovered component object failed."
+        }
+    }
+
+    if (-not $webPartAdded) {
+        if ($PageLayoutType -eq "SingleWebPartAppPage") {
+            $addedControl = Add-PnPPageWebPart `
+                -Page $pageFileName `
+                -Component $uhvManifestId `
+                -Order 1
+        } else {
+            $addedControl = Add-PnPPageWebPart `
+                -Page $pageFileName `
+                -Component $uhvManifestId `
+                -Section 1 `
+                -Column 1 `
+                -Order 1
+        }
+        $addedWebPartInstanceId = (Get-StringPropertyValue -InputObject $addedControl -PropertyNames @("InstanceId", "Id")).Trim()
+        $webPartAdded = $true
+    }
+
+    if (-not $SkipConfigureWebPartProperties.IsPresent) {
+        $setSucceeded = $false
+        if ($addedWebPartInstanceId) {
+            try {
+                Set-PnPPageWebPart -Page $pageFileName -Identity $addedWebPartInstanceId -PropertiesJson $webPartPropertiesJson | Out-Null
+                $setSucceeded = $true
+            } catch {
+                Write-Warning "Setting web part properties by returned instance id failed. Trying discovery fallback."
+            }
+        }
+
+        if (-not $setSucceeded) {
+            $uhvControls = Get-UhvComponentsOnPage -PageIdentity $pageFileName
+            if (-not $uhvControls -or $uhvControls.Count -eq 0) {
+                throw "UHV web part was added but instance id could not be resolved to set properties."
+            }
+
+            $targetControl = $uhvControls | Select-Object -Last 1
+            $targetInstanceId = (Get-StringPropertyValue -InputObject $targetControl -PropertyNames @("InstanceId", "Id")).Trim()
+            if (-not $targetInstanceId) {
+                throw "UHV web part was added but target instance id is missing; cannot set properties safely."
+            }
+
+            Set-PnPPageWebPart -Page $pageFileName -Identity $targetInstanceId -PropertiesJson $webPartPropertiesJson | Out-Null
+        }
+    } else {
+        Write-Host "Skipping UHV property configuration (-SkipConfigureWebPartProperties)."
+    }
+
     if ($Publish.IsPresent) {
         Set-PnPPage -Identity $pageFileName -Publish | Out-Null
     }
@@ -321,114 +445,14 @@ if ($SkipAddWebPart.IsPresent) {
     }
 
     $pageUrl = "$($SiteUrl.TrimEnd('/'))/SitePages/$pageFileName"
-    Write-Host "Done (page only, no web part). Page URL: $pageUrl"
-    return
-}
-
-$uhvComponent = $null
-for ($attempt = 1; $attempt -le $ComponentRetryCount; $attempt++) {
-    $uhvComponent = Get-UhvComponentFromPage -PageIdentity $pageFileName
-    if ($uhvComponent) {
-        break
-    }
-
-    if ($attempt -lt $ComponentRetryCount) {
-        Start-Sleep -Seconds $ComponentRetryDelaySeconds
-    }
-}
-
-$uhvManifestId = "b5e51af1-1d0c-4b57-9b90-4f2af5120a4d"
-if (-not $uhvComponent) {
-    Write-Warning "Universal HTML Viewer component was not found in page toolbox after waiting. Trying direct add using manifest id."
-}
-
-$webPartProperties = @{
-    configurationPreset = $ConfigurationPreset
-    contentDeliveryMode = $ContentDeliveryMode
-    htmlSourceMode = "FullUrl"
-    fullUrl = $FullUrl
-}
-$webPartPropertiesJson = ConvertTo-PnPPropertiesJsonString -Properties $webPartProperties
-
-Write-Host "Adding Universal HTML Viewer web part with FullUrl=$FullUrl"
-$webPartAdded = $false
-$addedWebPartInstanceId = ""
-if ($uhvComponent) {
-    try {
-        if ($PageLayoutType -eq "SingleWebPartAppPage") {
-            $addedControl = Add-PnPPageWebPart `
-                -Page $pageFileName `
-                -Component $uhvComponent `
-                -Order 1
-        } else {
-            $addedControl = Add-PnPPageWebPart `
-                -Page $pageFileName `
-                -Component $uhvComponent `
-                -Section 1 `
-                -Column 1 `
-                -Order 1
-        }
-        $addedWebPartInstanceId = (Get-StringPropertyValue -InputObject $addedControl -PropertyNames @("InstanceId", "Id")).Trim()
-        $webPartAdded = $true
-    } catch {
-        Write-Warning "Adding UHV via discovered component object failed."
-    }
-}
-
-if (-not $webPartAdded) {
-    if ($PageLayoutType -eq "SingleWebPartAppPage") {
-        $addedControl = Add-PnPPageWebPart `
-            -Page $pageFileName `
-            -Component $uhvManifestId `
-            -Order 1
-    } else {
-        $addedControl = Add-PnPPageWebPart `
-            -Page $pageFileName `
-            -Component $uhvManifestId `
-            -Section 1 `
-            -Column 1 `
-            -Order 1
-    }
-    $addedWebPartInstanceId = (Get-StringPropertyValue -InputObject $addedControl -PropertyNames @("InstanceId", "Id")).Trim()
-    $webPartAdded = $true
-}
-
-if (-not $SkipConfigureWebPartProperties.IsPresent) {
-    $setSucceeded = $false
-    if ($addedWebPartInstanceId) {
+    Write-Host "Done. Page URL: $pageUrl"
+} finally {
+    if ($sitePagesForceCheckoutWasChanged) {
         try {
-            Set-PnPPageWebPart -Page $pageFileName -Identity $addedWebPartInstanceId -PropertiesJson $webPartPropertiesJson | Out-Null
-            $setSucceeded = $true
+            Set-PnPList -Identity "Site Pages" -ForceCheckout:$false
+            Write-Host "Restored Site Pages force checkout to disabled."
         } catch {
-            Write-Warning "Setting web part properties by returned instance id failed. Trying discovery fallback."
+            Write-Warning "Failed to restore Site Pages force checkout to disabled."
         }
     }
-
-    if (-not $setSucceeded) {
-        $uhvControls = Get-UhvComponentsOnPage -PageIdentity $pageFileName
-        if (-not $uhvControls -or $uhvControls.Count -eq 0) {
-            throw "UHV web part was added but instance id could not be resolved to set properties."
-        }
-
-        $targetControl = $uhvControls | Select-Object -Last 1
-        $targetInstanceId = (Get-StringPropertyValue -InputObject $targetControl -PropertyNames @("InstanceId", "Id")).Trim()
-        if (-not $targetInstanceId) {
-            throw "UHV web part was added but target instance id is missing; cannot set properties safely."
-        }
-
-        Set-PnPPageWebPart -Page $pageFileName -Identity $targetInstanceId -PropertiesJson $webPartPropertiesJson | Out-Null
-    }
-} else {
-    Write-Host "Skipping UHV property configuration (-SkipConfigureWebPartProperties)."
 }
-
-if ($Publish.IsPresent) {
-    Set-PnPPage -Identity $pageFileName -Publish | Out-Null
-}
-
-if ($SetAsHomePage.IsPresent) {
-    Set-PnPHomePage -RootFolderRelativeUrl "SitePages/$pageFileName"
-}
-
-$pageUrl = "$($SiteUrl.TrimEnd('/'))/SitePages/$pageFileName"
-Write-Host "Done. Page URL: $pageUrl"

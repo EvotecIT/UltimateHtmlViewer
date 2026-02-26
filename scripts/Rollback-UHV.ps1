@@ -4,6 +4,7 @@ param(
     [string]$AppCatalogUrl,
 
     [Parameter(Mandatory = $true)]
+    [Alias("PreviousSppkgPath")]
     [string]$RollbackSppkgPath,
 
     [ValidateSet("Tenant", "Site")]
