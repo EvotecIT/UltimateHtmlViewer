@@ -82,6 +82,29 @@ npm run bundle
   - `npm run lint` passed
   - `npm test -- --runInBand` passed
   - `npm run bundle` blocked in this environment due Node `v24.13.0` (SPFx requires `<23`)
+  - follow-up validation passed with Node `v22` wrapper:
+    - `npx -y node@22 ./node_modules/gulp/bin/gulp.js bundle`
+    - `npx -y node@22 ./node_modules/gulp/bin/gulp.js package-solution`
 - Notes:
   - This iteration intentionally avoided SPFx major-version changes.
   - Dependabot alert state should be re-checked after merge and GitHub re-scan.
+
+### Iteration 2 (2026-02-26)
+
+- Branch: `spike/spfx-security-uplift-iteration-2b`
+- Goal:
+  - attempt safe closure of remaining medium alerts (`ajv`, `postcss`, `request`) without SPFx-major upgrades
+- Experiments:
+  - nested overrides targeting `ajv` under `@microsoft/tsdoc-config` and `@rushstack/node-core-library`
+  - direct `postcss` override uplift to `8.4.31`
+  - constrained `@rushstack/eslint-config` alignment and lockfile-only refresh checks
+- Result:
+  - some combinations reduced local `npm audit` totals
+  - all meaningful reductions required an invalid dependency graph (`npm ls` reported `ELSPROBLEMS` / invalid constraints)
+  - therefore all iteration-2 dependency edits were reverted
+- Current validated baseline after reverts:
+  - `npm audit`: `total 71`, `high 0`, `moderate 71`
+  - Dependabot open alerts: `GHSA-2g4f-4pwh-qvx6` (`ajv`), `GHSA-7fh5-64p2-3v2j` (`postcss`), `GHSA-p8p7-x288-28g6` (`request`)
+- Decision:
+  - do not force incompatible overrides
+  - carry unresolved items as monitored until a compatible SPFx toolchain path is available

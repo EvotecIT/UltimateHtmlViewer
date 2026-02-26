@@ -15,24 +15,24 @@ Status captured on **2026-02-26** from:
 | Alert | Package | Severity | Scope | Current status |
 | --- | --- | --- | --- | --- |
 | GHSA-2g4f-4pwh-qvx6 | `ajv` | medium | runtime | Open. Indirect through SPFx dependency graph; monitor SPFx-compatible upgrade path. |
-| GHSA-grv7-fg5c-xmjg | `braces` | high | development | Open. Transitive tooling dependency; SPFx upgrade path required. |
 | GHSA-7fh5-64p2-3v2j | `postcss` | medium | development | Open. Transitive tooling dependency; SPFx upgrade path required. |
-| GHSA-72xf-g2v4-qvf3 | `tough-cookie` | medium | development | Open. Transitive tooling dependency; SPFx upgrade path required. |
 | GHSA-p8p7-x288-28g6 | `request` | medium | development | Open. Legacy transitive dependency in tooling chain. |
 
-Recently closed (after lockfile/override remediation in PR #25):
+Recently closed (after lockfile/override remediation in PR #25 and PR #27):
 
 - `GHSA-8fgc-7cc6-rx7x` (`webpack`)
 - `GHSA-38r7-794h-5758` (`webpack`)
 - `GHSA-vghf-hv5q-vc2g` (`validator`)
 - `GHSA-9965-vmph-33xx` (`validator`)
+- `GHSA-grv7-fg5c-xmjg` (`braces`)
+- `GHSA-72xf-g2v4-qvf3` (`tough-cookie`)
 
 ## Security Ownership Matrix (As Of 2026-02-26)
 
 | Workstream | Advisory focus | Exposure class | Current mitigation | Owner | Next checkpoint | Target date | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Lockfile and override hygiene | `webpack` and `validator` (recently closed advisories) | Build-time only | Override pinned to `webpack@5.105.3`; lockfile refreshed in PR #25 | Repo maintainers | Verify no alert regressions after each dependency refresh | 2026-03-05 | Monitoring |
-| SPFx toolchain transitive chain | `braces`, `postcss`, `tough-cookie`, `request` | Build/dev chain | Keep direct dependencies patched where safe; avoid forced SPFx-major drift | Repo maintainers | Execute controlled uplift spike runbook | 2026-03-12 | In progress |
+| Lockfile and override hygiene | `webpack`, `validator`, `braces`, `tough-cookie` (recently closed advisories) | Build-time only | Overrides pinned to `webpack@5.105.3`, `braces@3.0.3`, `tough-cookie@4.1.4`; lockfile refreshed in PR #25 and PR #27 | Repo maintainers | Verify no alert regressions after each dependency refresh | 2026-03-05 | Monitoring |
+| SPFx toolchain transitive chain | `postcss`, `request` | Build/dev chain | Keep direct dependencies patched where safe; avoid forced SPFx-major drift and reject invalid dependency-constraint overrides | Repo maintainers | Execute controlled uplift spike runbook | 2026-03-12 | In progress |
 | Runtime package safety | `ajv` (indirect path) | Runtime policy + shared libs | Continue runtime boundary checks and strict URL policy defaults in UHV | Repo maintainers | Re-validate after each SPFx lockfile refresh | 2026-03-12 | Monitoring |
 
 ## Controlled SPFx Uplift Spike
@@ -43,13 +43,14 @@ A controlled spike plan is now tracked in:
 
 Spike objective:
 
-- Reduce remaining high-severity transitive tooling findings without destabilizing production SPFx builds.
+- Reduce unresolved transitive tooling findings without destabilizing production SPFx builds.
 
-Latest local spike snapshot (2026-02-26, iteration 1):
+Latest local spike snapshot (2026-02-26, iteration 2):
 
 - `npm audit` moved from `73 total / 12 high / 61 moderate` to `71 total / 0 high / 71 moderate`
-- based on constrained lockfile overrides for `braces` and `tough-cookie`
-- GitHub Dependabot alert closure is pending post-merge re-scan
+- `braces` and `tough-cookie` closed safely via constrained lockfile overrides
+- follow-up attempts for `ajv` and `postcss` were rejected because they introduced invalid dependency constraints (`npm ls` `ELSPROBLEMS`)
+- current live Dependabot open set: `ajv`, `postcss`, `request` (all medium)
 
 ## What We Do Today
 
