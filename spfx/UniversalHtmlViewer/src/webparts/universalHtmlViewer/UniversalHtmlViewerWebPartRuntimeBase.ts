@@ -12,6 +12,11 @@ import {
   setupIframeLoadFallbackLifecycleState,
 } from './IframeLoadFallbackHelper';
 import {
+  clearIframeLoadListenerLifecycleState,
+  IIframeLoadListenerState,
+  setupIframeLoadListenerLifecycleState,
+} from './IframeLoadListenerHelper';
+import {
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
 } from './UniversalHtmlViewerTypes';
@@ -20,6 +25,7 @@ import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPa
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
   protected refreshInProgress: boolean = false;
   private readonly iframeLoadFallbackState: IIframeLoadFallbackState = {};
+  private readonly hostScrollRestoreState: IIframeLoadListenerState = {};
 
   protected setupAutoRefresh(
     baseUrl: string,
@@ -87,6 +93,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
 
     this.refreshInProgress = true;
     try {
+      this.clearHostScrollRestoreOnLoadListener();
       const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
       if (!iframe) {
         return;
@@ -145,11 +152,13 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       }
 
       if (hostScrollPosition) {
-        const restoreAfterLoad = (): void => {
-          activeIframe.removeEventListener('load', restoreAfterLoad);
-          this.restoreHostScrollPosition(hostScrollPosition);
-        };
-        activeIframe.addEventListener('load', restoreAfterLoad);
+        setupIframeLoadListenerLifecycleState({
+          state: this.hostScrollRestoreState,
+          iframe: activeIframe,
+          onLoad: (): void => {
+            this.restoreHostScrollPosition(hostScrollPosition);
+          },
+        });
       }
 
       activeIframe.src = refreshedUrl;
@@ -678,6 +687,9 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     );
     this.iframeLoadTimeoutId = this.iframeLoadFallbackState.timeoutId;
   }
+  private clearHostScrollRestoreOnLoadListener(): void {
+    clearIframeLoadListenerLifecycleState(this.hostScrollRestoreState);
+  }
 
   protected async resolveUrlWithCacheBuster(
     baseUrl: string,
@@ -918,6 +930,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     this.clearRefreshTimer();
     this.clearIframeLoadTimeout();
     this.clearIframeLoadFallbackListener();
+    this.clearHostScrollRestoreOnLoadListener();
   }
   private getDocumentDeepMaxScrollTop(
     iframeDocument?: Document,
