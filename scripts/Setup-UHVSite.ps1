@@ -20,7 +20,7 @@ param(
 
     [bool]$Publish = $true,
     [bool]$ForceOverwrite = $true,
-    [bool]$EnsureSitePagesForceCheckout = $true,
+    [bool]$EnsureSitePagesForceCheckout = $false,
     [bool]$SetAsHomePage = $false,
 
     [switch]$InstallOnly,
