@@ -183,12 +183,13 @@ async function getInlineHtmlResponseWithRetry(
     }
 
     const retryAfterMs = tryGetRetryAfterDelayMs(response);
+    const boundedRetryAfterMs = clampRetryAfterDelayMs(retryAfterMs, retryMaxDelayMs);
     const computedBackoffMs = getRetryBackoffDelayMs(
       attempt,
       retryBaseDelayMs,
       retryMaxDelayMs,
     );
-    const delayMs = retryAfterMs !== undefined ? retryAfterMs : computedBackoffMs;
+    const delayMs = boundedRetryAfterMs !== undefined ? boundedRetryAfterMs : computedBackoffMs;
     await sleep(delayMs);
   }
 
@@ -354,6 +355,22 @@ function getRetryBackoffDelayMs(
   }
 
   return Math.round(Math.min(computedDelay, retryMaxDelayMs));
+}
+
+function clampRetryAfterDelayMs(delayMs: number | undefined, retryMaxDelayMs: number): number | undefined {
+  if (delayMs === undefined) {
+    return undefined;
+  }
+
+  if (delayMs <= 0) {
+    return 0;
+  }
+
+  if (retryMaxDelayMs <= 0) {
+    return 0;
+  }
+
+  return Math.round(Math.min(delayMs, retryMaxDelayMs));
 }
 
 function isAbortRequestError(error: unknown): boolean {
