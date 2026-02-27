@@ -208,4 +208,45 @@ describe('NestedIframeHydrationHelper lifecycle', () => {
 
     cleanup();
   });
+
+  it('clears pending nested scroll reset timeouts during cleanup', () => {
+    jest.useFakeTimers();
+    const setTimeoutSpy = jest.spyOn(window, 'setTimeout');
+    const clearTimeoutSpy = jest.spyOn(window, 'clearTimeout');
+
+    try {
+      document.body.innerHTML = '<iframe src="nested.html"></iframe>';
+      const nestedFrame = document.querySelector('iframe') as HTMLIFrameElement;
+      const nestedDocument = document.implementation.createHTMLDocument('nested');
+      Object.defineProperty(nestedFrame, 'contentDocument', {
+        value: nestedDocument,
+        configurable: true,
+      });
+
+      const { iframe: parentIframe } = createIframeWithListeners(document);
+      const cleanup = wireNestedIframeHydration({
+        iframe: parentIframe,
+        currentPageUrl: validationOptions.currentPageUrl,
+        validationOptions,
+        cacheBusterParamName: 'v',
+        loadInlineHtml: jest.fn().mockResolvedValue('<html><body>ok</body></html>'),
+      });
+
+      const scheduledTimeoutIds = setTimeoutSpy.mock.results
+        .map((result) => result.value)
+        .filter((id): id is number => typeof id === 'number');
+      expect(scheduledTimeoutIds.length).toBeGreaterThanOrEqual(2);
+
+      cleanup();
+
+      scheduledTimeoutIds.forEach((timeoutId) => {
+        expect(clearTimeoutSpy).toHaveBeenCalledWith(timeoutId);
+      });
+    } finally {
+      setTimeoutSpy.mockRestore();
+      clearTimeoutSpy.mockRestore();
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+    }
+  });
 });

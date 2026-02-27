@@ -242,6 +242,25 @@ function ensureNestedFrameNavigationWired(
 
   let wiredDocument: Document | undefined;
   let wiredClickHandler: ((event: Event) => void) | undefined;
+  const pendingScrollResetTimeoutIds: number[] = [];
+  const clearPendingScrollResetTimeouts = (): void => {
+    if (pendingScrollResetTimeoutIds.length === 0) {
+      return;
+    }
+
+    while (pendingScrollResetTimeoutIds.length > 0) {
+      const timeoutId = pendingScrollResetTimeoutIds.pop();
+      if (timeoutId === undefined) {
+        continue;
+      }
+
+      if (typeof window !== 'undefined' && typeof window.clearTimeout === 'function') {
+        window.clearTimeout(timeoutId);
+      } else {
+        clearTimeout(timeoutId as unknown as ReturnType<typeof setTimeout>);
+      }
+    }
+  };
   const clearDocumentHandler = (): void => {
     if (wiredDocument && wiredClickHandler) {
       wiredDocument.removeEventListener('click', wiredClickHandler, true);
@@ -255,14 +274,16 @@ function ensureNestedFrameNavigationWired(
 
   const onFrameLoad = (): void => {
     clearDocumentHandler();
+    clearPendingScrollResetTimeouts();
     resetNestedFrameScrollPosition(frame);
     if (typeof window !== 'undefined') {
-      window.setTimeout(() => {
+      const firstTimeoutId = window.setTimeout(() => {
         resetNestedFrameScrollPosition(frame);
       }, 80);
-      window.setTimeout(() => {
+      const secondTimeoutId = window.setTimeout(() => {
         resetNestedFrameScrollPosition(frame);
       }, 260);
+      pendingScrollResetTimeoutIds.push(firstTimeoutId, secondTimeoutId);
     }
 
     const frameDocument = tryGetIframeDocument(frame);
@@ -338,6 +359,7 @@ function ensureNestedFrameNavigationWired(
   onFrameLoad();
 
   frameCleanupMap.set(frame, () => {
+    clearPendingScrollResetTimeouts();
     frame.removeEventListener('load', onFrameLoad);
     clearDocumentHandler();
   });
