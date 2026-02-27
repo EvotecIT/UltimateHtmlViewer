@@ -535,6 +535,44 @@ describe('loadSharePointFileContentForInline', () => {
     expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
+  it('treats strict and default inline CSP modes as distinct cache variants', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: jest
+        .fn()
+        .mockResolvedValue('<html><head></head><body><h1>CspVariant</h1></body></html>'),
+    };
+    const mockGet = jest.fn().mockResolvedValue(mockResponse);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    const defaultCspResult = await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+    );
+    const strictCspResult = await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      undefined,
+      {
+        enforceStrictInlineCsp: true,
+      },
+    );
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(defaultCspResult).toContain('&#39;unsafe-eval&#39;');
+    expect(strictCspResult).not.toContain('&#39;unsafe-eval&#39;');
+  });
+
   it('propagates strict inline CSP to transformed HTML payloads', async () => {
     const mockResponse = {
       ok: true,

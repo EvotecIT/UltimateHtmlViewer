@@ -45,6 +45,7 @@ export async function loadSharePointFileContentForInline(
     sourceUrl,
     baseUrlForRelativeLinks,
     pageUrl,
+    options?.enforceStrictInlineCsp === true,
   );
   const bypassCache = options?.bypassCache === true;
   const cacheTtlMs = normalizeCacheTtlMs(options?.cacheTtlMs);
@@ -203,11 +204,13 @@ function buildInlineHtmlCacheKey(
   sourceUrl: string,
   baseUrlForRelativeLinks: string,
   pageUrl: string,
+  enforceStrictInlineCsp: boolean,
 ): string {
   const normalizedSourceUrl = (sourceUrl || '').trim();
   const normalizedBaseUrl = (baseUrlForRelativeLinks || '').trim();
   const normalizedPageUrl = normalizePageUrlForCache(pageUrl);
-  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}`;
+  const normalizedStrictMode = enforceStrictInlineCsp ? 'strict-csp' : 'default-csp';
+  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedStrictMode}`;
 }
 
 function tryGetCachedInlineHtml(cacheKey: string): string | undefined {
