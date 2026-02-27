@@ -123,6 +123,44 @@ describe('loadSharePointFileContentForInline', () => {
     clearInlineHtmlCacheForTests();
   });
 
+  it('rejects site-relative traversal-like source paths', async () => {
+    const mockGet = jest.fn();
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    await expect(
+      loadSharePointFileContentForInline(
+        mockSpHttpClient as never,
+        webAbsoluteUrl,
+        '/sites/TestSite2/SiteAssets/Reports/../secret/index.html',
+        baseUrlForRelativeLinks,
+        pageUrl,
+      ),
+    ).rejects.toThrow('SharePoint file API mode requires a same-tenant URL or a site-relative URL.');
+
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('rejects same-tenant absolute URLs with double-encoded traversal segments', async () => {
+    const mockGet = jest.fn();
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    await expect(
+      loadSharePointFileContentForInline(
+        mockSpHttpClient as never,
+        webAbsoluteUrl,
+        'https://contoso.sharepoint.com/sites/TestSite2/SiteAssets/Reports/%252e%252e/secret/index.html',
+        baseUrlForRelativeLinks,
+        pageUrl,
+      ),
+    ).rejects.toThrow('SharePoint file API mode requires a same-tenant URL or a site-relative URL.');
+
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
   it('reuses cached HTML for repeated calls with identical inputs', async () => {
     const mockResponse = {
       ok: true,
