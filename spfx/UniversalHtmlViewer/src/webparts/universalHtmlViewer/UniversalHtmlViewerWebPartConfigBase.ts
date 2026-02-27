@@ -37,6 +37,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
   protected iframeLoadTimeoutId: number | undefined;
   protected lastEffectiveProps: IUniversalHtmlViewerWebPartProps | undefined;
   protected lastTenantConfig: ITenantConfig | undefined;
+  protected lastTenantConfigLoadError: string | undefined;
   protected lastValidationOptions: UrlValidationOptions | undefined;
   protected lastCacheBusterMode: CacheBusterMode | undefined;
   protected lastCacheLabel: string | undefined;
@@ -167,11 +168,13 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
   ): Promise<ITenantConfig | undefined> {
     const rawUrl: string = (props.tenantConfigUrl || '').trim();
     if (!rawUrl) {
+      this.lastTenantConfigLoadError = undefined;
       return undefined;
     }
 
     const resolvedUrl: string | undefined = this.resolveTenantConfigUrl(rawUrl, pageUrl);
     if (!resolvedUrl) {
+      this.lastTenantConfigLoadError = 'Tenant config URL is invalid or not allowed.';
       return undefined;
     }
 
@@ -181,16 +184,21 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
         SPHttpClient.configurations.v1,
       );
       if (!response.ok) {
+        this.lastTenantConfigLoadError = `Tenant config request failed (${response.status}).`;
         return undefined;
       }
 
       const data = await response.json();
       if (!data || typeof data !== 'object') {
+        this.lastTenantConfigLoadError =
+          'Tenant config payload is invalid. Expected a JSON object.';
         return undefined;
       }
 
+      this.lastTenantConfigLoadError = undefined;
       return data as ITenantConfig;
     } catch {
+      this.lastTenantConfigLoadError = 'Tenant config request failed due to a network or parsing error.';
       return undefined;
     }
   }

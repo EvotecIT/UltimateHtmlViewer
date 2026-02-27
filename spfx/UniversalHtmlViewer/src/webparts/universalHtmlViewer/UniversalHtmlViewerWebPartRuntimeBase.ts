@@ -929,6 +929,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       securityMode: props.securityMode || 'StrictTenant',
       tenantConfigUrl: props.tenantConfigUrl || '',
       tenantConfigMode: props.tenantConfigMode || 'Merge',
+      tenantConfigLoadError: this.lastTenantConfigLoadError || '',
       dashboardList: props.dashboardList || '',
       cacheBusterMode: props.cacheBusterMode || 'None',
       inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,

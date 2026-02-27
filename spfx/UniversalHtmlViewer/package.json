@@ -7,15 +7,25 @@
     "node": ">=22.14.0 <23.0.0"
   },
   "scripts": {
+    "prebundle": "node ./scripts/ensure-node-version.js",
     "bundle": "gulp bundle",
+    "prebuild": "node ./scripts/ensure-node-version.js",
     "build": "gulp bundle",
+    "preclean": "node ./scripts/ensure-node-version.js",
     "clean": "gulp clean",
+    "preserve": "node ./scripts/ensure-node-version.js",
     "serve": "gulp serve",
+    "prebundle:ship": "node ./scripts/ensure-node-version.js",
     "bundle:ship": "gulp bundle --ship",
+    "prepackage-solution": "node ./scripts/ensure-node-version.js",
     "package-solution": "gulp package-solution",
+    "prepackage-solution:ship": "node ./scripts/ensure-node-version.js",
     "package-solution:ship": "gulp package-solution --ship",
+    "prelint": "node ./scripts/ensure-node-version.js",
     "lint": "eslint --ext .ts,.tsx src",
+    "pretest": "node ./scripts/ensure-node-version.js",
     "test": "jest",
+    "pretest:gulp": "node ./scripts/ensure-node-version.js",
     "test:gulp": "gulp test"
   },
   "dependencies": {
