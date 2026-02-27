@@ -62,6 +62,22 @@ export interface IDeepLinkScrollLockDiagnosticsCounters {
   lastLockDurationMs: number;
 }
 
+export function createDefaultDeepLinkScrollLockDiagnosticsCounters(): IDeepLinkScrollLockDiagnosticsCounters {
+  return {
+    starts: 0,
+    releases: 0,
+    releasedByAutoStable: 0,
+    releasedByUserInteraction: 0,
+    releasedByTimeout: 0,
+    releasedByManual: 0,
+    releasedByReplace: 0,
+    releasedByDispose: 0,
+    active: false,
+    lastReleaseReason: 'none',
+    lastLockDurationMs: 0,
+  };
+}
+
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
   protected refreshInProgress: boolean = false;
   protected lastInlineContentLoadError: string = '';
@@ -75,19 +91,8 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     navigationFailed: 0,
     navigationStaleResultIgnored: 0,
   };
-  protected deepLinkScrollLockDiagnostics: IDeepLinkScrollLockDiagnosticsCounters = {
-    starts: 0,
-    releases: 0,
-    releasedByAutoStable: 0,
-    releasedByUserInteraction: 0,
-    releasedByTimeout: 0,
-    releasedByManual: 0,
-    releasedByReplace: 0,
-    releasedByDispose: 0,
-    active: false,
-    lastReleaseReason: 'none',
-    lastLockDurationMs: 0,
-  };
+  protected deepLinkScrollLockDiagnostics: IDeepLinkScrollLockDiagnosticsCounters =
+    createDefaultDeepLinkScrollLockDiagnosticsCounters();
   private readonly iframeLoadFallbackState: IIframeLoadFallbackState = {};
   private readonly hostScrollRestoreState: IIframeLoadListenerState = {};
   private readonly deferredScrollTimeoutState: IScheduledTimeoutState = {};

@@ -16,8 +16,10 @@ jest.mock('@microsoft/sp-lodash-subset', () => ({
 jest.mock('../UniversalHtmlViewerWebPart.module.scss', () => ({}));
 
 const {
+  createDefaultDeepLinkScrollLockDiagnosticsCounters,
   UniversalHtmlViewerWebPartRuntimeBase,
 }: {
+  createDefaultDeepLinkScrollLockDiagnosticsCounters: () => any;
   UniversalHtmlViewerWebPartRuntimeBase: any;
 } = require('../UniversalHtmlViewerWebPartRuntimeBase');
 
@@ -101,19 +103,7 @@ describe('UniversalHtmlViewerWebPartRuntimeBase buildDiagnosticsData', () => {
 
   it('uses explicit none state for deep-link last release reason when lock never started', () => {
     const runtime = createRuntimeHarness();
-    runtime.deepLinkScrollLockDiagnostics = {
-      starts: 0,
-      releases: 0,
-      releasedByAutoStable: 0,
-      releasedByUserInteraction: 0,
-      releasedByTimeout: 0,
-      releasedByManual: 0,
-      releasedByReplace: 0,
-      releasedByDispose: 0,
-      active: false,
-      lastReleaseReason: 'none',
-      lastLockDurationMs: 0,
-    };
+    runtime.deepLinkScrollLockDiagnostics = createDefaultDeepLinkScrollLockDiagnosticsCounters();
 
     const data = runtime.buildDiagnosticsData({
       resolvedUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',

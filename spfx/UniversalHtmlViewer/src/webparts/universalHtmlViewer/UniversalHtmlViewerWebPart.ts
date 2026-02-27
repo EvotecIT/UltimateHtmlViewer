@@ -44,11 +44,14 @@ import {
   resolveInlineContentTarget,
 } from './InlineDeepLinkHelper';
 import {
+  createDefaultDeepLinkScrollLockDiagnosticsCounters,
+  type DeepLinkScrollLockReleaseReason,
+} from './UniversalHtmlViewerWebPartRuntimeBase';
+import {
   ConfigurationPreset,
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
 } from './UniversalHtmlViewerTypes';
-import type { DeepLinkScrollLockReleaseReason } from './UniversalHtmlViewerWebPartRuntimeBase';
 
 interface IInlineDeepLinkFrameMetrics {
   frameClientHeight: number;
@@ -1070,19 +1073,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     };
   }
   private resetDeepLinkScrollLockDiagnostics(): void {
-    this.deepLinkScrollLockDiagnostics = {
-      starts: 0,
-      releases: 0,
-      releasedByAutoStable: 0,
-      releasedByUserInteraction: 0,
-      releasedByTimeout: 0,
-      releasedByManual: 0,
-      releasedByReplace: 0,
-      releasedByDispose: 0,
-      active: false,
-      lastReleaseReason: 'none',
-      lastLockDurationMs: 0,
-    };
+    this.deepLinkScrollLockDiagnostics = createDefaultDeepLinkScrollLockDiagnosticsCounters();
   }
   private recordNestedIframeDiagnosticEvent(
     eventName: NestedIframeHydrationDiagnosticEvent,
