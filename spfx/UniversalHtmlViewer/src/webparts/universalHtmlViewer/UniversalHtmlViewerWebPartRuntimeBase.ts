@@ -29,6 +29,7 @@ import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPa
 
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
   protected refreshInProgress: boolean = false;
+  protected lastInlineContentLoadError: string = '';
   private readonly iframeLoadFallbackState: IIframeLoadFallbackState = {};
   private readonly hostScrollRestoreState: IIframeLoadListenerState = {};
   private readonly deferredScrollTimeoutState: IScheduledTimeoutState = {};
@@ -930,6 +931,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       tenantConfigUrl: props.tenantConfigUrl || '',
       tenantConfigMode: props.tenantConfigMode || 'Merge',
       tenantConfigLoadError: this.lastTenantConfigLoadError || '',
+      inlineContentLoadError: this.lastInlineContentLoadError || '',
       dashboardList: props.dashboardList || '',
       cacheBusterMode: props.cacheBusterMode || 'None',
       inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,

@@ -870,7 +870,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         baseUrlForRelativeLinks: string,
       ): Promise<string | undefined> => {
         try {
-          return await loadSharePointFileContentForInline(
+          const inlineHtml = await loadSharePointFileContentForInline(
             this.context.spHttpClient,
             this.context.pageContext.web.absoluteUrl,
             sourceUrl,
@@ -885,7 +885,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                 (this.lastEffectiveProps || this.properties).enforceStrictInlineCsp === true,
             },
           );
-        } catch { return undefined; }
+          this.lastInlineContentLoadError = '';
+          return inlineHtml;
+        } catch (error) {
+          this.lastInlineContentLoadError = this.formatInlineContentLoadError(error);
+          return undefined;
+        }
       },
     });
   }
@@ -913,9 +918,13 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
         },
       );
+      this.lastInlineContentLoadError = '';
       iframe.srcdoc = inlineHtml;
       return true;
-    } catch { return false; }
+    } catch (error) {
+      this.lastInlineContentLoadError = this.formatInlineContentLoadError(error);
+      return false;
+    }
   }
   private getInlineContentCacheTtlMs(props: IUniversalHtmlViewerWebPartProps): number {
     const rawSeconds = props.inlineContentCacheTtlSeconds;
@@ -1015,6 +1024,29 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return undefined;
     }
     return parsed;
+  }
+  private formatInlineContentLoadError(error: unknown): string {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    const source = error as
+      | {
+          message?: unknown;
+        }
+      | undefined;
+    const directMessage = typeof source?.message === 'string' ? source.message.trim() : '';
+    if (directMessage) {
+      return directMessage;
+    }
+
+    const statusCode = this.getInlineLoadErrorStatusCode(error);
+    if (statusCode !== undefined) {
+      return `Inline content load failed with status ${statusCode}.`;
+    }
+
+    const fallback = String(error || '').trim();
+    return fallback || 'Inline content load failed.';
   }
   private shouldApplyInitialDeepLinkScrollLock(
     contentDeliveryMode: ContentDeliveryMode,
