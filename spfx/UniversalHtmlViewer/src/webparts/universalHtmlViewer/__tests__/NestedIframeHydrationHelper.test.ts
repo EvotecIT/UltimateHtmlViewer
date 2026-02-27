@@ -125,6 +125,7 @@ describe('NestedIframeHydrationHelper', () => {
         sourceUrl: string;
         resolve: (value: string | PromiseLike<string | undefined> | undefined) => void;
       }> = [];
+      const onDiagnosticsEvent = jest.fn();
       const loadInlineHtml = jest.fn().mockImplementation((sourceUrl: string) => {
         return new Promise<string | undefined>((resolve) => {
           pendingLoads.push({
@@ -141,6 +142,7 @@ describe('NestedIframeHydrationHelper', () => {
         validationOptions,
         cacheBusterParamName: 'v',
         loadInlineHtml,
+        onDiagnosticsEvent,
       });
 
       await Promise.resolve();
@@ -164,6 +166,7 @@ describe('NestedIframeHydrationHelper', () => {
       await Promise.resolve();
       expect(nestedFrame.getAttribute('data-uhv-nested-state')).toBe('processing');
       expect(nestedFrame.srcdoc || '').not.toContain('First');
+      expect(onDiagnosticsEvent).toHaveBeenCalledWith('nestedHydrationStaleResultIgnored');
 
       secondLoad.resolve('<html><body>Second</body></html>');
       await Promise.resolve();
@@ -171,6 +174,7 @@ describe('NestedIframeHydrationHelper', () => {
       expect(nestedFrame.getAttribute('data-uhv-nested-state')).toBe('done');
       expect(nestedFrame.srcdoc).toContain('Second');
       expect(nestedFrame.srcdoc).not.toContain('First');
+      expect(onDiagnosticsEvent).toHaveBeenCalledWith('nestedHydrationSucceeded');
 
       cleanup();
     } finally {
@@ -201,6 +205,7 @@ describe('NestedIframeHydrationHelper', () => {
       string,
       (value: string | PromiseLike<string | undefined> | undefined) => void
     >();
+    const onDiagnosticsEvent = jest.fn();
     const loadInlineHtml = jest.fn().mockImplementation((sourceUrl: string) => {
       if (sourceUrl.includes('/seed.html')) {
         return Promise.resolve('<html><body>Seed</body></html>');
@@ -217,6 +222,7 @@ describe('NestedIframeHydrationHelper', () => {
       validationOptions,
       cacheBusterParamName: 'v',
       loadInlineHtml,
+      onDiagnosticsEvent,
     });
 
     await Promise.resolve();
@@ -257,6 +263,7 @@ describe('NestedIframeHydrationHelper', () => {
 
     expect(nestedFrame.getAttribute('data-uhv-nested-state')).toBe('processing');
     expect(nestedFrame.srcdoc || '').not.toContain('First click content');
+    expect(onDiagnosticsEvent).toHaveBeenCalledWith('nestedNavigationStaleResultIgnored');
 
     resolveSecond('<html><body>Second click content</body></html>');
     await Promise.resolve();
@@ -265,6 +272,8 @@ describe('NestedIframeHydrationHelper', () => {
     expect(nestedFrame.getAttribute('data-uhv-nested-state')).toBe('done');
     expect(nestedFrame.srcdoc).toContain('Second click content');
     expect(nestedFrame.srcdoc).not.toContain('First click content');
+    expect(onDiagnosticsEvent).toHaveBeenCalledWith('nestedNavigationStarted');
+    expect(onDiagnosticsEvent).toHaveBeenCalledWith('nestedNavigationSucceeded');
 
     cleanup();
   });

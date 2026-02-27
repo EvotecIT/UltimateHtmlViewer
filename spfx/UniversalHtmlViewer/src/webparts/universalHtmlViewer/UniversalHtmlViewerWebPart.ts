@@ -34,6 +34,7 @@ import {
 } from './ValidationHelper';
 import { UniversalHtmlViewerWebPartUiBase } from './UniversalHtmlViewerWebPartUiBase';
 import { applyInlineModeBehaviors } from './InlineModeBehaviorHelper';
+import { NestedIframeHydrationDiagnosticEvent } from './NestedIframeHydrationHelper';
 import { loadSharePointFileContentForInline } from './SharePointInlineContentHelper';
 import {
   buildPageUrlWithoutInlineDeepLink,
@@ -579,6 +580,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.clearInitialDeepLinkScrollLock();
     this.clearIframeLoadTimeout();
     this.clearNestedIframeHydration();
+    this.resetNestedIframeDiagnostics();
     const pageUrl: string = this.getCurrentPageUrl();
     const { effectiveProps, tenantConfig } = await this.getEffectiveProperties(pageUrl);
     this.lastEffectiveProps = effectiveProps;
@@ -892,6 +894,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           return undefined;
         }
       },
+      onNestedDiagnosticsEvent: (eventName: NestedIframeHydrationDiagnosticEvent): void => {
+        this.recordNestedIframeDiagnosticEvent(eventName);
+      },
     });
   }
   protected async trySetIframeSrcDocFromSource(
@@ -1047,6 +1052,50 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
     const fallback = String(error || '').trim();
     return fallback || 'Inline content load failed.';
+  }
+  private resetNestedIframeDiagnostics(): void {
+    this.nestedIframeDiagnostics = {
+      hydrationStarted: 0,
+      hydrationSucceeded: 0,
+      hydrationFailed: 0,
+      hydrationStaleResultIgnored: 0,
+      navigationStarted: 0,
+      navigationSucceeded: 0,
+      navigationFailed: 0,
+      navigationStaleResultIgnored: 0,
+    };
+  }
+  private recordNestedIframeDiagnosticEvent(
+    eventName: NestedIframeHydrationDiagnosticEvent,
+  ): void {
+    switch (eventName) {
+      case 'nestedHydrationStarted':
+        this.nestedIframeDiagnostics.hydrationStarted += 1;
+        break;
+      case 'nestedHydrationSucceeded':
+        this.nestedIframeDiagnostics.hydrationSucceeded += 1;
+        break;
+      case 'nestedHydrationFailed':
+        this.nestedIframeDiagnostics.hydrationFailed += 1;
+        break;
+      case 'nestedHydrationStaleResultIgnored':
+        this.nestedIframeDiagnostics.hydrationStaleResultIgnored += 1;
+        break;
+      case 'nestedNavigationStarted':
+        this.nestedIframeDiagnostics.navigationStarted += 1;
+        break;
+      case 'nestedNavigationSucceeded':
+        this.nestedIframeDiagnostics.navigationSucceeded += 1;
+        break;
+      case 'nestedNavigationFailed':
+        this.nestedIframeDiagnostics.navigationFailed += 1;
+        break;
+      case 'nestedNavigationStaleResultIgnored':
+        this.nestedIframeDiagnostics.navigationStaleResultIgnored += 1;
+        break;
+      default:
+        break;
+    }
   }
   private shouldApplyInitialDeepLinkScrollLock(
     contentDeliveryMode: ContentDeliveryMode,

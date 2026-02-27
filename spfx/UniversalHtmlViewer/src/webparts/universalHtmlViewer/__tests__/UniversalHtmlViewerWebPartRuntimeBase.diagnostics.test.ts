@@ -44,6 +44,16 @@ describe('UniversalHtmlViewerWebPartRuntimeBase buildDiagnosticsData', () => {
     const runtime = createRuntimeHarness();
     runtime.lastTenantConfigLoadError = 'Tenant config request failed (503).';
     runtime.lastInlineContentLoadError = 'SharePoint API returned 503 Service Unavailable';
+    runtime.nestedIframeDiagnostics = {
+      hydrationStarted: 2,
+      hydrationSucceeded: 1,
+      hydrationFailed: 1,
+      hydrationStaleResultIgnored: 1,
+      navigationStarted: 3,
+      navigationSucceeded: 2,
+      navigationFailed: 1,
+      navigationStaleResultIgnored: 1,
+    };
 
     const data = runtime.buildDiagnosticsData({
       resolvedUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
@@ -51,6 +61,16 @@ describe('UniversalHtmlViewerWebPartRuntimeBase buildDiagnosticsData', () => {
 
     expect(data.tenantConfigLoadError).toBe('Tenant config request failed (503).');
     expect(data.inlineContentLoadError).toBe('SharePoint API returned 503 Service Unavailable');
+    expect(data.nestedIframeDiagnostics).toEqual({
+      hydrationStarted: 2,
+      hydrationSucceeded: 1,
+      hydrationFailed: 1,
+      hydrationStaleResultIgnored: 1,
+      navigationStarted: 3,
+      navigationSucceeded: 2,
+      navigationFailed: 1,
+      navigationStaleResultIgnored: 1,
+    });
   });
 });
 
