@@ -10,7 +10,42 @@ export interface IInlineNavigationOptions {
 
 export function wireInlineIframeNavigation(options: IInlineNavigationOptions): () => void {
   const clickHandlers = new Map<EventTarget, (event: Event) => void>();
+  const interceptedEventNames: string[] = ['pointerdown', 'mousedown', 'click'];
   const handledEvents = new WeakSet<Event>();
+  let lastNavigationTargetUrl = '';
+  let lastNavigationTimestamp = 0;
+  const emitNavigation = (targetUrl: string, event?: Event): void => {
+    const now = Date.now();
+    const isDuplicatedNavigation =
+      lastNavigationTargetUrl === targetUrl && now - lastNavigationTimestamp < 500;
+
+    if (event) {
+      suppressInterceptedNavigationEvent(event);
+      handledEvents.add(event);
+    }
+    if (isDuplicatedNavigation) {
+      return;
+    }
+
+    lastNavigationTargetUrl = targetUrl;
+    lastNavigationTimestamp = now;
+    options.onNavigate(targetUrl);
+  };
+  const registerClickHandler = (
+    eventTarget: EventTarget,
+    handler: (event: Event) => void,
+  ): void => {
+    const existingHandler = clickHandlers.get(eventTarget);
+    if (existingHandler) {
+      interceptedEventNames.forEach((eventName) => {
+        eventTarget.removeEventListener(eventName, existingHandler, true);
+      });
+    }
+    interceptedEventNames.forEach((eventName) => {
+      eventTarget.addEventListener(eventName, handler, true);
+    });
+    clickHandlers.set(eventTarget, handler);
+  };
 
   const attachHandler = (): void => {
     const iframeDocument: Document | undefined = tryGetIframeDocument(options.iframe);
@@ -41,29 +76,64 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
         return;
       }
 
-      event.preventDefault();
-      event.stopPropagation();
-      handledEvents.add(event);
-      options.onNavigate(targetUrl);
+      emitNavigation(targetUrl, event);
     };
-    iframeDocument.addEventListener('click', onClick, true);
+    registerClickHandler(iframeDocument, onClick);
 
     const iframeWindow: Window | undefined = tryGetIframeWindow(options.iframe);
     if (iframeWindow) {
-      iframeWindow.addEventListener('click', onClick, true);
-      clickHandlers.set(iframeWindow, onClick);
+      registerClickHandler(iframeWindow, onClick);
+    }
+  };
+  const onInlineNavigationBridgeMessage = (event: MessageEvent): void => {
+    const iframeWindow = tryGetIframeWindow(options.iframe);
+    if (iframeWindow && event.source && event.source !== iframeWindow) {
+      return;
     }
 
-    clickHandlers.set(iframeDocument, onClick);
+    const bridgePayload = event.data as
+      | {
+          type?: unknown;
+          targetUrl?: unknown;
+        }
+      | undefined;
+    if (!bridgePayload || bridgePayload.type !== 'uhv-inline-nav') {
+      return;
+    }
+
+    const rawTargetUrl =
+      typeof bridgePayload.targetUrl === 'string' ? bridgePayload.targetUrl.trim() : '';
+    if (!rawTargetUrl) {
+      return;
+    }
+
+    const targetUrl = resolveInlineNavigationTargetFromRawHref(rawTargetUrl, {
+      currentPageUrl: options.currentPageUrl,
+      validationOptions: options.validationOptions,
+      cacheBusterParamName: options.cacheBusterParamName,
+    });
+    if (!targetUrl) {
+      return;
+    }
+
+    emitNavigation(targetUrl);
   };
 
   options.iframe.addEventListener('load', attachHandler);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('message', onInlineNavigationBridgeMessage);
+  }
   attachHandler();
 
   return (): void => {
     options.iframe.removeEventListener('load', attachHandler);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('message', onInlineNavigationBridgeMessage);
+    }
     clickHandlers.forEach((handler, eventTarget) => {
-      eventTarget.removeEventListener('click', handler, true);
+      interceptedEventNames.forEach((eventName) => {
+        eventTarget.removeEventListener(eventName, handler, true);
+      });
       if (eventTarget instanceof Document) {
         const rootElement: HTMLElement | undefined = eventTarget.documentElement || undefined;
         if (rootElement && rootElement.getAttribute('data-uhv-inline-nav') === '1') {
@@ -96,16 +166,45 @@ export function resolveInlineNavigationTarget(
     return undefined;
   }
 
-  const protocolBlocked = isNonHttpProtocol(rawHref);
-  if (protocolBlocked) {
+  return resolveInlineNavigationTargetFromRawHref(rawHref, {
+    currentPageUrl: options.currentPageUrl,
+    validationOptions: options.validationOptions,
+    cacheBusterParamName: options.cacheBusterParamName,
+    baseUrl: getAnchorAbsoluteHref(anchor, options.currentPageUrl),
+  });
+}
+
+interface IInlineNavigationTargetResolutionOptions
+  extends Pick<
+    IInlineNavigationOptions,
+    'currentPageUrl' | 'validationOptions' | 'cacheBusterParamName'
+  > {
+  baseUrl?: string;
+}
+
+function resolveInlineNavigationTargetFromRawHref(
+  rawHref: string,
+  options: IInlineNavigationTargetResolutionOptions,
+): string | undefined {
+  const normalizedRawHref = (rawHref || '').trim();
+  if (!normalizedRawHref || normalizedRawHref.startsWith('#')) {
+    return undefined;
+  }
+
+  if (isNonHttpProtocol(normalizedRawHref)) {
     return undefined;
   }
 
   let absoluteUrl: URL;
+  const baseUrl = (options.baseUrl || '').trim() || options.currentPageUrl;
   try {
-    absoluteUrl = new URL(rawHref, getAnchorAbsoluteHref(anchor, options.currentPageUrl));
+    absoluteUrl = new URL(normalizedRawHref, baseUrl);
   } catch {
-    return undefined;
+    try {
+      absoluteUrl = new URL(normalizedRawHref, options.currentPageUrl);
+    } catch {
+      return undefined;
+    }
   }
 
   if (!isSameHostAsCurrentPage(absoluteUrl, options.currentPageUrl)) {
@@ -288,8 +387,17 @@ function getAnchorAbsoluteHref(anchor: Element, fallbackUrl: string): string {
     return xlinkHref;
   }
 
+  const ownerDocumentBaseUrl = (anchor.ownerDocument?.baseURI || '').trim();
   const attributeHref = (anchor.getAttribute('href') || '').trim();
-  return attributeHref || fallbackUrl;
+  if (attributeHref) {
+    try {
+      return new URL(attributeHref, ownerDocumentBaseUrl || fallbackUrl).toString();
+    } catch {
+      return attributeHref;
+    }
+  }
+
+  return ownerDocumentBaseUrl || fallbackUrl;
 }
 
 function getAnchorHrefFromProperty(anchor: Element): string {
@@ -395,6 +503,21 @@ function stripQueryParam(url: string, paramName: string): string {
   } catch {
     return url;
   }
+}
+
+function suppressInterceptedNavigationEvent(event: Event): void {
+  event.preventDefault();
+  event.stopPropagation();
+  if (typeof event.stopImmediatePropagation === 'function') {
+    event.stopImmediatePropagation();
+  }
+
+  const mutableEvent = event as Event & {
+    cancelBubble?: boolean;
+    returnValue?: boolean;
+  };
+  mutableEvent.cancelBubble = true;
+  mutableEvent.returnValue = false;
 }
 
 function tryGetIframeDocument(iframe: HTMLIFrameElement): Document | undefined {

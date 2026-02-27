@@ -141,7 +141,41 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       return undefined;
     }
 
-    return inferredPrefixes.sort((left, right) => left.length - right.length)[0];
+    const currentWebPrefix = this.tryGetCurrentWebPrefix();
+    if (currentWebPrefix) {
+      inferredPrefixes.push(currentWebPrefix);
+    }
+
+    const uniquePrefixes: string[] = [];
+    const seen = new Set<string>();
+    inferredPrefixes.forEach((prefix) => {
+      const normalized = this.normalizePathPrefixForComparison(prefix);
+      if (!normalized || seen.has(normalized)) {
+        return;
+      }
+
+      seen.add(normalized);
+      uniquePrefixes.push(prefix);
+    });
+
+    return uniquePrefixes.sort((left, right) => left.length - right.length)[0];
+  }
+
+  private tryGetCurrentWebPrefix(): string | undefined {
+    const serverRelativeUrl = (this.context?.pageContext?.web?.serverRelativeUrl || '').trim();
+    if (!serverRelativeUrl) {
+      return undefined;
+    }
+
+    let normalized = serverRelativeUrl.replace(/\\/g, '/');
+    if (!normalized.startsWith('/')) {
+      normalized = `/${normalized}`;
+    }
+    if (!normalized.endsWith('/')) {
+      normalized = `${normalized}/`;
+    }
+
+    return normalized;
   }
 
   private resolveContentDeliveryMode(

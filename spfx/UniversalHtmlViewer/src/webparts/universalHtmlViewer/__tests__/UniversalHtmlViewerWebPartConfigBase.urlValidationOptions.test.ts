@@ -37,7 +37,7 @@ function createConfigHarness(): any {
 describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () => {
   const pageUrl = 'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx';
 
-  it('appends inferred source directory prefix for SharePoint inline mode when configured prefix is stale', () => {
+  it('appends inferred site prefix for SharePoint inline mode when configured prefix is stale', () => {
     const configBase = createConfigHarness();
 
     const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
@@ -52,7 +52,7 @@ describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () =>
     });
 
     expect(options.allowedPathPrefixes).toContain('/sites/Reports/Dashboards/');
-    expect(options.allowedPathPrefixes).toContain('/sites/TestSite2/SiteAssets/');
+    expect(options.allowedPathPrefixes).toContain('/sites/TestSite2/');
   });
 
   it('does not append inferred source directory prefix for DirectUrl mode', () => {

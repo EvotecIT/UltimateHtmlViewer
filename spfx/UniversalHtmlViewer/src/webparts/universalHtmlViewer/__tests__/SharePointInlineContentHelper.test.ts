@@ -23,6 +23,7 @@ describe('prepareInlineHtmlForSrcDoc', () => {
     expect(result).toContain('data-uhv-inline-csp="1"');
     expect(result).toContain('object-src &#39;none&#39;');
     expect(result).toContain('data-uhv-history-compat="1"');
+    expect(result).toContain('data-uhv-inline-nav-bridge="1"');
     expect(result).toContain(
       '<base href="https://contoso.sharepoint.com/sites/TestSite2/SiteAssets/GPOzaurr/">',
     );
@@ -59,6 +60,19 @@ describe('prepareInlineHtmlForSrcDoc', () => {
 
     const shimMatches = result.match(/data-uhv-history-compat="1"/gi) || [];
     expect(shimMatches.length).toBe(1);
+  });
+
+  it('does not add duplicate inline navigation bridge when already present', () => {
+    const inputHtml =
+      '<html><head><script data-uhv-inline-nav-bridge="1">(function(){return;})();</script></head><body></body></html>';
+    const result = prepareInlineHtmlForSrcDoc(
+      inputHtml,
+      '/sites/TestSite2/SiteAssets/GPOzaurr/',
+      'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx',
+    );
+
+    const bridgeMatches = result.match(/data-uhv-inline-nav-bridge="1"/gi) || [];
+    expect(bridgeMatches.length).toBe(1);
   });
 
   it('does not add duplicate srcdoc CSP when one already exists', () => {

@@ -3,7 +3,7 @@
   "solution": {
     "name": "Universal HTML Viewer",
     "id": "15fe766e-03e4-4543-8129-c5e260b0b9e9",
-    "version": "1.0.31.3",
+    "version": "1.0.31.9",
     "iconPath": "images/uhv-app-icon.png",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": false,

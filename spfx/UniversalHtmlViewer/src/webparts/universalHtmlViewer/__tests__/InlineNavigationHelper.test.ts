@@ -534,6 +534,37 @@ describe('InlineNavigationHelper', () => {
     );
   });
 
+  it('resolves relative links against owner document base URI when href property is empty', () => {
+    const anchor = document.createElement('a');
+    anchor.setAttribute('href', 'GPO_Blocked_Inheritance.html');
+    Object.defineProperty(anchor, 'href', {
+      value: '',
+      configurable: true,
+    });
+
+    Object.defineProperty(anchor.ownerDocument, 'baseURI', {
+      value: 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Index.html',
+      configurable: true,
+    });
+
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/UHV2.aspx',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/GPO_Blocked_Inheritance.html',
+    );
+  });
+
   it('does not relax path-prefix checks for relative links', () => {
     const anchor = document.createElement('a');
     anchor.setAttribute('href', 'GPO_Blocked_Inheritance.html');
