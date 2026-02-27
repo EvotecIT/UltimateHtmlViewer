@@ -413,5 +413,103 @@ describe('loadSharePointFileContentForInline', () => {
 
     expect(mockGet).toHaveBeenCalledTimes(2);
   });
+
+  it('retries transient thrown network errors before succeeding', async () => {
+    const networkError = Object.assign(new Error('failed to fetch'), {
+      name: 'TypeError',
+    });
+    const successResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: jest
+        .fn()
+        .mockResolvedValue('<html><head></head><body><h1>RecoveredNetwork</h1></body></html>'),
+    };
+    const mockGet = jest
+      .fn()
+      .mockRejectedValueOnce(networkError)
+      .mockResolvedValueOnce(successResponse);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    const result = await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      undefined,
+      {
+        maxRetryAttempts: 3,
+        retryBaseDelayMs: 0,
+        retryMaxDelayMs: 0,
+      },
+    );
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(result).toContain('<h1>RecoveredNetwork</h1>');
+  });
+
+  it('does not retry abort errors thrown by fetch', async () => {
+    const abortError = Object.assign(new Error('request aborted'), {
+      name: 'AbortError',
+    });
+    const mockGet = jest.fn().mockRejectedValue(abortError);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    await expect(
+      loadSharePointFileContentForInline(
+        mockSpHttpClient as never,
+        webAbsoluteUrl,
+        sourceUrl,
+        baseUrlForRelativeLinks,
+        pageUrl,
+        undefined,
+        {
+          maxRetryAttempts: 3,
+          retryBaseDelayMs: 0,
+          retryMaxDelayMs: 0,
+        },
+      ),
+    ).rejects.toThrow('request aborted');
+
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses cache across page query/hash variants', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: jest
+        .fn()
+        .mockResolvedValue('<html><head></head><body><h1>CacheNormalized</h1></body></html>'),
+    };
+    const mockGet = jest.fn().mockResolvedValue(mockResponse);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx?view=ops',
+    );
+    await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx?view=sales#section',
+    );
+
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
 });
 

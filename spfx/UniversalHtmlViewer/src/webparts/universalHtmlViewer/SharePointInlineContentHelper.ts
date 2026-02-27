@@ -147,13 +147,27 @@ async function getInlineHtmlResponseWithRetry(
   let response: SPHttpClientResponse | undefined;
 
   for (let attempt = 1; attempt <= maxRetryAttempts; attempt += 1) {
-    response = await spHttpClient.get(apiUrl, spHttpClientConfiguration as never, {
-      headers: {
-        Accept: 'text/html,*/*',
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    });
+    try {
+      response = await spHttpClient.get(apiUrl, spHttpClientConfiguration as never, {
+        headers: {
+          Accept: 'text/html,*/*',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      });
+    } catch (error) {
+      const isFinalAttempt = attempt >= maxRetryAttempts;
+      if (isFinalAttempt || isAbortRequestError(error)) {
+        throw error;
+      }
+      const computedBackoffMs = getRetryBackoffDelayMs(
+        attempt,
+        retryBaseDelayMs,
+        retryMaxDelayMs,
+      );
+      await sleep(computedBackoffMs);
+      continue;
+    }
 
     if (response.ok) {
       return response;
@@ -189,7 +203,7 @@ function buildInlineHtmlCacheKey(
 ): string {
   const normalizedSourceUrl = (sourceUrl || '').trim();
   const normalizedBaseUrl = (baseUrlForRelativeLinks || '').trim();
-  const normalizedPageUrl = (pageUrl || '').trim();
+  const normalizedPageUrl = normalizePageUrlForCache(pageUrl);
   return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}`;
 }
 
@@ -336,6 +350,22 @@ function getRetryBackoffDelayMs(
   return Math.round(Math.min(computedDelay, retryMaxDelayMs));
 }
 
+function isAbortRequestError(error: unknown): boolean {
+  const source = error as
+    | {
+        name?: unknown;
+        code?: unknown;
+      }
+    | undefined;
+  const name = typeof source?.name === 'string' ? source.name.toLowerCase() : '';
+  if (name === 'aborterror') {
+    return true;
+  }
+
+  const code = typeof source?.code === 'string' ? source.code.toUpperCase() : '';
+  return code === 'ABORT_ERR';
+}
+
 function sleep(delayMs: number): Promise<void> {
   if (delayMs <= 0) {
     return Promise.resolve();
@@ -382,4 +412,20 @@ function stripQueryAndHashFromPath(value: string): string {
         : Math.min(hashIndex, queryIndex);
 
   return value.substring(0, cutIndex);
+}
+
+function normalizePageUrlForCache(pageUrl: string): string {
+  const normalizedValue = (pageUrl || '').trim();
+  if (!normalizedValue) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(normalizedValue);
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return stripQueryAndHashFromPath(normalizedValue);
+  }
 }
