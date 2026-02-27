@@ -54,6 +54,19 @@ describe('UniversalHtmlViewerWebPartRuntimeBase buildDiagnosticsData', () => {
       navigationFailed: 1,
       navigationStaleResultIgnored: 1,
     };
+    runtime.deepLinkScrollLockDiagnostics = {
+      starts: 4,
+      releases: 3,
+      releasedByAutoStable: 1,
+      releasedByUserInteraction: 1,
+      releasedByTimeout: 1,
+      releasedByManual: 0,
+      releasedByReplace: 0,
+      releasedByDispose: 0,
+      active: true,
+      lastReleaseReason: 'timeout',
+      lastLockDurationMs: 12000,
+    };
 
     const data = runtime.buildDiagnosticsData({
       resolvedUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
@@ -70,6 +83,19 @@ describe('UniversalHtmlViewerWebPartRuntimeBase buildDiagnosticsData', () => {
       navigationSucceeded: 2,
       navigationFailed: 1,
       navigationStaleResultIgnored: 1,
+    });
+    expect(data.deepLinkScrollLockDiagnostics).toEqual({
+      starts: 4,
+      releases: 3,
+      releasedByAutoStable: 1,
+      releasedByUserInteraction: 1,
+      releasedByTimeout: 1,
+      releasedByManual: 0,
+      releasedByReplace: 0,
+      releasedByDispose: 0,
+      active: true,
+      lastReleaseReason: 'timeout',
+      lastLockDurationMs: 12000,
     });
   });
 });

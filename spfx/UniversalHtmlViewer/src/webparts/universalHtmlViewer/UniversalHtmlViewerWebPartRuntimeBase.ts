@@ -38,6 +38,20 @@ export interface INestedIframeDiagnosticsCounters {
   navigationStaleResultIgnored: number;
 }
 
+export interface IDeepLinkScrollLockDiagnosticsCounters {
+  starts: number;
+  releases: number;
+  releasedByAutoStable: number;
+  releasedByUserInteraction: number;
+  releasedByTimeout: number;
+  releasedByManual: number;
+  releasedByReplace: number;
+  releasedByDispose: number;
+  active: boolean;
+  lastReleaseReason: string;
+  lastLockDurationMs: number;
+}
+
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
   protected refreshInProgress: boolean = false;
   protected lastInlineContentLoadError: string = '';
@@ -50,6 +64,19 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     navigationSucceeded: 0,
     navigationFailed: 0,
     navigationStaleResultIgnored: 0,
+  };
+  protected deepLinkScrollLockDiagnostics: IDeepLinkScrollLockDiagnosticsCounters = {
+    starts: 0,
+    releases: 0,
+    releasedByAutoStable: 0,
+    releasedByUserInteraction: 0,
+    releasedByTimeout: 0,
+    releasedByManual: 0,
+    releasedByReplace: 0,
+    releasedByDispose: 0,
+    active: false,
+    lastReleaseReason: '',
+    lastLockDurationMs: 0,
   };
   private readonly iframeLoadFallbackState: IIframeLoadFallbackState = {};
   private readonly hostScrollRestoreState: IIframeLoadListenerState = {};
@@ -955,6 +982,9 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       inlineContentLoadError: this.lastInlineContentLoadError || '',
       nestedIframeDiagnostics: {
         ...this.nestedIframeDiagnostics,
+      },
+      deepLinkScrollLockDiagnostics: {
+        ...this.deepLinkScrollLockDiagnostics,
       },
       dashboardList: props.dashboardList || '',
       cacheBusterMode: props.cacheBusterMode || 'None',

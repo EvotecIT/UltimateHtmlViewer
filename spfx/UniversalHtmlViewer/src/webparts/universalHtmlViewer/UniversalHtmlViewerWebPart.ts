@@ -56,9 +56,19 @@ interface IInlineDeepLinkFrameMetrics {
   pendingNestedFrames: number;
 }
 
+type DeepLinkScrollLockReleaseReason =
+  | 'manual'
+  | 'replace'
+  | 'dispose'
+  | 'auto-stable'
+  | 'user-interaction'
+  | 'timeout';
+
 export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPartUiBase {
   private nestedIframeHydrationCleanup: (() => void) | undefined;
-  private initialDeepLinkScrollLockCleanup: (() => void) | undefined;
+  private initialDeepLinkScrollLockCleanup:
+    | ((reason?: DeepLinkScrollLockReleaseReason) => void)
+    | undefined;
   private readonly inlineDeepLinkParamName: string = DEFAULT_INLINE_DEEP_LINK_PARAM;
   private isInlineDeepLinkPopStateWired: boolean = false;
   private isInlineDeepLinkScrollRestorationManaged: boolean = false;
@@ -578,6 +588,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
   private async renderAsync(): Promise<void> {
     this.clearInitialDeepLinkScrollLock();
+    this.resetDeepLinkScrollLockDiagnostics();
     this.clearIframeLoadTimeout();
     this.clearNestedIframeHydration();
     this.resetNestedIframeDiagnostics();
@@ -1065,6 +1076,21 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       navigationStaleResultIgnored: 0,
     };
   }
+  private resetDeepLinkScrollLockDiagnostics(): void {
+    this.deepLinkScrollLockDiagnostics = {
+      starts: 0,
+      releases: 0,
+      releasedByAutoStable: 0,
+      releasedByUserInteraction: 0,
+      releasedByTimeout: 0,
+      releasedByManual: 0,
+      releasedByReplace: 0,
+      releasedByDispose: 0,
+      active: false,
+      lastReleaseReason: '',
+      lastLockDurationMs: 0,
+    };
+  }
   private recordNestedIframeDiagnosticEvent(
     eventName: NestedIframeHydrationDiagnosticEvent,
   ): void {
@@ -1174,7 +1200,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return;
     }
 
-    this.clearInitialDeepLinkScrollLock();
+    this.clearInitialDeepLinkScrollLock('replace');
+    this.deepLinkScrollLockDiagnostics.starts += 1;
+    this.deepLinkScrollLockDiagnostics.active = true;
 
     const historyObject = window.history as History & {
       scrollRestoration?: 'auto' | 'manual';
@@ -1202,7 +1230,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.getInlineDeepLinkFrameMetrics();
     const hostScrollContainers = this.getPotentialHostScrollContainers();
     const scrollTraceEnabled = this.isScrollTraceEnabled();
-    let release: () => void = (): void => {
+    let release: (reason?: DeepLinkScrollLockReleaseReason) => void = (): void => {
       return;
     };
     const minLockDurationMs = 500;
@@ -1306,7 +1334,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           },
           true,
         );
-        release();
+        release('auto-stable');
         return;
       }
       trace('restore-top');
@@ -1321,7 +1349,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         return;
       }
       trace('user-interaction-release', { type: event.type }, true);
-      release();
+      release('user-interaction');
     };
     const onWindowScroll = (): void => {
       if (released) {
@@ -1362,12 +1390,36 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       }
     };
 
-    release = (): void => {
+    release = (reason: DeepLinkScrollLockReleaseReason = 'manual'): void => {
       if (released) {
         return;
       }
 
       trace('scroll-lock-release', undefined, true);
+      this.deepLinkScrollLockDiagnostics.releases += 1;
+      this.deepLinkScrollLockDiagnostics.active = false;
+      this.deepLinkScrollLockDiagnostics.lastReleaseReason = reason;
+      this.deepLinkScrollLockDiagnostics.lastLockDurationMs = Date.now() - lockStartedAt;
+      switch (reason) {
+        case 'auto-stable':
+          this.deepLinkScrollLockDiagnostics.releasedByAutoStable += 1;
+          break;
+        case 'user-interaction':
+          this.deepLinkScrollLockDiagnostics.releasedByUserInteraction += 1;
+          break;
+        case 'timeout':
+          this.deepLinkScrollLockDiagnostics.releasedByTimeout += 1;
+          break;
+        case 'replace':
+          this.deepLinkScrollLockDiagnostics.releasedByReplace += 1;
+          break;
+        case 'dispose':
+          this.deepLinkScrollLockDiagnostics.releasedByDispose += 1;
+          break;
+        default:
+          this.deepLinkScrollLockDiagnostics.releasedByManual += 1;
+          break;
+      }
       this.forceHostScrollTop();
       this.resetInlineIframeScrollPositionForDeepLink();
       released = true;
@@ -1423,7 +1475,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         },
         true,
       );
-      release();
+      release('timeout');
     }, maxLockDurationMs);
     this.initialDeepLinkScrollLockCleanup = release;
   }
@@ -1501,17 +1553,19 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
     this.resetIframeScrollPosition(iframe);
   }
-  private clearInitialDeepLinkScrollLock(): void {
+  private clearInitialDeepLinkScrollLock(
+    reason: DeepLinkScrollLockReleaseReason = 'manual',
+  ): void {
     if (!this.initialDeepLinkScrollLockCleanup) {
       return;
     }
 
-    this.initialDeepLinkScrollLockCleanup();
+    this.initialDeepLinkScrollLockCleanup(reason);
     this.initialDeepLinkScrollLockCleanup = undefined;
   }
   protected onDispose(): void {
     this.configureInlineDeepLinkPopState(false);
-    this.clearInitialDeepLinkScrollLock();
+    this.clearInitialDeepLinkScrollLock('dispose');
     this.clearNestedIframeHydration();
     super.onDispose();
   }
