@@ -158,6 +158,34 @@ describe('UniversalHtmlViewerWebPart deep-link scroll lock diagnostics', () => {
 
     webPart.clearInitialDeepLinkScrollLock();
   });
+
+  it('records auto-stable reason when scroll remains stable after minimum lock duration', () => {
+    const webPart = createDeepLinkScrollLockHarness();
+
+    webPart.applyInitialDeepLinkScrollLock();
+    jest.advanceTimersByTime(1500);
+
+    expect(webPart.deepLinkScrollLockDiagnostics.starts).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releases).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releasedByAutoStable).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('auto-stable');
+    expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
+
+    webPart.clearInitialDeepLinkScrollLock();
+  });
+
+  it('records manual reason when cleanup runs without an explicit reason', () => {
+    const webPart = createDeepLinkScrollLockHarness();
+
+    webPart.applyInitialDeepLinkScrollLock();
+    webPart.clearInitialDeepLinkScrollLock();
+
+    expect(webPart.deepLinkScrollLockDiagnostics.starts).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releases).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releasedByManual).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('manual');
+    expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
+  });
 });
 
 export {};
