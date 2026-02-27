@@ -134,6 +134,7 @@ describe('UniversalHtmlViewerWebPart deep-link scroll lock diagnostics', () => {
     expect(webPart.deepLinkScrollLockDiagnostics.releasedByReplace).toBe(1);
     expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('replace');
     expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(true);
+    expect(webPart.initialDeepLinkScrollLockCleanup).toBeDefined();
 
     webPart.clearInitialDeepLinkScrollLock();
   });
@@ -155,8 +156,7 @@ describe('UniversalHtmlViewerWebPart deep-link scroll lock diagnostics', () => {
     expect(webPart.deepLinkScrollLockDiagnostics.releasedByTimeout).toBe(1);
     expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('timeout');
     expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
-
-    webPart.clearInitialDeepLinkScrollLock();
+    expect(webPart.initialDeepLinkScrollLockCleanup).toBeUndefined();
   });
 
   it('records auto-stable reason when scroll remains stable after minimum lock duration', () => {
@@ -170,8 +170,7 @@ describe('UniversalHtmlViewerWebPart deep-link scroll lock diagnostics', () => {
     expect(webPart.deepLinkScrollLockDiagnostics.releasedByAutoStable).toBe(1);
     expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('auto-stable');
     expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
-
-    webPart.clearInitialDeepLinkScrollLock();
+    expect(webPart.initialDeepLinkScrollLockCleanup).toBeUndefined();
   });
 
   it('records manual reason when cleanup runs without an explicit reason', () => {
@@ -185,6 +184,7 @@ describe('UniversalHtmlViewerWebPart deep-link scroll lock diagnostics', () => {
     expect(webPart.deepLinkScrollLockDiagnostics.releasedByManual).toBe(1);
     expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('manual');
     expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
+    expect(webPart.initialDeepLinkScrollLockCleanup).toBeUndefined();
   });
 });
 
