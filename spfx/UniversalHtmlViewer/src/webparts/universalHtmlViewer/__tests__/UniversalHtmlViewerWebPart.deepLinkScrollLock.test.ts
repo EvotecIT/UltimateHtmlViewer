@@ -29,6 +29,11 @@ const {
 }: {
   default: any;
 } = require('../UniversalHtmlViewerWebPart');
+const {
+  createDefaultDeepLinkScrollLockDiagnosticsCounters,
+}: {
+  createDefaultDeepLinkScrollLockDiagnosticsCounters: () => any;
+} = require('../UniversalHtmlViewerWebPartRuntimeBase');
 
 describe('UniversalHtmlViewerWebPart deep-link scroll lock decision', () => {
   it('enables initial scroll lock only when a deep link is actually applied in inline mode', () => {
@@ -67,19 +72,7 @@ const createDeepLinkScrollLockHarness = (): any => {
   webPart.domElement = {
     querySelector: jest.fn().mockReturnValue(undefined),
   };
-  webPart.deepLinkScrollLockDiagnostics = {
-    starts: 0,
-    releases: 0,
-    releasedByAutoStable: 0,
-    releasedByUserInteraction: 0,
-    releasedByTimeout: 0,
-    releasedByManual: 0,
-    releasedByReplace: 0,
-    releasedByDispose: 0,
-    active: false,
-    lastReleaseReason: 'none',
-    lastLockDurationMs: 0,
-  };
+  webPart.deepLinkScrollLockDiagnostics = createDefaultDeepLinkScrollLockDiagnosticsCounters();
   webPart.getPotentialHostScrollContainers = jest.fn().mockReturnValue([]);
   webPart.getInlineDeepLinkFrameMetrics = jest.fn().mockReturnValue(undefined);
   webPart.getDeepLinkScrollOffsets = jest.fn().mockReturnValue({
