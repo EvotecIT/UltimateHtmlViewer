@@ -92,13 +92,17 @@ const createDeepLinkScrollLockHarness = (): any => {
 };
 
 describe('UniversalHtmlViewerWebPart deep-link scroll lock diagnostics', () => {
+  let originalAddEventListener: typeof window.addEventListener;
+
   beforeEach(() => {
     jest.useFakeTimers();
+    originalAddEventListener = window.addEventListener;
   });
 
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
+    window.addEventListener = originalAddEventListener;
   });
 
   it('records dispose reason when cleanup is triggered during disposal flow', () => {
@@ -176,6 +180,38 @@ describe('UniversalHtmlViewerWebPart deep-link scroll lock diagnostics', () => {
     expect(webPart.deepLinkScrollLockDiagnostics.releases).toBe(1);
     expect(webPart.deepLinkScrollLockDiagnostics.releasedByManual).toBe(1);
     expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('manual');
+    expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
+    expect(webPart.initialDeepLinkScrollLockCleanup).toBeUndefined();
+  });
+
+  it('records user-interaction reason when trusted interaction occurs after warmup', () => {
+    const webPart = createDeepLinkScrollLockHarness();
+    let capturedInteractionHandler: ((event: Event) => void) | undefined;
+
+    window.addEventListener = (((
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions,
+    ): void => {
+      if (type === 'mousedown' && typeof listener === 'function') {
+        capturedInteractionHandler = listener as (event: Event) => void;
+      }
+      originalAddEventListener.call(window, type, listener, options);
+    }) as unknown) as typeof window.addEventListener;
+
+    webPart.applyInitialDeepLinkScrollLock();
+    jest.advanceTimersByTime(300);
+    expect(capturedInteractionHandler).toBeDefined();
+
+    capturedInteractionHandler!({
+      isTrusted: true,
+      type: 'mousedown',
+    } as Event);
+
+    expect(webPart.deepLinkScrollLockDiagnostics.starts).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releases).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releasedByUserInteraction).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('user-interaction');
     expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
     expect(webPart.initialDeepLinkScrollLockCleanup).toBeUndefined();
   });
