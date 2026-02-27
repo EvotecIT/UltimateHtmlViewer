@@ -407,6 +407,9 @@ function getServerRelativePathForSharePointFile(
   if (!normalizedSourceUrl) {
     return undefined;
   }
+  if (normalizedSourceUrl.startsWith('//') || normalizedSourceUrl.startsWith('\\\\')) {
+    return undefined;
+  }
 
   if (normalizedSourceUrl.startsWith('/')) {
     const serverRelativePath = stripQueryAndHashFromPath(normalizedSourceUrl);
@@ -416,6 +419,10 @@ function getServerRelativePathForSharePointFile(
   try {
     const targetUrl = new URL(normalizedSourceUrl);
     const currentUrl = new URL(pageUrl);
+    const normalizedProtocol = (targetUrl.protocol || '').toLowerCase();
+    if (normalizedProtocol !== 'https:' && normalizedProtocol !== 'http:') {
+      return undefined;
+    }
     if (targetUrl.host.toLowerCase() !== currentUrl.host.toLowerCase()) {
       return undefined;
     }
