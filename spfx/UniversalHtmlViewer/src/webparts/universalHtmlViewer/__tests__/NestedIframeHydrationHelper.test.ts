@@ -178,4 +178,94 @@ describe('NestedIframeHydrationHelper', () => {
       jest.useRealTimers();
     }
   });
+
+  it('ignores stale in-flight nested click navigation result when a newer click wins', async () => {
+    document.body.innerHTML =
+      '<iframe src="https://contoso.sharepoint.com/sites/TestSite1/SitePages/seed.html"></iframe>';
+    const nestedFrame = document.querySelector('iframe') as HTMLIFrameElement;
+    const nestedDocument = document.implementation.createHTMLDocument('nested');
+    nestedDocument.body.innerHTML = [
+      '<a id="first-link" href="https://contoso.sharepoint.com/sites/TestSite1/SitePages/first-click.html">First</a>',
+      '<a id="second-link" href="https://contoso.sharepoint.com/sites/TestSite1/SitePages/second-click.html">Second</a>',
+    ].join('');
+    Object.defineProperty(nestedDocument, 'baseURI', {
+      value: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/seed.html',
+      configurable: true,
+    });
+    Object.defineProperty(nestedFrame, 'contentDocument', {
+      value: nestedDocument,
+      configurable: true,
+    });
+
+    const pendingLoads = new Map<
+      string,
+      (value: string | PromiseLike<string | undefined> | undefined) => void
+    >();
+    const loadInlineHtml = jest.fn().mockImplementation((sourceUrl: string) => {
+      if (sourceUrl.includes('/seed.html')) {
+        return Promise.resolve('<html><body>Seed</body></html>');
+      }
+
+      return new Promise<string | undefined>((resolve) => {
+        pendingLoads.set(sourceUrl, resolve);
+      });
+    });
+    const parentIframe = createIframeStubWithDocument(document);
+    const cleanup = wireNestedIframeHydration({
+      iframe: parentIframe,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      loadInlineHtml,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const firstLink = nestedDocument.getElementById('first-link') as HTMLAnchorElement;
+    const secondLink = nestedDocument.getElementById('second-link') as HTMLAnchorElement;
+    firstLink.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      }),
+    );
+    secondLink.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      }),
+    );
+
+    expect(loadInlineHtml).toHaveBeenCalledTimes(3);
+    const firstClickTarget = loadInlineHtml.mock.calls[1][0] as string;
+    const secondClickTarget = loadInlineHtml.mock.calls[2][0] as string;
+    expect(firstClickTarget).toContain('/first-click.html');
+    expect(secondClickTarget).toContain('/second-click.html');
+
+    const resolveFirst = pendingLoads.get(firstClickTarget);
+    const resolveSecond = pendingLoads.get(secondClickTarget);
+    if (!resolveFirst || !resolveSecond) {
+      throw new Error('Expected pending nested click loads to be registered.');
+    }
+
+    resolveFirst('<html><body>First click content</body></html>');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(nestedFrame.getAttribute('data-uhv-nested-state')).toBe('processing');
+    expect(nestedFrame.srcdoc || '').not.toContain('First click content');
+
+    resolveSecond('<html><body>Second click content</body></html>');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(nestedFrame.getAttribute('data-uhv-nested-state')).toBe('done');
+    expect(nestedFrame.srcdoc).toContain('Second click content');
+    expect(nestedFrame.srcdoc).not.toContain('First click content');
+
+    cleanup();
+  });
 });
