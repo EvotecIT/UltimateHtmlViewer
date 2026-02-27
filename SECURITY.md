@@ -1,6 +1,6 @@
 # Security Notes
 
-This project uses GitHub Dependabot and regular dependency maintenance, but some alerts are currently constrained by the SPFx toolchain dependency graph.
+This project uses GitHub Dependabot and regular dependency maintenance. Some alerts are currently constrained by SPFx toolchain compatibility and release-build requirements.
 
 ## Reporting Security Issues
 
@@ -8,61 +8,60 @@ Please report security issues privately through GitHub Security Advisories for t
 
 ## Current Open Dependabot Alerts
 
-Status captured on **2026-02-26** from:
+Status captured on **2026-02-27** from:
 
 - `repos/EvotecIT/UltimateHtmlViewer/dependabot/alerts?state=open`
 
 | Alert | Package | Severity | Scope | Current status |
 | --- | --- | --- | --- | --- |
-| GHSA-2g4f-4pwh-qvx6 | `ajv` | medium | runtime | Open. Indirect through SPFx dependency graph; monitor SPFx-compatible upgrade path. |
-| GHSA-7fh5-64p2-3v2j | `postcss` | medium | development | Open. Transitive tooling dependency; SPFx upgrade path required. |
-| GHSA-p8p7-x288-28g6 | `request` | medium | development | Open. Legacy transitive dependency in tooling chain. |
+| GHSA-vghf-hv5q-vc2g | `validator` | high | development | Open. Transitive via SPFx tooling chain. |
+| GHSA-9965-vmph-33xx | `validator` | medium | development | Open. Same transitive path as above. |
+| GHSA-4vvj-4cpr-p986 | `webpack` | medium | development | Open. Transitive in SPFx tooling. |
+| GHSA-7fh5-64p2-3v2j | `postcss` | medium | development | Open. Transitive in legacy SPFx Sass chain. |
+| GHSA-8fgc-7cc6-rx7x | `webpack` | low | development | Open. Transitive in SPFx tooling. |
+| GHSA-38r7-794h-5758 | `webpack` | low | development | Open. Transitive in SPFx tooling. |
 
-Recently closed (after lockfile/override remediation in PR #25 and PR #27):
+Recently closed:
 
-- `GHSA-8fgc-7cc6-rx7x` (`webpack`)
-- `GHSA-38r7-794h-5758` (`webpack`)
-- `GHSA-vghf-hv5q-vc2g` (`validator`)
-- `GHSA-9965-vmph-33xx` (`validator`)
-- `GHSA-grv7-fg5c-xmjg` (`braces`)
-- `GHSA-72xf-g2v4-qvf3` (`tough-cookie`)
+- `GHSA-p8p7-x288-28g6` (`request`) via alias to `@cypress/request@3.0.0` in PR #65.
 
-## Security Ownership Matrix (As Of 2026-02-26)
+## Important Context (2026-02-27)
+
+- A temporary override to pin `webpack` to `5.105.3` previously reduced webpack/validator alerts.
+- During release prep for `v1.0.31.0`, that override caused `bundle:ship` failures (Terser parse error in SPFx ship build path).
+- To restore a stable release pipeline, the explicit webpack override was removed in commit `990d718`.
+- Result: release packaging and deployment are healthy again, but webpack/validator transitive alerts re-opened.
+
+## Security Ownership Matrix (As Of 2026-02-27)
 
 | Workstream | Advisory focus | Exposure class | Current mitigation | Owner | Next checkpoint | Target date | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Lockfile and override hygiene | `webpack`, `validator`, `braces`, `tough-cookie` (recently closed advisories) | Build-time only | Overrides pinned to `webpack@5.105.3`, `braces@3.0.3`, `tough-cookie@4.1.4`; lockfile refreshed in PR #25 and PR #27 | Repo maintainers | Verify no alert regressions after each dependency refresh | 2026-03-05 | Monitoring |
-| SPFx toolchain transitive chain | `postcss`, `request` | Build/dev chain | Keep direct dependencies patched where safe; avoid forced SPFx-major drift and reject invalid dependency-constraint overrides | Repo maintainers | Execute controlled uplift spike runbook | 2026-03-12 | In progress |
-| Runtime package safety | `ajv` (indirect path) | Runtime policy + shared libs | Continue runtime boundary checks and strict URL policy defaults in UHV | Repo maintainers | Re-validate after each SPFx lockfile refresh | 2026-03-12 | Monitoring |
+| Release-safe dependency posture | `webpack`, `validator` | Build-time only | Keep SPFx-native dependency graph to preserve `bundle:ship` / `package-solution:ship`; no incompatible override forcing | Repo maintainers | Validate against next SPFx-compatible uplift path | 2026-03-12 | In progress |
+| SPFx Sass transitive chain | `postcss` | Build/dev chain | Monitor SPFx package updates; avoid breaking override combinations | Repo maintainers | Re-test with uplift spike branch | 2026-03-12 | In progress |
+| Runtime boundary controls | URL/security policy surface | Runtime | Keep strict URL validation and secure defaults in UHV runtime | Repo maintainers | Revalidate on each release train | 2026-03-12 | Monitoring |
 
 ## Controlled SPFx Uplift Spike
 
-A controlled spike plan is now tracked in:
+A controlled spike plan is tracked in:
 
 - `docs/SPFx-Security-Uplift-Spike.md`
 
-Spike objective:
+Objective:
 
-- Reduce unresolved transitive tooling findings without destabilizing production SPFx builds.
-
-Latest local spike snapshot (2026-02-26, iteration 2):
-
-- `npm audit` moved from `73 total / 12 high / 61 moderate` to `71 total / 0 high / 71 moderate`
-- `braces` and `tough-cookie` closed safely via constrained lockfile overrides
-- follow-up attempts for `ajv` and `postcss` were rejected because they introduced invalid dependency constraints (`npm ls` `ELSPROBLEMS`)
-- current live Dependabot open set: `ajv`, `postcss`, `request` (all medium)
+- Reduce transitive tooling findings without destabilizing production SPFx builds and release packaging.
 
 ## What We Do Today
 
 - Patch direct and safely-overridable transitive dependencies where possible.
-- Keep SPFx-compatible versions pinned to avoid broken ship builds.
+- Prefer release pipeline reliability over unsafe/incompatible override forcing.
 - Re-evaluate unresolved alerts on each SPFx upgrade and lockfile refresh.
 
 ## Revalidation Checklist
 
 ```powershell
 cd spfx/UniversalHtmlViewer
-npm audit --omit=dev
-npm audit
+npx -y -p node@22.14.0 -p npm@10.9.2 -c "npm ci"
+npx -y -p node@22.14.0 -p npm@10.9.2 -c "npm run bundle:ship"
+npx -y -p node@22.14.0 -p npm@10.9.2 -c "npm run package-solution:ship"
 gh api -X GET "repos/EvotecIT/UltimateHtmlViewer/dependabot/alerts?state=open&per_page=100"
 ```

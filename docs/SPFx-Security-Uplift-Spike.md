@@ -108,3 +108,18 @@ npm run bundle
 - Decision:
   - do not force incompatible overrides
   - carry unresolved items as monitored until a compatible SPFx toolchain path is available
+
+### Iteration 3 (2026-02-27)
+
+- Trigger:
+  - release prep for `v1.0.31.0` exposed a ship-build regression with explicit webpack override pinning
+- Findings:
+  - `bundle:ship` failed with Terser parse errors when using forced `webpack@5.105.3` override
+  - removing the explicit webpack override restored successful `npm ci`, `bundle:ship`, and `package-solution:ship`
+  - release and deployment completed successfully after rollback of that override
+- Tradeoff:
+  - release pipeline reliability improved
+  - transitive Dependabot findings for `webpack`/`validator` re-opened
+- Decision:
+  - keep release-safe SPFx-compatible dependency graph on `master`
+  - track webpack/validator/postcss items as constrained transitive findings until compatible SPFx/toolchain path is available
