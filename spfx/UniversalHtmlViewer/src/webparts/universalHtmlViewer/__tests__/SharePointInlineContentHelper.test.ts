@@ -4,6 +4,13 @@ import {
   loadSharePointFileContentForInline,
 } from '../SharePointInlineContentHelper';
 
+function expectStrictHistoryShimNonce(result: string): void {
+  const nonceMatch = result.match(/data-uhv-history-compat="1"\s+nonce="([A-Za-z0-9]+)"/i);
+  expect(nonceMatch).not.toBeNull();
+  const nonce = nonceMatch ? nonceMatch[1] : '';
+  expect(result).toContain(`&#39;nonce-${nonce}&#39;`);
+}
+
 describe('prepareInlineHtmlForSrcDoc', () => {
   it('injects base href and history compatibility shim when head exists', () => {
     const inputHtml = '<html><head><title>Report</title></head><body><h1>Dashboard</h1></body></html>';
@@ -98,6 +105,7 @@ describe('prepareInlineHtmlForSrcDoc', () => {
     expect(result).toContain(
       'style-src &#39;self&#39; https://contoso.sharepoint.com data: &#39;unsafe-inline&#39;',
     );
+    expectStrictHistoryShimNonce(result);
     expect(result).not.toContain(
       'script-src &#39;self&#39; https://contoso.sharepoint.com blob: &#39;unsafe-inline&#39;',
     );
@@ -600,6 +608,7 @@ describe('loadSharePointFileContentForInline', () => {
     );
 
     expect(result).toContain('script-src &#39;self&#39; https://contoso.sharepoint.com blob:');
+    expectStrictHistoryShimNonce(result);
     expect(result).not.toContain(
       'script-src &#39;self&#39; https://contoso.sharepoint.com blob: &#39;unsafe-inline&#39;',
     );

@@ -8,25 +8,36 @@ export function prepareInlineHtmlForSrcDoc(
   pageUrl: string,
   options?: IPrepareInlineHtmlForSrcDocOptions,
 ): string {
+  const enforceStrictInlineCsp = options?.enforceStrictInlineCsp === true;
   const htmlWithNeutralizedNestedFrames = neutralizeNestedIframeSources(html);
+  const shouldInjectCompatibilityShim = !/data-uhv-history-compat=/i.test(
+    htmlWithNeutralizedNestedFrames,
+  );
+  const historyCompatibilityShimNonce =
+    enforceStrictInlineCsp && shouldInjectCompatibilityShim
+      ? createStrictInlineHistoryShimNonce()
+      : undefined;
   const srcDocCspTag = hasContentSecurityPolicyMetaTag(htmlWithNeutralizedNestedFrames)
     ? ''
     : `<meta data-uhv-inline-csp="1" http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(
         getDefaultSrcDocContentSecurityPolicy(
           pageUrl,
           baseUrlForRelativeLinks,
-          options?.enforceStrictInlineCsp === true,
+          enforceStrictInlineCsp,
+          historyCompatibilityShimNonce,
         ),
       )}">`;
   const baseHref = getAbsoluteUrlWithoutQuery(baseUrlForRelativeLinks, pageUrl);
   const baseTag = /<base\s+/i.test(htmlWithNeutralizedNestedFrames)
     ? ''
     : `<base href="${escapeHtmlAttribute(baseHref)}">`;
-  const compatibilityShimTag = /data-uhv-history-compat=/i.test(
-    htmlWithNeutralizedNestedFrames,
-  )
-    ? ''
-    : `<script data-uhv-history-compat="1">${getHistoryCompatibilityShimScript()}</script>`;
+  const compatibilityShimTag = shouldInjectCompatibilityShim
+    ? `<script data-uhv-history-compat="1"${
+        historyCompatibilityShimNonce
+          ? ` nonce="${escapeHtmlAttribute(historyCompatibilityShimNonce)}"`
+          : ''
+      }>${getHistoryCompatibilityShimScript()}</script>`
+    : '';
   const headInjectedMarkup = `${srcDocCspTag}${compatibilityShimTag}${baseTag}`;
 
   if (!headInjectedMarkup) {
@@ -70,10 +81,15 @@ function getDefaultSrcDocContentSecurityPolicy(
   pageUrl: string,
   baseUrlForRelativeLinks: string,
   enforceStrictInlineCsp: boolean,
+  historyCompatibilityShimNonce?: string,
 ): string {
   const allowedOrigins = getAllowedOriginsForInlineSrcDoc(pageUrl, baseUrlForRelativeLinks);
   const scriptSources = enforceStrictInlineCsp
-    ? `${allowedOrigins} blob:`
+    ? `${allowedOrigins} blob:${
+        historyCompatibilityShimNonce
+          ? ` 'nonce-${historyCompatibilityShimNonce}'`
+          : ''
+      }`
     : `${allowedOrigins} blob: 'unsafe-inline' 'unsafe-eval'`;
   const styleSources = `${allowedOrigins} data: 'unsafe-inline'`;
   const frameSources = `${allowedOrigins} blob:`;
@@ -93,6 +109,51 @@ function getDefaultSrcDocContentSecurityPolicy(
     `base-uri ${allowedOrigins}`,
     `form-action ${allowedOrigins}`,
   ].join('; ');
+}
+
+function createStrictInlineHistoryShimNonce(): string {
+  const targetLength = 24;
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const randomIndexes = getRandomUint8Array(targetLength);
+  if (!randomIndexes) {
+    return buildPseudoRandomNonce(targetLength, alphabet);
+  }
+
+  let nonce = '';
+  for (let index = 0; index < randomIndexes.length; index += 1) {
+    const charIndex = randomIndexes[index] % alphabet.length;
+    nonce += alphabet.charAt(charIndex);
+  }
+
+  return nonce;
+}
+
+function getRandomUint8Array(length: number): Uint8Array | undefined {
+  try {
+    const cryptoApi =
+      typeof globalThis !== 'undefined' && globalThis.crypto
+        ? globalThis.crypto
+        : undefined;
+    if (!cryptoApi || typeof cryptoApi.getRandomValues !== 'function') {
+      return undefined;
+    }
+
+    const values = new Uint8Array(length);
+    cryptoApi.getRandomValues(values);
+    return values;
+  } catch {
+    return undefined;
+  }
+}
+
+function buildPseudoRandomNonce(length: number, alphabet: string): string {
+  let nonce = '';
+  for (let index = 0; index < length; index += 1) {
+    const randomIndex = Math.floor(Math.random() * alphabet.length);
+    nonce += alphabet.charAt(randomIndex);
+  }
+
+  return nonce;
 }
 
 function getAllowedOriginsForInlineSrcDoc(pageUrl: string, baseUrlForRelativeLinks: string): string {
