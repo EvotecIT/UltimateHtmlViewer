@@ -386,20 +386,91 @@ function getServerRelativePathForSharePointFile(
   sourceUrl: string,
   pageUrl: string,
 ): string | undefined {
-  if (sourceUrl.startsWith('/')) {
-    return stripQueryAndHashFromPath(sourceUrl);
+  const normalizedSourceUrl = (sourceUrl || '').trim();
+  if (!normalizedSourceUrl) {
+    return undefined;
+  }
+
+  if (normalizedSourceUrl.startsWith('/')) {
+    const serverRelativePath = stripQueryAndHashFromPath(normalizedSourceUrl);
+    return isSafeServerRelativePath(serverRelativePath) ? serverRelativePath : undefined;
   }
 
   try {
-    const targetUrl = new URL(sourceUrl);
+    const targetUrl = new URL(normalizedSourceUrl);
     const currentUrl = new URL(pageUrl);
     if (targetUrl.host.toLowerCase() !== currentUrl.host.toLowerCase()) {
       return undefined;
     }
-    return decodeURIComponent(targetUrl.pathname);
+
+    const decodedPath = decodeURIComponent(targetUrl.pathname);
+    return isSafeServerRelativePath(decodedPath) ? decodedPath : undefined;
   } catch {
     return undefined;
   }
+}
+
+function isSafeServerRelativePath(pathname: string): boolean {
+  const normalizedPath = normalizePathForTraversalCheck(pathname);
+  if (!normalizedPath || !normalizedPath.startsWith('/')) {
+    return false;
+  }
+
+  return !hasDotSegmentsForTraversalCheck(normalizedPath);
+}
+
+function normalizePathForTraversalCheck(pathname: string): string {
+  let normalizedPath = (pathname || '').trim();
+  if (!normalizedPath) {
+    return '';
+  }
+
+  normalizedPath = normalizedPath.replace(/\\/g, '/');
+  if (!normalizedPath.startsWith('/')) {
+    normalizedPath = `/${normalizedPath}`;
+  }
+
+  while (normalizedPath.includes('//')) {
+    normalizedPath = normalizedPath.replace(/\/{2,}/g, '/');
+  }
+
+  return normalizedPath.toLowerCase();
+}
+
+function hasDotSegmentsForTraversalCheck(pathname: string): boolean {
+  const segments = pathname
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((segment) => segment.length > 0);
+
+  return segments.some((segment) => {
+    const decodedSegment = decodePathSegment(segment);
+    const decodedSubSegments = decodedSegment
+      .replace(/\\/g, '/')
+      .split('/')
+      .filter((subSegment) => subSegment.length > 0);
+
+    return decodedSubSegments.some(
+      (subSegment) => subSegment === '.' || subSegment === '..',
+    );
+  });
+}
+
+function decodePathSegment(segment: string): string {
+  let decoded = segment;
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    try {
+      const nextDecoded = decodeURIComponent(decoded);
+      if (nextDecoded === decoded) {
+        return decoded;
+      }
+      decoded = nextDecoded;
+    } catch {
+      return decoded;
+    }
+  }
+
+  return decoded;
 }
 
 function stripQueryAndHashFromPath(value: string): string {
