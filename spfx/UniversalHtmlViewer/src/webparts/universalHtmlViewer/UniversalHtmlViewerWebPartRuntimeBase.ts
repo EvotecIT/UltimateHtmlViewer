@@ -27,9 +27,30 @@ import {
 } from './UniversalHtmlViewerTypes';
 import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPartConfigBase';
 
+export interface INestedIframeDiagnosticsCounters {
+  hydrationStarted: number;
+  hydrationSucceeded: number;
+  hydrationFailed: number;
+  hydrationStaleResultIgnored: number;
+  navigationStarted: number;
+  navigationSucceeded: number;
+  navigationFailed: number;
+  navigationStaleResultIgnored: number;
+}
+
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
   protected refreshInProgress: boolean = false;
   protected lastInlineContentLoadError: string = '';
+  protected nestedIframeDiagnostics: INestedIframeDiagnosticsCounters = {
+    hydrationStarted: 0,
+    hydrationSucceeded: 0,
+    hydrationFailed: 0,
+    hydrationStaleResultIgnored: 0,
+    navigationStarted: 0,
+    navigationSucceeded: 0,
+    navigationFailed: 0,
+    navigationStaleResultIgnored: 0,
+  };
   private readonly iframeLoadFallbackState: IIframeLoadFallbackState = {};
   private readonly hostScrollRestoreState: IIframeLoadListenerState = {};
   private readonly deferredScrollTimeoutState: IScheduledTimeoutState = {};
@@ -932,6 +953,9 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       tenantConfigMode: props.tenantConfigMode || 'Merge',
       tenantConfigLoadError: this.lastTenantConfigLoadError || '',
       inlineContentLoadError: this.lastInlineContentLoadError || '',
+      nestedIframeDiagnostics: {
+        ...this.nestedIframeDiagnostics,
+      },
       dashboardList: props.dashboardList || '',
       cacheBusterMode: props.cacheBusterMode || 'None',
       inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,

@@ -1,6 +1,16 @@
 import { isUrlAllowed, UrlValidationOptions } from './UrlHelper';
 import { resolveInlineNavigationTarget } from './InlineNavigationHelper';
 
+export type NestedIframeHydrationDiagnosticEvent =
+  | 'nestedHydrationStarted'
+  | 'nestedHydrationSucceeded'
+  | 'nestedHydrationFailed'
+  | 'nestedHydrationStaleResultIgnored'
+  | 'nestedNavigationStarted'
+  | 'nestedNavigationSucceeded'
+  | 'nestedNavigationFailed'
+  | 'nestedNavigationStaleResultIgnored';
+
 export interface INestedIframeHydrationOptions {
   iframe: HTMLIFrameElement;
   currentPageUrl: string;
@@ -10,6 +20,7 @@ export interface INestedIframeHydrationOptions {
     sourceUrl: string,
     baseUrlForRelativeLinks: string,
   ) => Promise<string | undefined>;
+  onDiagnosticsEvent?: (eventName: NestedIframeHydrationDiagnosticEvent) => void;
 }
 
 export function wireNestedIframeHydration(
@@ -189,6 +200,7 @@ function hydrateNestedFrame(
 
   frame.setAttribute('data-uhv-nested-state', 'processing');
   const hydrationSource = rawSrc;
+  emitDiagnosticsEvent(options, 'nestedHydrationStarted');
 
   options
     .loadInlineHtml(normalizedUrl, normalizedUrl)
@@ -197,6 +209,7 @@ function hydrateNestedFrame(
         return;
       }
       if (frame.getAttribute('data-uhv-nested-src') !== hydrationSource) {
+        emitDiagnosticsEvent(options, 'nestedHydrationStaleResultIgnored');
         return;
       }
       if (frame.getAttribute('data-uhv-nested-state') !== 'processing') {
@@ -204,20 +217,24 @@ function hydrateNestedFrame(
       }
       if (!inlineHtml || inlineHtml.trim().length === 0) {
         frame.setAttribute('data-uhv-nested-state', 'failed');
+        emitDiagnosticsEvent(options, 'nestedHydrationFailed');
         return;
       }
       frame.srcdoc = inlineHtml;
       frame.setAttribute('data-uhv-nested-state', 'done');
+      emitDiagnosticsEvent(options, 'nestedHydrationSucceeded');
     })
     .catch(() => {
       if (!frame.isConnected) {
         return;
       }
       if (frame.getAttribute('data-uhv-nested-src') !== hydrationSource) {
+        emitDiagnosticsEvent(options, 'nestedHydrationStaleResultIgnored');
         return;
       }
       if (frame.getAttribute('data-uhv-nested-state') === 'processing') {
         frame.setAttribute('data-uhv-nested-state', 'failed');
+        emitDiagnosticsEvent(options, 'nestedHydrationFailed');
       }
     });
 }
@@ -320,6 +337,7 @@ function ensureNestedFrameNavigationWired(
       frame.setAttribute('data-uhv-nested-state', 'processing');
       frame.setAttribute('data-uhv-nested-src', targetUrl);
       const navigationSource = targetUrl;
+      emitDiagnosticsEvent(options, 'nestedNavigationStarted');
 
       options
         .loadInlineHtml(targetUrl, targetUrl)
@@ -328,6 +346,7 @@ function ensureNestedFrameNavigationWired(
             return;
           }
           if (frame.getAttribute('data-uhv-nested-src') !== navigationSource) {
+            emitDiagnosticsEvent(options, 'nestedNavigationStaleResultIgnored');
             return;
           }
           if (frame.getAttribute('data-uhv-nested-state') !== 'processing') {
@@ -335,19 +354,23 @@ function ensureNestedFrameNavigationWired(
           }
           if (!inlineHtml || inlineHtml.trim().length === 0) {
             frame.setAttribute('data-uhv-nested-state', 'failed');
+            emitDiagnosticsEvent(options, 'nestedNavigationFailed');
             return;
           }
           frame.srcdoc = inlineHtml;
           frame.setAttribute('data-uhv-nested-state', 'done');
+          emitDiagnosticsEvent(options, 'nestedNavigationSucceeded');
         })
         .catch(() => {
           if (!frame.isConnected) {
             return;
           }
           if (frame.getAttribute('data-uhv-nested-src') !== navigationSource) {
+            emitDiagnosticsEvent(options, 'nestedNavigationStaleResultIgnored');
             return;
           }
           frame.setAttribute('data-uhv-nested-state', 'failed');
+          emitDiagnosticsEvent(options, 'nestedNavigationFailed');
         });
     };
     wiredDocument = frameDocument;
@@ -404,6 +427,21 @@ function resolveNestedFrameUrl(
   }
 
   return normalizedUrl;
+}
+
+function emitDiagnosticsEvent(
+  options: INestedIframeHydrationOptions,
+  eventName: NestedIframeHydrationDiagnosticEvent,
+): void {
+  if (!options.onDiagnosticsEvent) {
+    return;
+  }
+
+  try {
+    options.onDiagnosticsEvent(eventName);
+  } catch {
+    return;
+  }
 }
 
 function tryGetIframeDocument(iframe: HTMLIFrameElement): Document | undefined {

@@ -2,7 +2,10 @@ import { CacheBusterMode, HeightMode, UrlValidationOptions } from './UrlHelper';
 import { ContentDeliveryMode } from './UniversalHtmlViewerTypes';
 import { wireInlineFrameLayout } from './InlineFrameLayoutHelper';
 import { wireInlineIframeNavigation } from './InlineNavigationHelper';
-import { wireNestedIframeHydration } from './NestedIframeHydrationHelper';
+import {
+  NestedIframeHydrationDiagnosticEvent,
+  wireNestedIframeHydration,
+} from './NestedIframeHydrationHelper';
 
 export interface IInlineModeBehaviorOptions {
   contentDeliveryMode: ContentDeliveryMode;
@@ -19,6 +22,7 @@ export interface IInlineModeBehaviorOptions {
     sourceUrl: string,
     baseUrlForRelativeLinks: string,
   ) => Promise<string | undefined>;
+  onNestedDiagnosticsEvent?: (eventName: NestedIframeHydrationDiagnosticEvent) => void;
 }
 
 export function applyInlineModeBehaviors(
@@ -49,6 +53,7 @@ export function applyInlineModeBehaviors(
     validationOptions: options.validationOptions,
     cacheBusterParamName: options.cacheBusterParamName,
     loadInlineHtml: options.loadInlineHtml,
+    onDiagnosticsEvent: options.onNestedDiagnosticsEvent,
   });
 
   const layoutCleanup = wireInlineFrameLayout({
