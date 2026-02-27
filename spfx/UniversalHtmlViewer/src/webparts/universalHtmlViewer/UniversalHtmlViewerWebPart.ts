@@ -1423,6 +1423,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.forceHostScrollTop();
       this.resetInlineIframeScrollPositionForDeepLink();
       released = true;
+      this.initialDeepLinkScrollLockCleanup = undefined;
       window.clearInterval(intervalId);
       window.clearTimeout(releaseTimerId);
       timeouts.forEach((timeoutId) => {
