@@ -359,6 +359,70 @@ describe('InlineNavigationHelper', () => {
     );
   });
 
+  it('resolves links when click target is a non-anchor container with a single descendant anchor', () => {
+    const listItem = document.createElement('li');
+    const anchor = document.createElement('a');
+    anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/from-list-item.html';
+    anchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/from-list-item.html',
+    );
+    const label = document.createElement('span');
+    label.textContent = 'List entry';
+    listItem.appendChild(anchor);
+    listItem.appendChild(label);
+
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: listItem,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/from-list-item.html',
+    );
+  });
+
+  it('does not guess a target when container has multiple descendant anchors', () => {
+    const container = document.createElement('div');
+    const firstAnchor = document.createElement('a');
+    firstAnchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/one.html';
+    firstAnchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/one.html',
+    );
+    const secondAnchor = document.createElement('a');
+    secondAnchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/two.html';
+    secondAnchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/two.html',
+    );
+    container.appendChild(firstAnchor);
+    container.appendChild(secondAnchor);
+
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: container,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBeUndefined();
+  });
+
   it('resolves SVG anchor links that use xlink:href', () => {
     const svgNamespace = 'http://www.w3.org/2000/svg';
     const xlinkNamespace = 'http://www.w3.org/1999/xlink';

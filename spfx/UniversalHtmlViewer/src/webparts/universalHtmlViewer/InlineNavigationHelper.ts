@@ -10,7 +10,7 @@ export interface IInlineNavigationOptions {
 
 export function wireInlineIframeNavigation(options: IInlineNavigationOptions): () => void {
   const clickHandlers = new Map<EventTarget, (event: Event) => void>();
-  const handledEventMarkerKey = '__uhvInlineNavigationHandled';
+  const handledEvents = new WeakSet<Event>();
 
   const attachHandler = (): void => {
     const iframeDocument: Document | undefined = tryGetIframeDocument(options.iframe);
@@ -29,10 +29,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
 
     rootElement.setAttribute('data-uhv-inline-nav', '1');
     const onClick = (event: Event): void => {
-      const handledEvent = event as Event & {
-        [handledEventMarkerKey]?: boolean;
-      };
-      if (handledEvent[handledEventMarkerKey]) {
+      if (handledEvents.has(event)) {
         return;
       }
 
@@ -46,7 +43,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
 
       event.preventDefault();
       event.stopPropagation();
-      handledEvent[handledEventMarkerKey] = true;
+      handledEvents.add(event);
       options.onNavigate(targetUrl);
     };
     iframeDocument.addEventListener('click', onClick, true);
@@ -157,9 +154,16 @@ function getAnchorFromEvent(event: MouseEvent): Element | undefined {
     return anchor;
   }
 
+  const descendantAnchor = findUniqueDescendantAnchorElement(targetElement);
+  if (descendantAnchor) {
+    return descendantAnchor;
+  }
+
   const pathElements = getEventComposedPathElements(event);
   for (let index = 0; index < pathElements.length; index += 1) {
-    const pathAnchor = findClosestAnchorElement(pathElements[index]);
+    const pathElement = pathElements[index];
+    const pathAnchor =
+      findClosestAnchorElement(pathElement) || findUniqueDescendantAnchorElement(pathElement);
     if (pathAnchor) {
       return pathAnchor;
     }
@@ -176,6 +180,20 @@ function getAnchorFromEvent(event: MouseEvent): Element | undefined {
   }
 
   return forcedAnchor;
+}
+
+function findUniqueDescendantAnchorElement(element: Element): Element | undefined {
+  const anchors = element.querySelectorAll('a[href], a[xlink\\:href], a');
+  if (anchors.length !== 1) {
+    return undefined;
+  }
+
+  const anchor = anchors[0];
+  if (anchor.tagName.toLowerCase() !== 'a') {
+    return undefined;
+  }
+
+  return anchor;
 }
 
 function findClosestAnchorElement(element: Element): Element | undefined {
