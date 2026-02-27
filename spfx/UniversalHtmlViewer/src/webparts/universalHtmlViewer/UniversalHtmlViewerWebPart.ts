@@ -39,6 +39,7 @@ import {
   buildPageUrlWithoutInlineDeepLink,
   buildPageUrlWithInlineDeepLink,
   DEFAULT_INLINE_DEEP_LINK_PARAM,
+  IResolvedInlineContentTarget,
   resolveInlineContentTarget,
 } from './InlineDeepLinkHelper';
 import {
@@ -633,14 +634,16 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     });
     const requestedDeepLinkValue: string = resolvedContentTarget.requestedDeepLinkValue;
     const hasRequestedDeepLink: boolean = resolvedContentTarget.hasRequestedDeepLink;
+    const hasAppliedDeepLink: boolean = !!resolvedContentTarget.deepLinkedUrl;
     const shouldResetHostScrollToTopOnInitialDeepLink: boolean =
-      contentDeliveryMode === 'SharePointFileContent' && hasRequestedDeepLink;
+      this.shouldApplyInitialDeepLinkScrollLock(contentDeliveryMode, resolvedContentTarget);
     if (this.isScrollTraceEnabled()) {
       this.emitScrollTrace(
         'deep-link-evaluation',
         {
           contentDeliveryMode,
           hasRequestedDeepLink,
+          hasAppliedDeepLink,
           shouldResetHostScrollToTopOnInitialDeepLink,
           requestedDeepLinkValue,
         },
@@ -652,6 +655,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     if (resolvedContentTarget.isRejectedRequestedDeepLink) {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
+      this.clearInitialDeepLinkScrollLock();
       const resetToDefaultHtml = this.buildResetToDefaultDashboardHtml(pageUrl);
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: The requested deep link is invalid or not allowed.',
@@ -680,6 +684,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     if (!isUrlAllowed(initialContentUrl, validationOptions)) {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
+      this.clearInitialDeepLinkScrollLock();
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: The target URL is invalid or not allowed.',
         this.buildDiagnosticsHtml(
@@ -730,6 +735,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       } catch (error) {
         this.clearRefreshTimer();
         this.clearIframeLoadTimeout();
+        this.clearInitialDeepLinkScrollLock();
         const statusCode = this.getInlineLoadErrorStatusCode(error);
         const isAccessDenied = statusCode === 401 || statusCode === 403;
         const resetToDefaultHtml = this.buildResetToDefaultDashboardHtml(pageUrl);
@@ -999,6 +1005,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return undefined;
     }
     return parsed;
+  }
+  private shouldApplyInitialDeepLinkScrollLock(
+    contentDeliveryMode: ContentDeliveryMode,
+    resolvedContentTarget: IResolvedInlineContentTarget,
+  ): boolean {
+    return contentDeliveryMode === 'SharePointFileContent' && !!resolvedContentTarget.deepLinkedUrl;
   }
   private configureInlineDeepLinkPopState(enabled: boolean): void {
     if (typeof window === 'undefined') {

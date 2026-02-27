@@ -2,12 +2,35 @@ import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import { getQueryStringParam } from './QueryStringHelper';
 import { CacheBusterMode, UrlSecurityMode, UrlValidationOptions } from './UrlHelper';
+import { applyImportedConfigToProps } from './ConfigImportExportHelper';
 import {
   ConfigurationPreset,
   ITenantConfig,
   IUniversalHtmlViewerWebPartProps,
   TenantConfigMode,
 } from './UniversalHtmlViewerTypes';
+
+const blockedTenantConfigKeys = new Set<string>(['__proto__', 'prototype', 'constructor']);
+const tenantMergeDefaultValues: Record<string, boolean | number> = {
+  fixedHeightPx: 800,
+  iframeLoadTimeoutSeconds: 10,
+  refreshIntervalMinutes: 0,
+  inlineContentCacheTtlSeconds: 15,
+  lockPresetSettings: false,
+  allowHttp: false,
+  enableExpertSecurityModes: false,
+  showDiagnostics: false,
+  fitContentWidth: false,
+  showConfigActions: false,
+  showDashboardSelector: false,
+  allowQueryStringPageOverride: false,
+  showChrome: true,
+  showOpenInNewTab: true,
+  showRefreshButton: true,
+  showStatus: true,
+  showLastUpdated: true,
+  showLoadingIndicator: true,
+};
 
 export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSideWebPart<IUniversalHtmlViewerWebPartProps> {
   protected refreshTimerId: number | undefined;
@@ -83,7 +106,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const nextProps: IUniversalHtmlViewerWebPartProps = { ...props };
     const applyIfEmpty = mode === 'Merge';
 
-    const shouldApply = (currentValue: unknown): boolean => {
+    const shouldApply = (key: string, currentValue: unknown): boolean => {
       if (!applyIfEmpty) {
         return true;
       }
@@ -93,20 +116,21 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       if (typeof currentValue === 'string') {
         return currentValue.trim().length === 0;
       }
+      if (Object.prototype.hasOwnProperty.call(tenantMergeDefaultValues, key)) {
+        return currentValue === tenantMergeDefaultValues[key];
+      }
       return false;
     };
 
     const nextPropsRecord = nextProps as unknown as Record<string, unknown>;
+    const normalizedTenantConfig = this.sanitizeTenantConfigForMerge(tenantConfig);
 
-    Object.entries(tenantConfig).forEach(([key, value]) => {
+    Object.entries(normalizedTenantConfig).forEach(([key, value]) => {
       if (value === undefined) {
         return;
       }
-      if (key === 'dashboardList' && Array.isArray(value)) {
-        value = value.join(',');
-      }
       const currentValue = nextPropsRecord[key];
-      if (shouldApply(currentValue)) {
+      if (shouldApply(key, currentValue)) {
         nextPropsRecord[key] = value;
       }
     });
@@ -117,6 +141,24 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     }
 
     return nextProps;
+  }
+
+  private sanitizeTenantConfigForMerge(tenantConfig: ITenantConfig): Record<string, unknown> {
+    const normalizedInput: Record<string, unknown> = {};
+    Object.entries(tenantConfig as Record<string, unknown>).forEach(([key, value]) => {
+      if (value === undefined || blockedTenantConfigKeys.has(key)) {
+        return;
+      }
+      if (key === 'dashboardList' && Array.isArray(value)) {
+        normalizedInput[key] = value.join(',');
+        return;
+      }
+      normalizedInput[key] = value;
+    });
+
+    const sanitizedConfig: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+    applyImportedConfigToProps(sanitizedConfig, normalizedInput);
+    return sanitizedConfig;
   }
 
   private async tryLoadTenantConfig(
