@@ -61,4 +61,103 @@ describe('UniversalHtmlViewerWebPart deep-link scroll lock decision', () => {
   });
 });
 
+const createDeepLinkScrollLockHarness = (): any => {
+  const webPart = Object.create(UniversalHtmlViewerWebPart.prototype) as any;
+
+  webPart.domElement = {
+    querySelector: jest.fn().mockReturnValue(undefined),
+  };
+  webPart.deepLinkScrollLockDiagnostics = {
+    starts: 0,
+    releases: 0,
+    releasedByAutoStable: 0,
+    releasedByUserInteraction: 0,
+    releasedByTimeout: 0,
+    releasedByManual: 0,
+    releasedByReplace: 0,
+    releasedByDispose: 0,
+    active: false,
+    lastReleaseReason: '',
+    lastLockDurationMs: 0,
+  };
+  webPart.getPotentialHostScrollContainers = jest.fn().mockReturnValue([]);
+  webPart.getInlineDeepLinkFrameMetrics = jest.fn().mockReturnValue(undefined);
+  webPart.getDeepLinkScrollOffsets = jest.fn().mockReturnValue({
+    windowTop: 0,
+    hostMaxTop: 0,
+    iframeTop: 0,
+    maxOffset: 0,
+  });
+  webPart.forceHostScrollTop = jest.fn();
+  webPart.restoreHostScrollPosition = jest.fn();
+  webPart.resetInlineIframeScrollPositionForDeepLink = jest.fn();
+  webPart.isScrollTraceEnabled = jest.fn().mockReturnValue(false);
+  webPart.describeScrollElement = jest.fn().mockReturnValue('host');
+  webPart.emitScrollTrace = jest.fn();
+
+  return webPart;
+};
+
+describe('UniversalHtmlViewerWebPart deep-link scroll lock diagnostics', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  it('records dispose reason when cleanup is triggered during disposal flow', () => {
+    const webPart = createDeepLinkScrollLockHarness();
+
+    webPart.applyInitialDeepLinkScrollLock();
+    expect(webPart.deepLinkScrollLockDiagnostics.starts).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(true);
+
+    webPart.clearInitialDeepLinkScrollLock('dispose');
+    expect(webPart.deepLinkScrollLockDiagnostics.releases).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releasedByDispose).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('dispose');
+    expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
+    expect(webPart.initialDeepLinkScrollLockCleanup).toBeUndefined();
+  });
+
+  it('records replace reason when a new lock replaces an active lock', () => {
+    const webPart = createDeepLinkScrollLockHarness();
+
+    webPart.applyInitialDeepLinkScrollLock();
+    webPart.applyInitialDeepLinkScrollLock();
+
+    expect(webPart.deepLinkScrollLockDiagnostics.starts).toBe(2);
+    expect(webPart.deepLinkScrollLockDiagnostics.releases).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releasedByReplace).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('replace');
+    expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(true);
+
+    webPart.clearInitialDeepLinkScrollLock();
+  });
+
+  it('records timeout reason when lock does not reach stable scroll state', () => {
+    const webPart = createDeepLinkScrollLockHarness();
+    webPart.getDeepLinkScrollOffsets = jest.fn().mockReturnValue({
+      windowTop: 3,
+      hostMaxTop: 3,
+      iframeTop: 3,
+      maxOffset: 3,
+    });
+
+    webPart.applyInitialDeepLinkScrollLock();
+    jest.advanceTimersByTime(12050);
+
+    expect(webPart.deepLinkScrollLockDiagnostics.starts).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releases).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.releasedByTimeout).toBe(1);
+    expect(webPart.deepLinkScrollLockDiagnostics.lastReleaseReason).toBe('timeout');
+    expect(webPart.deepLinkScrollLockDiagnostics.active).toBe(false);
+
+    webPart.clearInitialDeepLinkScrollLock();
+  });
+});
+
 export {};
