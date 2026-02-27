@@ -38,6 +38,16 @@ export interface INestedIframeDiagnosticsCounters {
   navigationStaleResultIgnored: number;
 }
 
+export type DeepLinkScrollLockReleaseReason =
+  | 'manual'
+  | 'replace'
+  | 'dispose'
+  | 'auto-stable'
+  | 'user-interaction'
+  | 'timeout';
+
+export type DeepLinkScrollLockLastReleaseReason = DeepLinkScrollLockReleaseReason | 'none';
+
 export interface IDeepLinkScrollLockDiagnosticsCounters {
   starts: number;
   releases: number;
@@ -48,7 +58,7 @@ export interface IDeepLinkScrollLockDiagnosticsCounters {
   releasedByReplace: number;
   releasedByDispose: number;
   active: boolean;
-  lastReleaseReason: string;
+  lastReleaseReason: DeepLinkScrollLockLastReleaseReason;
   lastLockDurationMs: number;
 }
 
@@ -75,7 +85,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     releasedByReplace: 0,
     releasedByDispose: 0,
     active: false,
-    lastReleaseReason: '',
+    lastReleaseReason: 'none',
     lastLockDurationMs: 0,
   };
   private readonly iframeLoadFallbackState: IIframeLoadFallbackState = {};

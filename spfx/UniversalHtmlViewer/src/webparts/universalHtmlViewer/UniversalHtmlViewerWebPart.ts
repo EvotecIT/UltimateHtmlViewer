@@ -48,6 +48,7 @@ import {
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
 } from './UniversalHtmlViewerTypes';
+import type { DeepLinkScrollLockReleaseReason } from './UniversalHtmlViewerWebPartRuntimeBase';
 
 interface IInlineDeepLinkFrameMetrics {
   frameClientHeight: number;
@@ -55,14 +56,6 @@ interface IInlineDeepLinkFrameMetrics {
   documentHeight: number;
   pendingNestedFrames: number;
 }
-
-type DeepLinkScrollLockReleaseReason =
-  | 'manual'
-  | 'replace'
-  | 'dispose'
-  | 'auto-stable'
-  | 'user-interaction'
-  | 'timeout';
 
 export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPartUiBase {
   private nestedIframeHydrationCleanup: (() => void) | undefined;
@@ -1087,7 +1080,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       releasedByReplace: 0,
       releasedByDispose: 0,
       active: false,
-      lastReleaseReason: '',
+      lastReleaseReason: 'none',
       lastLockDurationMs: 0,
     };
   }
