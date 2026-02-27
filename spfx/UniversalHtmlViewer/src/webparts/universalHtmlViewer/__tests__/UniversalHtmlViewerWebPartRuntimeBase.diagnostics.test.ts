@@ -43,12 +43,14 @@ describe('UniversalHtmlViewerWebPartRuntimeBase buildDiagnosticsData', () => {
   it('includes tenant config load error detail in diagnostics payload', () => {
     const runtime = createRuntimeHarness();
     runtime.lastTenantConfigLoadError = 'Tenant config request failed (503).';
+    runtime.lastInlineContentLoadError = 'SharePoint API returned 503 Service Unavailable';
 
     const data = runtime.buildDiagnosticsData({
       resolvedUrl: '/sites/TestSite1/SiteAssets/Reports/index.html',
     });
 
     expect(data.tenantConfigLoadError).toBe('Tenant config request failed (503).');
+    expect(data.inlineContentLoadError).toBe('SharePoint API returned 503 Service Unavailable');
   });
 });
 
