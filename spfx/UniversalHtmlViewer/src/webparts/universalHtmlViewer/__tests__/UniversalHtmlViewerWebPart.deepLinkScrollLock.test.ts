@@ -77,7 +77,7 @@ const createDeepLinkScrollLockHarness = (): any => {
     releasedByReplace: 0,
     releasedByDispose: 0,
     active: false,
-    lastReleaseReason: '',
+    lastReleaseReason: 'none',
     lastLockDurationMs: 0,
   };
   webPart.getPotentialHostScrollContainers = jest.fn().mockReturnValue([]);
