@@ -933,6 +933,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       dashboardList: props.dashboardList || '',
       cacheBusterMode: props.cacheBusterMode || 'None',
       inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,
+      enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
       sandboxPreset: props.sandboxPreset || 'None',
       iframeSandbox: props.iframeSandbox || '',
       iframeLoadTimeoutSeconds: this.getIframeLoadTimeoutSeconds(props),

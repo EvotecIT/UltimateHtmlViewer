@@ -1,13 +1,22 @@
+export interface IPrepareInlineHtmlForSrcDocOptions {
+  enforceStrictInlineCsp?: boolean;
+}
+
 export function prepareInlineHtmlForSrcDoc(
   html: string,
   baseUrlForRelativeLinks: string,
   pageUrl: string,
+  options?: IPrepareInlineHtmlForSrcDocOptions,
 ): string {
   const htmlWithNeutralizedNestedFrames = neutralizeNestedIframeSources(html);
   const srcDocCspTag = hasContentSecurityPolicyMetaTag(htmlWithNeutralizedNestedFrames)
     ? ''
     : `<meta data-uhv-inline-csp="1" http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(
-        getDefaultSrcDocContentSecurityPolicy(pageUrl, baseUrlForRelativeLinks),
+        getDefaultSrcDocContentSecurityPolicy(
+          pageUrl,
+          baseUrlForRelativeLinks,
+          options?.enforceStrictInlineCsp === true,
+        ),
       )}">`;
   const baseHref = getAbsoluteUrlWithoutQuery(baseUrlForRelativeLinks, pageUrl);
   const baseTag = /<base\s+/i.test(htmlWithNeutralizedNestedFrames)
@@ -60,9 +69,12 @@ function getAbsoluteUrlWithoutQuery(url: string, pageUrl: string): string {
 function getDefaultSrcDocContentSecurityPolicy(
   pageUrl: string,
   baseUrlForRelativeLinks: string,
+  enforceStrictInlineCsp: boolean,
 ): string {
   const allowedOrigins = getAllowedOriginsForInlineSrcDoc(pageUrl, baseUrlForRelativeLinks);
-  const scriptSources = `${allowedOrigins} blob: 'unsafe-inline' 'unsafe-eval'`;
+  const scriptSources = enforceStrictInlineCsp
+    ? `${allowedOrigins} blob:`
+    : `${allowedOrigins} blob: 'unsafe-inline' 'unsafe-eval'`;
   const styleSources = `${allowedOrigins} data: 'unsafe-inline'`;
   const frameSources = `${allowedOrigins} blob:`;
   const mediaSources = `${allowedOrigins} data: blob:`;

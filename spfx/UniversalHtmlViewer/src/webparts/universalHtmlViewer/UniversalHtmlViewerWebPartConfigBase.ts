@@ -16,6 +16,7 @@ const tenantMergeDefaultValues: Record<string, boolean | number> = {
   iframeLoadTimeoutSeconds: 10,
   refreshIntervalMinutes: 0,
   inlineContentCacheTtlSeconds: 15,
+  enforceStrictInlineCsp: false,
   lockPresetSettings: false,
   allowHttp: false,
   enableExpertSecurityModes: false,
@@ -295,6 +296,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.chromeDensity = 'Comfortable';
     props.iframeLoadTimeoutSeconds = 10;
     props.inlineContentCacheTtlSeconds = 15;
+    props.enforceStrictInlineCsp = false;
 
     if (!props.chromeTitle || props.chromeTitle.trim().length === 0) {
       props.chromeTitle = 'Universal HTML Viewer';
@@ -310,6 +312,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
         props.securityMode = 'StrictTenant';
         props.cacheBusterMode = 'FileLastModified';
         props.sandboxPreset = 'Strict';
+        props.enforceStrictInlineCsp = true;
         props.fitContentWidth = true;
         break;
       case 'SharePointLibraryRelaxed':

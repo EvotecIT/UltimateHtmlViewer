@@ -51,6 +51,7 @@
         "cacheBusterMode": "FileLastModified",
         "cacheBusterParamName": "v",
         "inlineContentCacheTtlSeconds": 15,
+        "enforceStrictInlineCsp": false,
         "sandboxPreset": "Relaxed",
         "iframeSandbox": "",
         "iframeAllow": "",

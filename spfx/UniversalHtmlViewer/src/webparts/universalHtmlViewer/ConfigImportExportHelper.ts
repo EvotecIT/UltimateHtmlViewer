@@ -53,6 +53,7 @@ const booleanKeys = new Set<string>([
   'showConfigActions',
   'showDashboardSelector',
   'allowQueryStringPageOverride',
+  'enforceStrictInlineCsp',
 ]);
 
 const numberKeys = new Set<string>([
@@ -236,6 +237,7 @@ export function buildConfigExport(
     cacheBusterMode: props.cacheBusterMode || 'None',
     cacheBusterParamName: props.cacheBusterParamName || 'v',
     inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,
+    enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
     sandboxPreset: props.sandboxPreset || 'None',
     iframeSandbox: props.iframeSandbox || '',
     iframeAllow: props.iframeAllow || '',

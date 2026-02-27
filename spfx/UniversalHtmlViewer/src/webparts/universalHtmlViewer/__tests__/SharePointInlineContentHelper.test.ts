@@ -80,6 +80,29 @@ describe('prepareInlineHtmlForSrcDoc', () => {
     expect(result).toContain('data-uhv-inline-src="GPOzaurr/GPOBlockedInheritance_2021-04-15_184719.html"');
     expect(result).toContain('src="about:blank"');
   });
+
+  it('supports strict inline CSP mode without unsafe script allowances', () => {
+    const inputHtml = '<html><head><title>Report</title></head><body><h1>Dashboard</h1></body></html>';
+    const result = prepareInlineHtmlForSrcDoc(
+      inputHtml,
+      '/sites/TestSite2/SiteAssets/GPOzaurr/',
+      'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx',
+      {
+        enforceStrictInlineCsp: true,
+      },
+    );
+
+    expect(result).toContain('data-uhv-inline-csp="1"');
+    expect(result).toContain('script-src');
+    expect(result).toContain('style-src &#39;self&#39;');
+    expect(result).toContain(
+      'style-src &#39;self&#39; https://contoso.sharepoint.com data: &#39;unsafe-inline&#39;',
+    );
+    expect(result).not.toContain(
+      'script-src &#39;self&#39; https://contoso.sharepoint.com blob: &#39;unsafe-inline&#39;',
+    );
+    expect(result).not.toContain('&#39;unsafe-eval&#39;');
+  });
 });
 
 describe('loadSharePointFileContentForInline', () => {
@@ -510,6 +533,39 @@ describe('loadSharePointFileContentForInline', () => {
     );
 
     expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates strict inline CSP to transformed HTML payloads', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: jest
+        .fn()
+        .mockResolvedValue('<html><head></head><body><h1>StrictMode</h1></body></html>'),
+    };
+    const mockGet = jest.fn().mockResolvedValue(mockResponse);
+    const mockSpHttpClient = {
+      get: mockGet,
+    };
+
+    const result = await loadSharePointFileContentForInline(
+      mockSpHttpClient as never,
+      webAbsoluteUrl,
+      sourceUrl,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      undefined,
+      {
+        enforceStrictInlineCsp: true,
+      },
+    );
+
+    expect(result).toContain('script-src &#39;self&#39; https://contoso.sharepoint.com blob:');
+    expect(result).not.toContain(
+      'script-src &#39;self&#39; https://contoso.sharepoint.com blob: &#39;unsafe-inline&#39;',
+    );
+    expect(result).not.toContain('&#39;unsafe-eval&#39;');
   });
 });
 
