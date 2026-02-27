@@ -12,7 +12,7 @@ SPFx security-uplift spike runbook: `docs/SPFx-Security-Uplift-Spike.md`
 ## 📦 Platform and Compatibility
 
 - SPFx runtime target: `1.22.2` packages in `spfx/UniversalHtmlViewer/package.json`.
-- SharePoint package version (`.sppkg`): `1.0.31.0` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
+- SharePoint package version (`.sppkg`): `1.0.31.9` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
 - Web part manifest version: `1.0.14` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
 - Node for CI/build: `22.x` (see GitHub workflows and package engine constraint).
 
@@ -86,6 +86,7 @@ Contributor skills (repo-local playbooks): `skills/README.md`
 - Deep-link support with shareable page URLs via `?uhvPage=...` (disabled by default; enable with `allowQueryStringPageOverride`).
 - Nested iframe hydration for report wrappers.
 - Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
+- FRE/runtime-safe inline navigation bridge for `srcdoc` content hosted in modern SharePoint pages.
 - Strong URL policy controls: `StrictTenant`, `Allowlist`, `AnyHttps`.
 - Expert-mode guardrail for unsafe security options (`AnyHttps`).
 - Property-pane presets for fast setup (`SharePointLibraryRelaxed`, `SharePointLibraryFullPage`, `SharePointLibraryStrict`).
@@ -481,6 +482,30 @@ Scripts support auth fallbacks from environment variables:
 - Navigation not staying inline: verify relative links and allowed extensions.
 - Deep-link opens but landing position is wrong: retest with `?uhvTraceScroll=1` and review trace.
 - Page editing issues (`SavePageCoAuth 400`): often SharePoint authoring state; see deployment guide.
+
+### SharePoint FRE/runtime regression signature
+
+If inline links suddenly start downloading HTML files after a SharePoint service/runtime update, check browser console for errors similar to:
+
+- `Error: old FRE behavior is disabled`
+
+Typical impact:
+
+- top-menu links (for example `Office365 -> Apps`) trigger a file download instead of inline navigation
+- behavior appears intermittent across menus/widgets depending on event propagation path
+
+Mitigation included in newer UHV builds:
+
+- UHV injects an inline navigation bridge script into `srcdoc` HTML
+- bridge captures `pointerdown`/`mousedown`/`click`, resolves target URLs against document base, and posts navigation intent to UHV parent host
+- parent host validates URL policy/extension/path and performs safe inline navigation
+
+Operational checks:
+
+- use `SharePointFileContent` mode
+- keep `securityMode` as `StrictTenant` (or a deliberate allowlist policy)
+- hard refresh host page after app upgrade
+- verify site app is on current version (`InstalledVersion == AppCatalogVersion`)
 
 ## 📁 Repo Layout
 

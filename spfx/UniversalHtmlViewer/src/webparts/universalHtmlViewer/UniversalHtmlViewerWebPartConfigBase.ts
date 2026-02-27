@@ -1,10 +1,17 @@
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import { getQueryStringParam } from './QueryStringHelper';
-import { CacheBusterMode, UrlSecurityMode, UrlValidationOptions } from './UrlHelper';
+import {
+  buildFinalUrl,
+  CacheBusterMode,
+  HtmlSourceMode,
+  UrlSecurityMode,
+  UrlValidationOptions,
+} from './UrlHelper';
 import { applyImportedConfigToProps } from './ConfigImportExportHelper';
 import {
   ConfigurationPreset,
+  ContentDeliveryMode,
   ITenantConfig,
   IUniversalHtmlViewerWebPartProps,
   TenantConfigMode,
@@ -61,6 +68,20 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const allowedPathPrefixes: string[] = this.parsePathPrefixes(
       effectiveProps.allowedPathPrefixes,
     );
+    const inferredSourcePathPrefix = this.inferInlineSourcePathPrefix(
+      effectiveProps,
+      currentPageUrl,
+    );
+    if (
+      inferredSourcePathPrefix &&
+      !allowedPathPrefixes.some(
+        (prefix) =>
+          this.normalizePathPrefixForComparison(prefix) ===
+          this.normalizePathPrefixForComparison(inferredSourcePathPrefix),
+      )
+    ) {
+      allowedPathPrefixes.push(inferredSourcePathPrefix);
+    }
     const allowedFileExtensions: string[] = this.parseFileExtensions(
       effectiveProps.allowedFileExtensions,
     );
@@ -73,6 +94,162 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       allowedPathPrefixes,
       allowedFileExtensions,
     };
+  }
+
+  private inferInlineSourcePathPrefix(
+    effectiveProps: IUniversalHtmlViewerWebPartProps,
+    currentPageUrl: string,
+  ): string | undefined {
+    const deliveryMode = this.resolveContentDeliveryMode(effectiveProps);
+    if (deliveryMode !== 'SharePointFileContent') {
+      return undefined;
+    }
+
+    const candidateUrls = new Set<string>();
+    const trimmedCurrentBaseUrl = (this.currentBaseUrl || '').trim();
+    if (trimmedCurrentBaseUrl) {
+      candidateUrls.add(trimmedCurrentBaseUrl);
+    }
+
+    const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
+    const builtUrl = buildFinalUrl({
+      htmlSourceMode,
+      fullUrl: effectiveProps.fullUrl,
+      basePath: effectiveProps.basePath,
+      relativePath: effectiveProps.relativePath,
+      dashboardId: effectiveProps.dashboardId,
+      defaultFileName: effectiveProps.defaultFileName,
+      queryStringParamName: effectiveProps.queryStringParamName,
+      pageUrl: currentPageUrl,
+    });
+    if (builtUrl) {
+      candidateUrls.add(builtUrl);
+    }
+
+    const fullUrl = (effectiveProps.fullUrl || '').trim();
+    if (fullUrl) {
+      candidateUrls.add(fullUrl);
+    }
+
+    const inferredPrefixes = Array.from(candidateUrls.values())
+      .map((candidateUrl) =>
+        this.tryGetSiteRelativeDirectoryPrefix(candidateUrl, currentPageUrl),
+      )
+      .filter((prefix): prefix is string => !!prefix);
+
+    if (inferredPrefixes.length === 0) {
+      return undefined;
+    }
+
+    const currentWebPrefix = this.tryGetCurrentWebPrefix();
+    if (currentWebPrefix) {
+      inferredPrefixes.push(currentWebPrefix);
+    }
+
+    const uniquePrefixes: string[] = [];
+    const seen = new Set<string>();
+    inferredPrefixes.forEach((prefix) => {
+      const normalized = this.normalizePathPrefixForComparison(prefix);
+      if (!normalized || seen.has(normalized)) {
+        return;
+      }
+
+      seen.add(normalized);
+      uniquePrefixes.push(prefix);
+    });
+
+    return uniquePrefixes.sort((left, right) => left.length - right.length)[0];
+  }
+
+  private tryGetCurrentWebPrefix(): string | undefined {
+    const serverRelativeUrl = (this.context?.pageContext?.web?.serverRelativeUrl || '').trim();
+    if (!serverRelativeUrl) {
+      return undefined;
+    }
+
+    let normalized = serverRelativeUrl.replace(/\\/g, '/');
+    if (!normalized.startsWith('/')) {
+      normalized = `/${normalized}`;
+    }
+    if (!normalized.endsWith('/')) {
+      normalized = `${normalized}/`;
+    }
+
+    return normalized;
+  }
+
+  private resolveContentDeliveryMode(
+    effectiveProps: IUniversalHtmlViewerWebPartProps,
+  ): ContentDeliveryMode {
+    type ContentDeliveryModeResolver = {
+      getContentDeliveryMode?: (props: IUniversalHtmlViewerWebPartProps) => ContentDeliveryMode;
+    };
+
+    const resolver = this as unknown as ContentDeliveryModeResolver;
+    if (typeof resolver.getContentDeliveryMode === 'function') {
+      return resolver.getContentDeliveryMode(effectiveProps);
+    }
+
+    return effectiveProps.contentDeliveryMode || 'DirectUrl';
+  }
+
+  private tryGetSiteRelativeDirectoryPrefix(
+    sourceUrl: string,
+    currentPageUrl: string,
+  ): string | undefined {
+    const trimmedSourceUrl = (sourceUrl || '').trim();
+    if (!trimmedSourceUrl) {
+      return undefined;
+    }
+
+    let sourceAbsoluteUrl: URL;
+    let currentAbsoluteUrl: URL;
+    try {
+      currentAbsoluteUrl = new URL(currentPageUrl);
+      sourceAbsoluteUrl = new URL(trimmedSourceUrl, currentAbsoluteUrl);
+    } catch {
+      return undefined;
+    }
+
+    if (sourceAbsoluteUrl.host.toLowerCase() !== currentAbsoluteUrl.host.toLowerCase()) {
+      return undefined;
+    }
+
+    let normalizedPath = (sourceAbsoluteUrl.pathname || '').replace(/\\/g, '/');
+    if (!normalizedPath.startsWith('/')) {
+      normalizedPath = `/${normalizedPath}`;
+    }
+    if (!normalizedPath) {
+      return undefined;
+    }
+
+    if (!normalizedPath.endsWith('/')) {
+      const lastSlashIndex = normalizedPath.lastIndexOf('/');
+      normalizedPath =
+        lastSlashIndex <= 0 ? '/' : normalizedPath.substring(0, lastSlashIndex + 1);
+    }
+
+    return normalizedPath;
+  }
+
+  private normalizePathPrefixForComparison(value: string): string {
+    const trimmedValue = (value || '').trim();
+    if (!trimmedValue) {
+      return '';
+    }
+
+    let normalized = trimmedValue.replace(/\\/g, '/');
+    if (!normalized.startsWith('/')) {
+      normalized = `/${normalized}`;
+    }
+    if (!normalized.endsWith('/')) {
+      normalized = `${normalized}/`;
+    }
+    while (normalized.includes('//')) {
+      normalized = normalized.replace(/\/{2,}/g, '/');
+    }
+
+    return normalized.toLowerCase();
   }
 
   protected async getEffectiveProperties(
