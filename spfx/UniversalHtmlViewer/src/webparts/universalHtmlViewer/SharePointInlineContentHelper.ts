@@ -12,6 +12,7 @@ export interface ILoadSharePointInlineContentOptions {
   maxRetryAttempts?: number;
   retryBaseDelayMs?: number;
   retryMaxDelayMs?: number;
+  enforceStrictInlineCsp?: boolean;
 }
 
 const DEFAULT_INLINE_HTML_CACHE_TTL_MS = 15000;
@@ -126,7 +127,9 @@ async function loadSharePointInlineHtmlFromApi(
     throw new Error('SharePoint API returned empty HTML content.');
   }
 
-  return prepareInlineHtmlForSrcDoc(html, baseUrlForRelativeLinks, pageUrl);
+  return prepareInlineHtmlForSrcDoc(html, baseUrlForRelativeLinks, pageUrl, {
+    enforceStrictInlineCsp: options?.enforceStrictInlineCsp === true,
+  });
 }
 
 async function getInlineHtmlResponseWithRetry(

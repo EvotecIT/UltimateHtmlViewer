@@ -20,6 +20,7 @@ describe('applyImportedConfigToProps', () => {
       iframeLoading: 'LAZY',
       chromeDensity: 'compact',
       allowQueryStringPageOverride: 'false',
+      enforceStrictInlineCsp: 'true',
     });
 
     expect(result.ignoredEntries).toHaveLength(0);
@@ -36,6 +37,7 @@ describe('applyImportedConfigToProps', () => {
     expect(propsRecord.iframeLoading).toBe('lazy');
     expect(propsRecord.chromeDensity).toBe('Compact');
     expect(propsRecord.allowQueryStringPageOverride).toBe(false);
+    expect(propsRecord.enforceStrictInlineCsp).toBe(true);
   });
 
   it('ignores unknown keys and invalid values', () => {
@@ -70,5 +72,6 @@ describe('buildConfigExport', () => {
 
     expect(exported.iframeLoadTimeoutSeconds).toBe(10);
     expect(exported.inlineContentCacheTtlSeconds).toBe(15);
+    expect(exported.enforceStrictInlineCsp).toBe(false);
   });
 });

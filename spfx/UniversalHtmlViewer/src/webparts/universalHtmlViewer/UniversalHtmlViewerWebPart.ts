@@ -411,6 +411,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   offText: 'Off',
                   disabled: !isInlineContentMode || isPresetLocked,
                 }),
+                PropertyPaneToggle('enforceStrictInlineCsp', {
+                  label: 'Enforce strict inline CSP (scripts)',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                }),
                 PropertyPaneTextField('allowedHosts', {
                   label: 'Allowed hosts (comma-separated)',
                   description:
@@ -728,10 +734,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           initialContentUrl,
           pageUrl,
           SPHttpClient.configurations.v1,
-          {
-            cacheTtlMs: inlineContentCacheTtlMs,
-          },
-        );
+            {
+              cacheTtlMs: inlineContentCacheTtlMs,
+              enforceStrictInlineCsp: effectiveProps.enforceStrictInlineCsp === true,
+            },
+          );
       } catch (error) {
         this.clearRefreshTimer();
         this.clearIframeLoadTimeout();
@@ -874,6 +881,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
               cacheTtlMs: this.getInlineContentCacheTtlMs(
                 this.lastEffectiveProps || this.properties,
               ),
+              enforceStrictInlineCsp:
+                (this.lastEffectiveProps || this.properties).enforceStrictInlineCsp === true,
             },
           );
         } catch { return undefined; }
@@ -901,6 +910,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         {
           cacheTtlMs: this.getInlineContentCacheTtlMs(props),
           bypassCache: bypassInlineContentCache,
+          enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
         },
       );
       iframe.srcdoc = inlineHtml;
