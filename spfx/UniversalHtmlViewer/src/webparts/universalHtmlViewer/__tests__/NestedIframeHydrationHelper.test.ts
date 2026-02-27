@@ -110,4 +110,72 @@ describe('NestedIframeHydrationHelper', () => {
 
     cleanup();
   });
+
+  it('ignores stale in-flight hydration result after nested iframe source changes', async () => {
+    jest.useFakeTimers();
+    try {
+      document.body.innerHTML = '<iframe src="/sites/TestSite1/SitePages/first.html"></iframe>';
+      Object.defineProperty(document, 'baseURI', {
+        value: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
+        configurable: true,
+      });
+
+      const nestedFrame = document.querySelector('iframe') as HTMLIFrameElement;
+      const pendingLoads: Array<{
+        sourceUrl: string;
+        resolve: (value: string | PromiseLike<string | undefined> | undefined) => void;
+      }> = [];
+      const loadInlineHtml = jest.fn().mockImplementation((sourceUrl: string) => {
+        return new Promise<string | undefined>((resolve) => {
+          pendingLoads.push({
+            sourceUrl,
+            resolve,
+          });
+        });
+      });
+
+      const parentIframe = createIframeStubWithDocument(document);
+      const cleanup = wireNestedIframeHydration({
+        iframe: parentIframe,
+        currentPageUrl: validationOptions.currentPageUrl,
+        validationOptions,
+        cacheBusterParamName: 'v',
+        loadInlineHtml,
+      });
+
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(loadInlineHtml).toHaveBeenCalledTimes(1);
+
+      nestedFrame.setAttribute('src', '/sites/TestSite1/SitePages/second.html');
+      await Promise.resolve();
+      jest.advanceTimersByTime(40);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(loadInlineHtml).toHaveBeenCalledTimes(2);
+      const firstLoad = pendingLoads[0];
+      const secondLoad = pendingLoads[1];
+      expect(firstLoad.sourceUrl).toContain('/first.html');
+      expect(secondLoad.sourceUrl).toContain('/second.html');
+
+      firstLoad.resolve('<html><body>First</body></html>');
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(nestedFrame.getAttribute('data-uhv-nested-state')).toBe('processing');
+      expect(nestedFrame.srcdoc || '').not.toContain('First');
+
+      secondLoad.resolve('<html><body>Second</body></html>');
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(nestedFrame.getAttribute('data-uhv-nested-state')).toBe('done');
+      expect(nestedFrame.srcdoc).toContain('Second');
+      expect(nestedFrame.srcdoc).not.toContain('First');
+
+      cleanup();
+    } finally {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+    }
+  });
 });

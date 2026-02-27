@@ -188,11 +188,15 @@ function hydrateNestedFrame(
   }
 
   frame.setAttribute('data-uhv-nested-state', 'processing');
+  const hydrationSource = rawSrc;
 
   options
     .loadInlineHtml(normalizedUrl, normalizedUrl)
     .then((inlineHtml) => {
       if (!frame.isConnected) {
+        return;
+      }
+      if (frame.getAttribute('data-uhv-nested-src') !== hydrationSource) {
         return;
       }
       if (frame.getAttribute('data-uhv-nested-state') !== 'processing') {
@@ -207,6 +211,9 @@ function hydrateNestedFrame(
     })
     .catch(() => {
       if (!frame.isConnected) {
+        return;
+      }
+      if (frame.getAttribute('data-uhv-nested-src') !== hydrationSource) {
         return;
       }
       if (frame.getAttribute('data-uhv-nested-state') === 'processing') {
@@ -291,11 +298,18 @@ function ensureNestedFrameNavigationWired(
       event.stopPropagation();
       frame.setAttribute('data-uhv-nested-state', 'processing');
       frame.setAttribute('data-uhv-nested-src', targetUrl);
+      const navigationSource = targetUrl;
 
       options
         .loadInlineHtml(targetUrl, targetUrl)
         .then((inlineHtml) => {
           if (!frame.isConnected) {
+            return;
+          }
+          if (frame.getAttribute('data-uhv-nested-src') !== navigationSource) {
+            return;
+          }
+          if (frame.getAttribute('data-uhv-nested-state') !== 'processing') {
             return;
           }
           if (!inlineHtml || inlineHtml.trim().length === 0) {
@@ -307,6 +321,9 @@ function ensureNestedFrameNavigationWired(
         })
         .catch(() => {
           if (!frame.isConnected) {
+            return;
+          }
+          if (frame.getAttribute('data-uhv-nested-src') !== navigationSource) {
             return;
           }
           frame.setAttribute('data-uhv-nested-state', 'failed');
