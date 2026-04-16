@@ -15,6 +15,7 @@ import {
   ITenantConfig,
   IUniversalHtmlViewerWebPartProps,
   TenantConfigMode,
+  isInlineContentDeliveryMode,
 } from './UniversalHtmlViewerTypes';
 
 const blockedTenantConfigKeys = new Set<string>(['__proto__', 'prototype', 'constructor']);
@@ -101,7 +102,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     currentPageUrl: string,
   ): string | undefined {
     const deliveryMode = this.resolveContentDeliveryMode(effectiveProps);
-    if (deliveryMode !== 'SharePointFileContent') {
+    if (!isInlineContentDeliveryMode(deliveryMode)) {
       return undefined;
     }
 
@@ -156,7 +157,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       return resolver.getContentDeliveryMode(effectiveProps);
     }
 
-    return effectiveProps.contentDeliveryMode || 'DirectUrl';
+    return effectiveProps.contentDeliveryMode || 'SharePointFileContent';
   }
 
   private tryGetSiteRelativeDirectoryPrefix(

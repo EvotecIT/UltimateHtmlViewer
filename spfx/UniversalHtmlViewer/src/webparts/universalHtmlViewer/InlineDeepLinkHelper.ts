@@ -1,6 +1,9 @@
 import { getQueryStringParam } from './QueryStringHelper';
 import { isUrlAllowed, UrlValidationOptions } from './UrlHelper';
-import { ContentDeliveryMode } from './UniversalHtmlViewerTypes';
+import {
+  ContentDeliveryMode,
+  isInlineContentDeliveryMode,
+} from './UniversalHtmlViewerTypes';
 
 export const DEFAULT_INLINE_DEEP_LINK_PARAM = 'uhvPage';
 
@@ -92,7 +95,7 @@ export interface IBuildOpenInNewTabUrlOptions {
 export function buildOpenInNewTabUrl(
   options: IBuildOpenInNewTabUrlOptions,
 ): string {
-  if (options.contentDeliveryMode !== 'SharePointFileContent') {
+  if (!isInlineContentDeliveryMode(options.contentDeliveryMode)) {
     return options.resolvedUrl;
   }
 

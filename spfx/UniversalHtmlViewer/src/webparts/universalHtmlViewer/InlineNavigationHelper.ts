@@ -64,7 +64,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
     options.iframe.removeEventListener('load', attachHandler);
     clickHandlers.forEach((handler, eventTarget) => {
       eventTarget.removeEventListener('click', handler, true);
-      if (eventTarget instanceof Document) {
+      if (isDocumentLike(eventTarget)) {
         const rootElement: HTMLElement | undefined = eventTarget.documentElement || undefined;
         if (rootElement && rootElement.getAttribute('data-uhv-inline-nav') === '1') {
           rootElement.removeAttribute('data-uhv-inline-nav');
@@ -211,11 +211,11 @@ function getEventTargetElement(event: MouseEvent): Element | undefined {
     return undefined;
   }
 
-  if (target instanceof Element) {
+  if (isElementLike(target)) {
     return target;
   }
 
-  if (target instanceof Node) {
+  if (isNodeLike(target)) {
     return target.parentElement || undefined;
   }
 
@@ -246,7 +246,7 @@ function getEventComposedPathElements(event: MouseEvent): Element[] {
   const elements: Element[] = [];
   const seenElements = new Set<Element>();
   pathTargets.forEach((target) => {
-    if (target instanceof Element) {
+    if (isElementLike(target)) {
       if (!seenElements.has(target)) {
         elements.push(target);
         seenElements.add(target);
@@ -254,7 +254,7 @@ function getEventComposedPathElements(event: MouseEvent): Element[] {
       return;
     }
 
-    if (target instanceof Node && target.parentElement && !seenElements.has(target.parentElement)) {
+    if (isNodeLike(target) && target.parentElement && !seenElements.has(target.parentElement)) {
       elements.push(target.parentElement);
       seenElements.add(target.parentElement);
     }
@@ -411,4 +411,25 @@ function tryGetIframeWindow(iframe: HTMLIFrameElement): Window | undefined {
   } catch {
     return undefined;
   }
+}
+
+function isNodeLike(target: unknown): target is Node {
+  return !!target && typeof target === 'object' && typeof (target as Node).nodeType === 'number';
+}
+
+function isElementLike(target: unknown): target is Element {
+  return (
+    isNodeLike(target) &&
+    (target as Node).nodeType === Node.ELEMENT_NODE &&
+    typeof (target as Element).closest === 'function' &&
+    typeof (target as Element).querySelectorAll === 'function'
+  );
+}
+
+function isDocumentLike(target: unknown): target is Document {
+  return (
+    isNodeLike(target) &&
+    (target as Node).nodeType === Node.DOCUMENT_NODE &&
+    typeof (target as Document).documentElement !== 'undefined'
+  );
 }

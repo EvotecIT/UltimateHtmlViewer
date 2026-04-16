@@ -24,6 +24,7 @@ import {
 import {
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
+  isInlineContentDeliveryMode,
 } from './UniversalHtmlViewerTypes';
 import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPartConfigBase';
 
@@ -188,7 +189,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
         effectiveProps,
       );
 
-      if (contentDeliveryMode === 'SharePointFileContent') {
+      if (isInlineContentDeliveryMode(contentDeliveryMode)) {
         const updatedFromContent: boolean = await this.trySetIframeSrcDocFromSource(
           iframe,
           refreshedUrl,
@@ -197,6 +198,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
           bypassInlineContentCache,
         );
         if (updatedFromContent) {
+          this.setLoadingVisible(false);
           if (resetInlineScrollToTop) {
             this.resetIframeScrollPosition(iframe, refreshedUrl);
           }
@@ -651,7 +653,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   protected getContentDeliveryMode(
     props: IUniversalHtmlViewerWebPartProps,
   ): ContentDeliveryMode {
-    return props.contentDeliveryMode || 'DirectUrl';
+    return props.contentDeliveryMode || 'SharePointFileContent';
   }
 
   protected async trySetIframeSrcDocFromSource(

@@ -4,6 +4,16 @@ param(
     [string]$SiteUrl,
 
     [string]$FullUrl,
+    [ValidateSet("FullUrl", "BasePathAndRelativePath", "BasePathAndDashboardId")]
+    [string]$HtmlSourceMode = "FullUrl",
+    [string]$BasePath,
+    [string]$RelativePath,
+    [string]$DashboardId,
+    [string]$DefaultFileName,
+    [string]$QueryStringParamName,
+    [string]$AllowedPathPrefixes,
+    [string]$AllowedFileExtensions,
+    [switch]$AllowQueryStringPageOverride,
 
     [string]$PageName = "UHV-Dashboard",
     [string]$PageTitle = "UHV Dashboard",
@@ -49,10 +59,28 @@ if ([string]::IsNullOrWhiteSpace($Tenant)) {
 
 if (
     -not $SkipAddWebPart.IsPresent -and
-    -not $SkipConfigureWebPartProperties.IsPresent -and
-    [string]::IsNullOrWhiteSpace($FullUrl)
+    -not $SkipConfigureWebPartProperties.IsPresent
 ) {
-    throw "FullUrl is required unless -SkipAddWebPart is specified."
+    switch ($HtmlSourceMode) {
+        "FullUrl" {
+            if ([string]::IsNullOrWhiteSpace($FullUrl)) {
+                throw "FullUrl is required when HtmlSourceMode is 'FullUrl' unless -SkipAddWebPart is specified."
+            }
+        }
+        "BasePathAndRelativePath" {
+            if ([string]::IsNullOrWhiteSpace($BasePath)) {
+                throw "BasePath is required when HtmlSourceMode is 'BasePathAndRelativePath'."
+            }
+            if ([string]::IsNullOrWhiteSpace($RelativePath)) {
+                throw "RelativePath is required when HtmlSourceMode is 'BasePathAndRelativePath'."
+            }
+        }
+        "BasePathAndDashboardId" {
+            if ([string]::IsNullOrWhiteSpace($BasePath)) {
+                throw "BasePath is required when HtmlSourceMode is 'BasePathAndDashboardId'."
+            }
+        }
+    }
 }
 
 if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
@@ -121,7 +149,28 @@ function ConvertTo-PnPPropertiesJsonString {
     $pairs = @()
     foreach ($key in $Properties.Keys) {
         $keyText = [string]$key
-        $valueText = [string]$Properties[$key]
+        $value = $Properties[$key]
+        if ($null -eq $value) {
+            continue
+        }
+
+        if ($value -is [bool]) {
+            $pairs += "`"$keyText`"=$($value.ToString().ToLowerInvariant())"
+            continue
+        }
+
+        if ($value -is [byte] -or
+            $value -is [int16] -or
+            $value -is [int32] -or
+            $value -is [int64] -or
+            $value -is [decimal] -or
+            $value -is [double] -or
+            $value -is [single]) {
+            $pairs += "`"$keyText`"=$value"
+            continue
+        }
+
+        $valueText = [string]$value
         $escapedValue = $valueText.Replace('"', '\"')
         $pairs += "`"$keyText`"=`"$escapedValue`""
     }
@@ -368,12 +417,49 @@ try {
     $webPartProperties = @{
         configurationPreset = $ConfigurationPreset
         contentDeliveryMode = $ContentDeliveryMode
-        htmlSourceMode = "FullUrl"
-        fullUrl = $FullUrl
+        htmlSourceMode = $HtmlSourceMode
     }
+
+    switch ($HtmlSourceMode) {
+        "FullUrl" {
+            $webPartProperties.fullUrl = $FullUrl
+        }
+        "BasePathAndRelativePath" {
+            $webPartProperties.basePath = $BasePath
+            $webPartProperties.relativePath = $RelativePath
+        }
+        "BasePathAndDashboardId" {
+            $webPartProperties.basePath = $BasePath
+            if (-not [string]::IsNullOrWhiteSpace($DashboardId)) {
+                $webPartProperties.dashboardId = $DashboardId
+            }
+            if (-not [string]::IsNullOrWhiteSpace($DefaultFileName)) {
+                $webPartProperties.defaultFileName = $DefaultFileName
+            }
+            if (-not [string]::IsNullOrWhiteSpace($QueryStringParamName)) {
+                $webPartProperties.queryStringParamName = $QueryStringParamName
+            }
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($AllowedPathPrefixes)) {
+        $webPartProperties.allowedPathPrefixes = $AllowedPathPrefixes
+    }
+    if (-not [string]::IsNullOrWhiteSpace($AllowedFileExtensions)) {
+        $webPartProperties.allowedFileExtensions = $AllowedFileExtensions
+    }
+    if ($AllowQueryStringPageOverride.IsPresent) {
+        $webPartProperties.allowQueryStringPageOverride = $true
+    }
+
     $webPartPropertiesJson = ConvertTo-PnPPropertiesJsonString -Properties $webPartProperties
 
-    Write-Host "Adding Universal HTML Viewer web part with FullUrl=$FullUrl"
+    $sourceSummary = switch ($HtmlSourceMode) {
+        "FullUrl" { "FullUrl=$FullUrl" }
+        "BasePathAndRelativePath" { "BasePath=$BasePath RelativePath=$RelativePath" }
+        "BasePathAndDashboardId" { "BasePath=$BasePath DashboardId=$DashboardId DefaultFileName=$DefaultFileName QueryStringParamName=$QueryStringParamName" }
+    }
+    Write-Host "Adding Universal HTML Viewer web part with HtmlSourceMode=$HtmlSourceMode $sourceSummary"
     $webPartAdded = $false
     $addedWebPartInstanceId = ""
     if ($uhvComponent) {

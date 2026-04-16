@@ -243,6 +243,31 @@ Useful switches:
 - `-SetAsHomePage`
 - `-WhatIf` (preview actions without applying tenant/site changes)
 
+### Single host page for many files
+
+If your reports live under a folder tree and you want one UHV page to host many files, use a path mode instead of provisioning one `FullUrl` page per file:
+
+```powershell
+.\scripts\Setup-UHVSite.ps1 `
+  -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
+  -PageName "Reports" `
+  -PageTitle "Reports" `
+  -HtmlSourceMode "BasePathAndRelativePath" `
+  -BasePath "/sites/Reports/Shared Documents/Reports/" `
+  -RelativePath "Global/LegacyUsers.aspx" `
+  -AllowedPathPrefixes "/sites/Reports/Shared Documents/Reports/" `
+  -AllowedFileExtensions ".html,.htm,.aspx" `
+  -AllowQueryStringPageOverride `
+  -ConfigurationPreset "SharePointLibraryRelaxed" `
+  -ContentDeliveryMode "SharePointFileContent" `
+  -ClientId $clientId `
+  -Tenant $tenant `
+  -DeviceLogin
+```
+
+That creates one host page and lets users navigate or deep-link to files under the approved path with `?uhvPage=...`.
+In mixed-permission libraries, use one host page per secured folder boundary when possible.
+
 ## 8) Update existing sites after publishing new package
 
 You do not reupload per site; you update site app instances:

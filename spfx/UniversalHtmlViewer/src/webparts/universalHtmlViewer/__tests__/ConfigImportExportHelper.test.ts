@@ -8,7 +8,7 @@ describe('applyImportedConfigToProps', () => {
     const propsRecord: Record<string, unknown> = {};
     const result = applyImportedConfigToProps(propsRecord, {
       configurationPreset: 'sharepointlibraryfullpage',
-      contentDeliveryMode: 'sharepointfilecontent',
+      contentDeliveryMode: 'sharepointfilebloburl',
       htmlSourceMode: 'basepathandrelativepath',
       heightMode: 'auto',
       fixedHeightPx: '700',
@@ -25,7 +25,7 @@ describe('applyImportedConfigToProps', () => {
 
     expect(result.ignoredEntries).toHaveLength(0);
     expect(propsRecord.configurationPreset).toBe('SharePointLibraryFullPage');
-    expect(propsRecord.contentDeliveryMode).toBe('SharePointFileContent');
+    expect(propsRecord.contentDeliveryMode).toBe('SharePointFileBlobUrl');
     expect(propsRecord.htmlSourceMode).toBe('BasePathAndRelativePath');
     expect(propsRecord.heightMode).toBe('Auto');
     expect(propsRecord.fixedHeightPx).toBe(700);
@@ -73,5 +73,6 @@ describe('buildConfigExport', () => {
     expect(exported.iframeLoadTimeoutSeconds).toBe(10);
     expect(exported.inlineContentCacheTtlSeconds).toBe(15);
     expect(exported.enforceStrictInlineCsp).toBe(false);
+    expect(exported.contentDeliveryMode).toBe('SharePointFileContent');
   });
 });
