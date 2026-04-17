@@ -215,6 +215,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       !!this.properties.lockPresetSettings && preset !== 'Custom';
     const showDashboardSelector: boolean = this.properties.showDashboardSelector === true;
     const showReportBrowser: boolean = this.properties.showReportBrowser === true;
+    const canUseReportBrowser: boolean = showChrome && isInlineContentMode;
+    const isReportBrowserConfigured: boolean = showReportBrowser && canUseReportBrowser;
     const showLegacyDirectUrlOption: boolean =
       enableExpertSecurityModes ||
       currentContentDeliveryMode === 'DirectUrl' ||
@@ -276,12 +278,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
               ],
             },
             {
-              groupName: 'Source (Required)',
+              groupName: 'Initial content (Required)',
               groupFields: [
                 PropertyPaneDropdown('htmlSourceMode', {
-                  label: 'HTML source mode',
+                  label: 'Initial HTML source mode',
                   options: [
-                    { key: 'FullUrl', text: 'Full URL' },
+                    { key: 'FullUrl', text: 'Single page URL' },
                     { key: 'BasePathAndRelativePath', text: 'Base path + relative path' },
                     { key: 'BasePathAndDashboardId', text: 'Base path + dashboard ID' },
                   ],
@@ -291,17 +293,23 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   options: contentDeliveryModeOptions,
                 }),
                 PropertyPaneTextField('fullUrl', {
-                  label: 'Full URL to HTML page',
-                  description: 'Used when HTML source mode is "FullUrl".',
+                  label: isReportBrowserConfigured
+                    ? 'Initial/default HTML page'
+                    : 'HTML page URL',
+                  description: isReportBrowserConfigured
+                    ? 'Opened first before a report is selected. The browser list comes from "Browser root folder" below.'
+                    : 'Used when initial HTML source mode is "Single page URL".',
                   disabled: !isFullUrl,
                   onGetErrorMessage: (value?: string): string =>
                     validateFullUrl(value, !!this.properties.allowHttp),
                   deferredValidationTime: 200,
                 }),
                 PropertyPaneTextField('basePath', {
-                  label: 'Base path (site-relative)',
+                  label: isReportBrowserConfigured
+                    ? 'Initial content base path'
+                    : 'Base path (site-relative)',
                   description:
-                    'Site-relative base path, used when HTML source mode is not "FullUrl". Example: /sites/Reports/Dashboards/',
+                    'Site-relative base path, used when initial HTML source mode is not "Single page URL". Example: /sites/Reports/Dashboards/',
                   disabled: isFullUrl,
                   onGetErrorMessage: (value?: string): string => validateBasePath(value),
                   deferredValidationTime: 200,
@@ -321,14 +329,46 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                 PropertyPaneTextField('defaultFileName', {
                   label: 'Default file name',
                   description:
-                    'Used when HTML source mode is "BasePathAndDashboardId". Defaults to "index.html" when left empty.',
+                    'Used when initial HTML source mode is "Base path + dashboard ID". Defaults to "index.html" when left empty.',
                   disabled: !isDashboardId,
                 }),
                 PropertyPaneTextField('queryStringParamName', {
                   label: 'Query string parameter name',
                   description:
-                    'Used when HTML source mode is "BasePathAndDashboardId" to read the dashboard ID from the page URL. Defaults to "dashboard" when left empty.',
+                    'Used when initial HTML source mode is "Base path + dashboard ID" to read the dashboard ID from the page URL. Defaults to "dashboard" when left empty.',
                   disabled: !isDashboardId,
+                }),
+              ],
+            },
+            {
+              groupName: 'Report browser source (Optional)',
+              groupFields: [
+                PropertyPaneToggle('showReportBrowser', {
+                  label: 'Show SharePoint report browser',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !canUseReportBrowser,
+                }),
+                PropertyPaneTextField('reportBrowserRootPath', {
+                  label: 'Browser root folder',
+                  description:
+                    'Folder UHV enumerates for the report picker. This is separate from the initial/default HTML page above. Leave empty to use the initial page folder.',
+                  disabled: !showReportBrowser || !canUseReportBrowser,
+                }),
+                PropertyPaneDropdown('reportBrowserDefaultView', {
+                  label: 'Default browser view',
+                  options: [
+                    { key: 'Folders', text: 'Folders' },
+                    { key: 'Files', text: 'Files (recursive)' },
+                  ],
+                  disabled: !showReportBrowser || !canUseReportBrowser,
+                }),
+                PropertyPaneSlider('reportBrowserMaxItems', {
+                  label: 'Maximum browser items',
+                  min: 25,
+                  max: 1000,
+                  step: 25,
+                  disabled: !showReportBrowser || !canUseReportBrowser,
                 }),
               ],
             },
@@ -413,33 +453,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   label: 'Dashboard list (comma-separated)',
                   description: 'Optional list, e.g. Sales|sales, Ops|ops',
                   disabled: !showDashboardSelector,
-                }),
-                PropertyPaneToggle('showReportBrowser', {
-                  label: 'Show SharePoint report browser',
-                  onText: 'On',
-                  offText: 'Off',
-                  disabled: !showChrome || !isInlineContentMode,
-                }),
-                PropertyPaneTextField('reportBrowserRootPath', {
-                  label: 'Report browser root folder',
-                  description:
-                    'Server-relative or web-relative folder, e.g. /sites/Reports/SiteAssets/Reports',
-                  disabled: !showReportBrowser || !isInlineContentMode,
-                }),
-                PropertyPaneDropdown('reportBrowserDefaultView', {
-                  label: 'Report browser default view',
-                  options: [
-                    { key: 'Folders', text: 'Folders' },
-                    { key: 'Files', text: 'Files (recursive)' },
-                  ],
-                  disabled: !showReportBrowser || !isInlineContentMode,
-                }),
-                PropertyPaneSlider('reportBrowserMaxItems', {
-                  label: 'Report browser max files/items',
-                  min: 25,
-                  max: 1000,
-                  step: 25,
-                  disabled: !showReportBrowser || !isInlineContentMode,
                 }),
               ],
             },

@@ -93,6 +93,19 @@ function findPropertyPaneField(
   return undefined;
 }
 
+function getGroupNames(
+  configuration: { pages?: Array<{ groups?: Array<{ groupName?: string }> }> },
+): string[] {
+  const groupNames: string[] = [];
+  for (const page of configuration.pages || []) {
+    for (const group of page.groups || []) {
+      groupNames.push(group.groupName || '');
+    }
+  }
+
+  return groupNames;
+}
+
 describe('UniversalHtmlViewerWebPart tenant config property pane behavior', () => {
   it('trims tenantConfigUrl and refreshes property pane on tenantConfigUrl changes', () => {
     const webPart = createWebPartHarness();
@@ -142,5 +155,31 @@ describe('UniversalHtmlViewerWebPart tenant config property pane behavior', () =
 
     expect(tenantConfigModeField).toBeDefined();
     expect(tenantConfigModeField?.properties?.disabled).toBe(false);
+  });
+
+  it('keeps initial page settings separate from report browser source settings', () => {
+    const webPart = createWebPartHarness();
+    webPart.properties.contentDeliveryMode = 'SharePointFileContent';
+    webPart.properties.htmlSourceMode = 'FullUrl';
+    webPart.properties.showChrome = true;
+    webPart.properties.showReportBrowser = true;
+
+    const configuration = webPart.getPropertyPaneConfiguration();
+    const groupNames = getGroupNames(configuration);
+    const initialContentGroupIndex = groupNames.indexOf('Initial content (Required)');
+    const reportBrowserGroupIndex = groupNames.indexOf(
+      'Report browser source (Optional)',
+    );
+    const fullUrlField = findPropertyPaneField(configuration, 'fullUrl');
+    const reportBrowserRootField = findPropertyPaneField(
+      configuration,
+      'reportBrowserRootPath',
+    );
+
+    expect(initialContentGroupIndex).toBeGreaterThan(-1);
+    expect(reportBrowserGroupIndex).toBe(initialContentGroupIndex + 1);
+    expect(fullUrlField?.properties?.label).toBe('Initial/default HTML page');
+    expect(reportBrowserRootField?.properties?.label).toBe('Browser root folder');
+    expect(reportBrowserRootField?.properties?.disabled).toBe(false);
   });
 });
