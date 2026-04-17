@@ -105,7 +105,20 @@ $plannedAction = if ($SkipSiteUpdate.IsPresent) {
 } else {
     "Build/deploy UHV package and update target site app instances"
 }
-if (-not $PSCmdlet.ShouldProcess($AppCatalogUrl, $plannedAction)) {
+$shouldProceed = $true
+if ($PSCmdlet -and $PSCmdlet.PSObject.Methods.Name -contains "ShouldProcess") {
+    try {
+        $shouldProceed = $PSCmdlet.ShouldProcess($AppCatalogUrl, $plannedAction)
+    } catch {
+        if ($WhatIfPreference) {
+            return
+        }
+
+        Write-Warning "ShouldProcess failed unexpectedly. Continuing without confirmation gate. Error: $($_.Exception.Message)"
+        $shouldProceed = $true
+    }
+}
+if (-not $shouldProceed) {
     return
 }
 

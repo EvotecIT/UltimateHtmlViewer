@@ -277,4 +277,94 @@ describe('NestedIframeHydrationHelper', () => {
 
     cleanup();
   });
+
+  it('wires nested iframe window click listener and intercepts window-captured navigation clicks', async () => {
+    document.body.innerHTML =
+      '<iframe src="https://contoso.sharepoint.com/sites/TestSite1/SitePages/seed.html"></iframe>';
+    const nestedFrame = document.querySelector('iframe') as HTMLIFrameElement;
+    const nestedDocument = document.implementation.createHTMLDocument('nested-window');
+    nestedDocument.body.innerHTML =
+      '<a id="window-link" href="https://contoso.sharepoint.com/sites/TestSite1/SitePages/window-click.html">Window click</a>';
+    Object.defineProperty(nestedDocument, 'baseURI', {
+      value: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/seed.html',
+      configurable: true,
+    });
+    Object.defineProperty(nestedFrame, 'contentDocument', {
+      value: nestedDocument,
+      configurable: true,
+    });
+
+    const nestedWindow = nestedFrame.contentWindow as Window;
+    let windowClickHandler: ((event: Event) => void) | undefined;
+    const originalAddWindowListener = nestedWindow.addEventListener.bind(nestedWindow);
+    const addWindowListener = jest
+      .spyOn(nestedWindow, 'addEventListener')
+      .mockImplementation((eventName: string, handler: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+        if (eventName === 'click' && typeof handler === 'function') {
+          windowClickHandler = handler as (event: Event) => void;
+        }
+        originalAddWindowListener(eventName, handler, options);
+      });
+    const removeWindowListener = jest.spyOn(nestedWindow, 'removeEventListener');
+
+    const loadInlineHtml = jest.fn().mockImplementation((sourceUrl: string) => {
+      if (sourceUrl.includes('/seed.html')) {
+        return Promise.resolve('<html><body>Seed</body></html>');
+      }
+      return Promise.resolve('<html><body>Window click content</body></html>');
+    });
+    const parentIframe = createIframeStubWithDocument(document);
+    const cleanup = wireNestedIframeHydration({
+      iframe: parentIframe,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      loadInlineHtml,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(addWindowListener).toHaveBeenCalledWith('click', expect.any(Function), true);
+    if (!windowClickHandler) {
+      throw new Error('Expected nested iframe window click handler to be registered.');
+    }
+
+    const anchor = nestedDocument.getElementById('window-link') as HTMLAnchorElement;
+    const clickEvent = {
+      button: 0,
+      bubbles: true,
+      cancelable: true,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      target: anchor,
+      preventDefault: jest.fn(),
+      stopPropagation: jest.fn(),
+      stopImmediatePropagation: jest.fn(),
+      cancelBubble: false,
+      returnValue: true,
+    } as unknown as Event;
+    windowClickHandler(clickEvent);
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(loadInlineHtml).toHaveBeenCalledTimes(2);
+    expect(loadInlineHtml.mock.calls[1][0]).toContain('/window-click.html');
+    expect(nestedFrame.srcdoc).toContain('Window click content');
+    expect(clickEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(clickEvent.stopPropagation).toHaveBeenCalledTimes(1);
+    expect(clickEvent.stopImmediatePropagation).toHaveBeenCalledTimes(1);
+    expect((clickEvent as Event & { cancelBubble?: boolean }).cancelBubble).toBe(true);
+    expect((clickEvent as Event & { returnValue?: boolean }).returnValue).toBe(false);
+
+    cleanup();
+
+    expect(removeWindowListener).toHaveBeenCalledWith('click', expect.any(Function), true);
+
+    addWindowListener.mockRestore();
+    removeWindowListener.mockRestore();
+  });
 });

@@ -257,8 +257,12 @@ function ensureNestedFrameNavigationWired(
     return;
   }
 
+  const interceptedEventNames: string[] = ['pointerdown', 'mousedown', 'click'];
   let wiredDocument: Document | undefined;
+  let wiredWindow: Window | undefined;
   let wiredClickHandler: ((event: Event) => void) | undefined;
+  let lastNavigationTargetUrl = '';
+  let lastNavigationTimestamp = 0;
   const pendingScrollResetTimeoutIds: number[] = [];
   const clearPendingScrollResetTimeouts = (): void => {
     if (pendingScrollResetTimeoutIds.length === 0) {
@@ -278,19 +282,27 @@ function ensureNestedFrameNavigationWired(
       }
     }
   };
-  const clearDocumentHandler = (): void => {
+  const clearFrameClickHandlers = (): void => {
     if (wiredDocument && wiredClickHandler) {
-      wiredDocument.removeEventListener('click', wiredClickHandler, true);
+      interceptedEventNames.forEach((eventName) => {
+        wiredDocument?.removeEventListener(eventName, wiredClickHandler as EventListener, true);
+      });
+    }
+    if (wiredWindow && wiredClickHandler) {
+      interceptedEventNames.forEach((eventName) => {
+        wiredWindow?.removeEventListener(eventName, wiredClickHandler as EventListener, true);
+      });
     }
     if (wiredDocument?.documentElement?.getAttribute('data-uhv-inline-nav') === '1') {
       wiredDocument.documentElement.removeAttribute('data-uhv-inline-nav');
     }
     wiredDocument = undefined;
+    wiredWindow = undefined;
     wiredClickHandler = undefined;
   };
 
   const onFrameLoad = (): void => {
-    clearDocumentHandler();
+    clearFrameClickHandlers();
     clearPendingScrollResetTimeouts();
     resetNestedFrameScrollPosition(frame);
     if (typeof window !== 'undefined') {
@@ -314,7 +326,12 @@ function ensureNestedFrameNavigationWired(
     }
 
     root.setAttribute('data-uhv-inline-nav', '1');
+    const handledEvents = new WeakSet<Event>();
     const onClick = (event: Event): void => {
+      if (handledEvents.has(event)) {
+        return;
+      }
+
       const currentPageUrl =
         frame.getAttribute('data-uhv-nested-src') ||
         frameDocument.baseURI ||
@@ -332,8 +349,17 @@ function ensureNestedFrameNavigationWired(
         return;
       }
 
-      event.preventDefault();
-      event.stopPropagation();
+      const now = Date.now();
+      const isDuplicatedNavigation =
+        lastNavigationTargetUrl === targetUrl && now - lastNavigationTimestamp < 500;
+      suppressInterceptedNavigationEvent(event);
+      handledEvents.add(event);
+      if (isDuplicatedNavigation) {
+        return;
+      }
+
+      lastNavigationTargetUrl = targetUrl;
+      lastNavigationTimestamp = now;
       frame.setAttribute('data-uhv-nested-state', 'processing');
       frame.setAttribute('data-uhv-nested-src', targetUrl);
       const navigationSource = targetUrl;
@@ -373,9 +399,18 @@ function ensureNestedFrameNavigationWired(
           emitDiagnosticsEvent(options, 'nestedNavigationFailed');
         });
     };
+    const frameWindow = tryGetIframeWindow(frame);
+    if (frameWindow) {
+      interceptedEventNames.forEach((eventName) => {
+        frameWindow.addEventListener(eventName, onClick, true);
+      });
+      wiredWindow = frameWindow;
+    }
     wiredDocument = frameDocument;
     wiredClickHandler = onClick;
-    frameDocument.addEventListener('click', onClick, true);
+    interceptedEventNames.forEach((eventName) => {
+      frameDocument.addEventListener(eventName, onClick, true);
+    });
   };
 
   frame.addEventListener('load', onFrameLoad);
@@ -384,7 +419,7 @@ function ensureNestedFrameNavigationWired(
   frameCleanupMap.set(frame, () => {
     clearPendingScrollResetTimeouts();
     frame.removeEventListener('load', onFrameLoad);
-    clearDocumentHandler();
+    clearFrameClickHandlers();
   });
 }
 
@@ -447,6 +482,14 @@ function emitDiagnosticsEvent(
 function tryGetIframeDocument(iframe: HTMLIFrameElement): Document | undefined {
   try {
     return iframe.contentDocument || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function tryGetIframeWindow(iframe: HTMLIFrameElement): Window | undefined {
+  try {
+    return iframe.contentWindow || undefined;
   } catch {
     return undefined;
   }
@@ -538,4 +581,19 @@ function stripQueryParam(url: string, paramName: string): string {
   } catch {
     return url;
   }
+}
+
+function suppressInterceptedNavigationEvent(event: Event): void {
+  event.preventDefault();
+  event.stopPropagation();
+  if (typeof event.stopImmediatePropagation === 'function') {
+    event.stopImmediatePropagation();
+  }
+
+  const mutableEvent = event as Event & {
+    cancelBubble?: boolean;
+    returnValue?: boolean;
+  };
+  mutableEvent.cancelBubble = true;
+  mutableEvent.returnValue = false;
 }
