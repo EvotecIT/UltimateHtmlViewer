@@ -242,6 +242,19 @@ describe('isUrlAllowed', () => {
     expect(isUrlAllowed('/Sites/Reports/Dashboards/a.html', options)).toBe(true);
   });
 
+  it('matches encoded SharePoint paths against decoded allowed path prefixes', () => {
+    const options = {
+      securityMode: 'StrictTenant' as UrlSecurityMode,
+      currentPageUrl,
+      allowedPathPrefixes: ['/sites/Reports/My Reports'],
+      allowedFileExtensions: ['.html'],
+    };
+
+    expect(
+      isUrlAllowed('/sites/Reports/My%20Reports/Quarter%20%231.html', options),
+    ).toBe(true);
+  });
+
   it('enforces allowed file extensions when configured', () => {
     const options = {
       securityMode: 'StrictTenant' as UrlSecurityMode,

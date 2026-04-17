@@ -157,17 +157,14 @@ async function appendFolderFilesRecursive(
     return;
   }
 
-  const files = await loadFileEntries(options, folderPath, maxItems - result.length);
-  files
-    .filter((file) => isAllowedReportFile(file.ServerRelativeUrl, allowedExtensions))
-    .forEach((file) => {
-      if (result.length < maxItems) {
-        const item = buildFileItem(file, rootPath);
-        if (item) {
-          result.push(item);
-        }
-      }
-    });
+  await appendAllowedFileItemsFromFolder(
+    options,
+    rootPath,
+    folderPath,
+    allowedExtensions,
+    maxItems,
+    result,
+  );
 
   if (result.length >= maxItems) {
     return;
@@ -194,6 +191,44 @@ async function appendFolderFilesRecursive(
       result,
       depth + 1,
     );
+  }
+}
+
+async function appendAllowedFileItemsFromFolder(
+  options: ILoadSharePointReportBrowserItemsOptions,
+  rootPath: string,
+  folderPath: string,
+  allowedExtensions: string[],
+  maxItems: number,
+  result: ISharePointReportBrowserItem[],
+): Promise<void> {
+  let apiUrl = buildFolderChildrenApiUrl(
+    options.webAbsoluteUrl,
+    folderPath,
+    'Files',
+    `$select=Name,ServerRelativeUrl,TimeLastModified&$orderby=Name&$top=${MAX_SHAREPOINT_PAGE_SIZE}`,
+  );
+  const visitedUrls = new Set<string>();
+
+  while (apiUrl && result.length < maxItems && !visitedUrls.has(apiUrl)) {
+    visitedUrls.add(apiUrl);
+    const response = await loadSharePointJson<ISharePointListResponse<ISharePointFileListEntry>>(
+      options,
+      apiUrl,
+    );
+
+    (response.value || [])
+      .filter((file) => isAllowedReportFile(file.ServerRelativeUrl, allowedExtensions))
+      .forEach((file) => {
+        if (result.length < maxItems) {
+          const item = buildFileItem(file, rootPath);
+          if (item) {
+            result.push(item);
+          }
+        }
+      });
+
+    apiUrl = getNextLink(response);
   }
 }
 
@@ -343,7 +378,7 @@ function buildFolderItem(
   return {
     kind: 'Folder',
     name,
-    serverRelativeUrl,
+    serverRelativeUrl: encodeServerRelativeUrlForNavigation(serverRelativeUrl),
     relativePath: getRelativePath(rootPath, serverRelativeUrl),
   };
 }
@@ -361,14 +396,14 @@ function buildFileItem(
   return {
     kind: 'File',
     name,
-    serverRelativeUrl,
+    serverRelativeUrl: encodeServerRelativeUrlForNavigation(serverRelativeUrl),
     relativePath: getRelativePath(rootPath, serverRelativeUrl),
     timeLastModified: file.TimeLastModified,
   };
 }
 
 function normalizeServerRelativeFolderPath(value?: string): string {
-  const trimmed = tryDecodeUriComponent(stripQueryAndHash(value || '').trim()).replace(/\\/g, '/');
+  const trimmed = tryDecodeUriComponent((value || '').trim()).replace(/\\/g, '/');
   if (!trimmed) {
     return '';
   }
@@ -380,6 +415,18 @@ function normalizeServerRelativeFolderPath(value?: string): string {
   return normalized.endsWith('/') && normalized.length > 1
     ? normalized.substring(0, normalized.length - 1)
     : normalized;
+}
+
+function encodeServerRelativeUrlForNavigation(value: string): string {
+  const normalized = normalizeServerRelativeFolderPath(value);
+  if (!normalized) {
+    return '';
+  }
+
+  return normalized
+    .split('/')
+    .map((segment, index) => (index === 0 ? '' : encodeURIComponent(segment)))
+    .join('/');
 }
 
 function normalizeAllowedExtensions(allowedExtensions: string[]): string[] {

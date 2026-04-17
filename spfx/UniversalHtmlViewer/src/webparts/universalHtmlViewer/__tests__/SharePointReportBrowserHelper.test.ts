@@ -233,7 +233,57 @@ describe('SharePointReportBrowserHelper', () => {
         ([url]) => url === 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files',
       ),
     ).toBe(false);
-    expect(spHttpClient.get.mock.calls[0][0]).toContain('$top=1');
+    expect(spHttpClient.get.mock.calls[0][0]).toContain('$top=5000');
+  });
+
+  it('continues file paging until enough allowed reports are found', async () => {
+    const nextFilesLink = 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files';
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        if (url === nextFilesLink) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value: [
+                  {
+                    Name: 'Report.html',
+                    ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Report.html',
+                  },
+                ],
+              }),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              value: url.includes('/Files?')
+                ? [
+                    {
+                      Name: 'Data.csv',
+                      ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Data.csv',
+                    },
+                  ]
+                : [],
+              '@odata.nextLink': url.includes('/Files?') ? nextFilesLink : undefined,
+            }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: '/sites/TestSite1/SiteAssets/Reports',
+      allowedExtensions: ['.html'],
+      view: 'Files',
+      maxItems: 1,
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['Report.html']);
+    expect(spHttpClient.get.mock.calls.some(([url]) => url === nextFilesLink)).toBe(true);
   });
 
   it('preserves file rows when folder view reaches the item cap', async () => {
@@ -364,5 +414,39 @@ describe('SharePointReportBrowserHelper', () => {
     const firstUrl = spHttpClient.get.mock.calls[0][0] as string;
     expect(firstUrl).toContain('My%20Reports');
     expect(firstUrl).not.toContain('My%2520Reports');
+  });
+
+  it('returns navigation-safe encoded server-relative URLs', async () => {
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        const value = url.includes('/Folders?')
+          ? []
+          : [
+              {
+                Name: 'Quarter #1.html',
+                ServerRelativeUrl:
+                  '/sites/TestSite1/SiteAssets/Reports/Quarter%20%231.html',
+              },
+            ];
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ value }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: '/sites/TestSite1/SiteAssets/Reports',
+      allowedExtensions: ['.html'],
+      view: 'Folders',
+      maxItems: 100,
+    });
+
+    expect(items[0].serverRelativeUrl).toBe(
+      '/sites/TestSite1/SiteAssets/Reports/Quarter%20%231.html',
+    );
+    expect(items[0].relativePath).toBe('Quarter #1.html');
   });
 });

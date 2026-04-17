@@ -267,6 +267,10 @@ function normalizePath(pathname: string): string {
   let normalized: string = value;
 
   normalized = normalized.replace(/\\/g, '/');
+  normalized = normalized
+    .split('/')
+    .map((segment) => decodePathSegment(segment))
+    .join('/');
 
   if (!normalized.startsWith('/')) {
     normalized = `/${normalized}`;

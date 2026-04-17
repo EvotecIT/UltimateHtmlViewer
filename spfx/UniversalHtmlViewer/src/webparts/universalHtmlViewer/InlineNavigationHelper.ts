@@ -273,7 +273,7 @@ function getAnchorFromEvent(event: MouseEvent): Element | undefined {
     return undefined;
   }
 
-  const forcedAnchor = forcedUrlContainer.querySelector('a[href], a[xlink\\:href], a');
+  const forcedAnchor = forcedUrlContainer.querySelector('a[href], a[xlink\\:href]');
   if (!forcedAnchor || forcedAnchor.tagName.toLowerCase() !== 'a') {
     return undefined;
   }
@@ -282,7 +282,7 @@ function getAnchorFromEvent(event: MouseEvent): Element | undefined {
 }
 
 function findUniqueDescendantAnchorElement(element: Element): Element | undefined {
-  const anchors = element.querySelectorAll('a[href], a[xlink\\:href], a');
+  const anchors = element.querySelectorAll('a[href], a[xlink\\:href]');
   if (anchors.length !== 1) {
     return undefined;
   }
@@ -297,7 +297,11 @@ function findUniqueDescendantAnchorElement(element: Element): Element | undefine
 
 function findClosestAnchorElement(element: Element): Element | undefined {
   const anchor = element.closest('a');
-  if (!anchor || anchor.tagName.toLowerCase() !== 'a') {
+  if (
+    !anchor ||
+    anchor.tagName.toLowerCase() !== 'a' ||
+    !hasExplicitNavigationHref(anchor)
+  ) {
     return undefined;
   }
 
@@ -373,7 +377,7 @@ function getAnchorNavigationHref(anchor: Element): string {
     return xlinkHref;
   }
 
-  return getAnchorHrefFromProperty(anchor);
+  return '';
 }
 
 function getAnchorAbsoluteHref(anchor: Element, fallbackUrl: string): string {
@@ -437,6 +441,10 @@ function readXLinkHref(anchor: Element): string {
   }
 
   return '';
+}
+
+function hasExplicitNavigationHref(anchor: Element): boolean {
+  return !!(anchor.getAttribute('href') || readXLinkHref(anchor));
 }
 
 function isNonHttpProtocol(value: string): boolean {
