@@ -593,13 +593,11 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0)
       .map((entry) => {
-        let hostValue: string = entry;
+        let hostValue: string;
         try {
-          if (entry.includes('://')) {
-            hostValue = new URL(entry).hostname;
-          } else {
-            hostValue = entry.split('/')[0];
-          }
+          hostValue = entry.includes('://')
+            ? new URL(entry).hostname
+            : entry.split('/')[0];
         } catch {
           hostValue = entry;
         }
