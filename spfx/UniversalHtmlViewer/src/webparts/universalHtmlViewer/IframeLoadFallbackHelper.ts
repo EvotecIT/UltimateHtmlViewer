@@ -71,11 +71,11 @@ function isIframeNavigationAlreadyComplete(iframe: HTMLIFrameElement): boolean {
     const currentHref = String(iframeWindow?.location?.href || '').trim();
     const readyState = String(iframeDocument?.readyState || '').trim().toLowerCase();
 
-    if (currentHref && currentHref !== 'about:blank') {
-      return true;
-    }
-
-    if ((readyState === 'interactive' || readyState === 'complete') && !!iframeDocument) {
+    if (
+      !!iframeDocument &&
+      (readyState === 'interactive' || readyState === 'complete') &&
+      !isInitialBlankIframeUrl(currentHref)
+    ) {
       return true;
     }
   } catch {
@@ -83,4 +83,9 @@ function isIframeNavigationAlreadyComplete(iframe: HTMLIFrameElement): boolean {
   }
 
   return false;
+}
+
+function isInitialBlankIframeUrl(currentHref: string): boolean {
+  const normalizedHref = currentHref.trim().toLowerCase();
+  return !normalizedHref || normalizedHref === 'about:blank';
 }
