@@ -30,6 +30,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
   private reportBrowserView: ReportBrowserDefaultView | undefined;
   private reportBrowserFolderPath: string | undefined;
   private reportBrowserRootPath: string | undefined;
+  private reportBrowserDefaultView: ReportBrowserDefaultView | undefined;
   private reportBrowserLoadRequestId: number = 0;
 
   protected getIframeHeightStyle(props: IUniversalHtmlViewerWebPartProps): string {
@@ -501,12 +502,17 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       return;
     }
 
-    if (this.reportBrowserRootPath !== rootPath) {
+    const defaultView = this.normalizeReportBrowserView(
+      effectiveProps.reportBrowserDefaultView,
+    );
+    if (
+      this.reportBrowserRootPath !== rootPath ||
+      this.reportBrowserDefaultView !== defaultView
+    ) {
       this.reportBrowserRootPath = rootPath;
       this.reportBrowserFolderPath = rootPath;
-      this.reportBrowserView = this.normalizeReportBrowserView(
-        effectiveProps.reportBrowserDefaultView,
-      );
+      this.reportBrowserView = defaultView;
+      this.reportBrowserDefaultView = defaultView;
     }
 
     const viewButtons = this.domElement.querySelectorAll<HTMLButtonElement>(
@@ -772,14 +778,27 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       );
     }
 
+    const sourceDirectory = this.getDirectoryPathFromUrl(baseUrl);
+    if (props.htmlSourceMode === 'FullUrl') {
+      const rootFromSource = normalizeSharePointReportBrowserRootPath(
+        sourceDirectory,
+        this.context.pageContext.web.absoluteUrl,
+      );
+      if (rootFromSource) {
+        return rootFromSource;
+      }
+    }
+
     if (props.basePath) {
-      return normalizeSharePointReportBrowserRootPath(
+      const rootFromBasePath = normalizeSharePointReportBrowserRootPath(
         props.basePath,
         this.context.pageContext.web.absoluteUrl,
       );
+      if (rootFromBasePath) {
+        return rootFromBasePath;
+      }
     }
 
-    const sourceDirectory = this.getDirectoryPathFromUrl(baseUrl);
     return normalizeSharePointReportBrowserRootPath(
       sourceDirectory,
       this.context.pageContext.web.absoluteUrl,
