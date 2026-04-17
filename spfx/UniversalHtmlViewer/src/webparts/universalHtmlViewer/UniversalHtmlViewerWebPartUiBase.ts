@@ -30,6 +30,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
   private reportBrowserView: ReportBrowserDefaultView | undefined;
   private reportBrowserFolderPath: string | undefined;
   private reportBrowserRootPath: string | undefined;
+  private reportBrowserLoadRequestId: number = 0;
 
   protected getIframeHeightStyle(props: IUniversalHtmlViewerWebPartProps): string {
     const heightMode: HeightMode = props.heightMode || 'Fixed';
@@ -595,6 +596,8 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       props.reportBrowserDefaultView,
     );
     const currentFolderPath = this.reportBrowserFolderPath || rootPath;
+    const requestId = this.reportBrowserLoadRequestId + 1;
+    this.reportBrowserLoadRequestId = requestId;
     this.updateReportBrowserStatus('Loading reports...');
 
     try {
@@ -609,8 +612,16 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
         spHttpClientConfiguration: SPHttpClient.configurations.v1,
       });
 
+      if (requestId !== this.reportBrowserLoadRequestId) {
+        return;
+      }
+
       this.renderReportBrowserItems(items, rootPath, currentFolderPath, view);
     } catch (error) {
+      if (requestId !== this.reportBrowserLoadRequestId) {
+        return;
+      }
+
       const message = error instanceof Error ? error.message : 'Unable to load reports.';
       this.updateReportBrowserStatus(message);
       this.updateReportBrowserList('');
