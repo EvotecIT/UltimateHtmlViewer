@@ -773,7 +773,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       return '';
     }
 
-    let path = trimmed;
+    let path: string;
     try {
       path = new URL(trimmed, this.getCurrentPageUrl()).pathname;
     } catch {
