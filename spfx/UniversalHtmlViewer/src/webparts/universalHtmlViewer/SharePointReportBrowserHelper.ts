@@ -79,18 +79,18 @@ export async function loadSharePointReportBrowserItems(
     loadFileEntries(options, currentFolderPath, maxItems),
   ]);
 
-  return [
-    ...folders
-      .filter((folder) => !skippedFolderNames.has(String(folder.Name || '').toLowerCase()))
-      .map((folder) =>
-        buildFolderItem(folder, rootPath),
-      )
-      .filter((item): item is ISharePointReportBrowserItem => !!item),
-    ...files
-      .filter((file) => isAllowedReportFile(file.ServerRelativeUrl, allowedExtensions))
-      .map((file) => buildFileItem(file, rootPath))
-      .filter((item): item is ISharePointReportBrowserItem => !!item),
-  ].slice(0, maxItems);
+  const folderItems = folders
+    .filter((folder) => !skippedFolderNames.has(String(folder.Name || '').toLowerCase()))
+    .map((folder) =>
+      buildFolderItem(folder, rootPath),
+    )
+    .filter((item): item is ISharePointReportBrowserItem => !!item);
+  const fileItems = files
+    .filter((file) => isAllowedReportFile(file.ServerRelativeUrl, allowedExtensions))
+    .map((file) => buildFileItem(file, rootPath))
+    .filter((item): item is ISharePointReportBrowserItem => !!item);
+
+  return mergeFolderViewItems(folderItems, fileItems, maxItems);
 }
 
 export function normalizeSharePointReportBrowserRootPath(
@@ -258,6 +258,42 @@ function getNextLink<T>(response: ISharePointListResponse<T>): string {
   return response['@odata.nextLink'] || response['odata.nextLink'] || '';
 }
 
+function mergeFolderViewItems(
+  folders: ISharePointReportBrowserItem[],
+  files: ISharePointReportBrowserItem[],
+  maxItems: number,
+): ISharePointReportBrowserItem[] {
+  if (folders.length + files.length <= maxItems) {
+    return [...folders, ...files];
+  }
+
+  if (maxItems <= 1) {
+    return files.length > 0 ? files.slice(0, 1) : folders.slice(0, 1);
+  }
+
+  if (folders.length === 0) {
+    return files.slice(0, maxItems);
+  }
+
+  if (files.length === 0) {
+    return folders.slice(0, maxItems);
+  }
+
+  const fileBudget = Math.max(1, Math.min(files.length, Math.floor(maxItems / 2)));
+  const folderBudget = Math.max(1, Math.min(folders.length, maxItems - fileBudget));
+  const remainingBudget = maxItems - folderBudget - fileBudget;
+  const extraFolders = Math.max(0, Math.min(remainingBudget, folders.length - folderBudget));
+  const extraFiles = Math.max(
+    0,
+    Math.min(remainingBudget - extraFolders, files.length - fileBudget),
+  );
+
+  return [
+    ...folders.slice(0, folderBudget + extraFolders),
+    ...files.slice(0, fileBudget + extraFiles),
+  ];
+}
+
 async function loadSharePointJson<T>(
   options: ILoadSharePointReportBrowserItemsOptions,
   apiUrl: string,
@@ -378,7 +414,11 @@ function normalizeSharePointPageSize(value?: number): number {
 }
 
 function normalizeSharePointEntryLimit(value?: number): number {
-  return normalizeSharePointPageSize(value);
+  if (!Number.isFinite(value) || !value || value <= 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.max(1, Math.floor(value));
 }
 
 function getRelativePath(rootPath: string, serverRelativeUrl: string): string {

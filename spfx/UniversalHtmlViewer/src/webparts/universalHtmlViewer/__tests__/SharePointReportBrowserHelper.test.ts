@@ -236,6 +236,112 @@ describe('SharePointReportBrowserHelper', () => {
     expect(spHttpClient.get.mock.calls[0][0]).toContain('$top=1');
   });
 
+  it('preserves file rows when folder view reaches the item cap', async () => {
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        const value = url.includes('/Folders?')
+          ? [
+              {
+                Name: 'Folder 1',
+                ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Folder1',
+              },
+              {
+                Name: 'Folder 2',
+                ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Folder2',
+              },
+            ]
+          : [
+              {
+                Name: 'Index.html',
+                ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Index.html',
+              },
+            ];
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ value }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: '/sites/TestSite1/SiteAssets/Reports',
+      allowedExtensions: ['.html'],
+      view: 'Folders',
+      maxItems: 2,
+    });
+
+    expect(items.map((item) => item.kind)).toEqual(['Folder', 'File']);
+    expect(items.map((item) => item.name)).toContain('Index.html');
+  });
+
+  it('does not cap recursive folder paging when searching for files', async () => {
+    const folderNextLink = 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-folders';
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        if (url === folderNextLink) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value: [
+                  {
+                    Name: 'Folder 2',
+                    ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Folder2',
+                  },
+                ],
+              }),
+          });
+        }
+
+        if (url.includes('/Folders?')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value: [
+                  {
+                    Name: 'Folder 1',
+                    ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Folder1',
+                  },
+                ],
+                '@odata.nextLink': folderNextLink,
+              }),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              value: url.includes('/Files?') && url.includes('Folder1')
+                ? [
+                    {
+                      Name: 'Nested.html',
+                      ServerRelativeUrl:
+                        '/sites/TestSite1/SiteAssets/Reports/Folder1/Nested.html',
+                    },
+                  ]
+                : [],
+            }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: '/sites/TestSite1/SiteAssets/Reports',
+      allowedExtensions: ['.html'],
+      view: 'Files',
+      maxItems: 1,
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['Nested.html']);
+    expect(spHttpClient.get.mock.calls.some(([url]) => url === folderNextLink)).toBe(true);
+  });
+
   it('does not double-encode URL-derived folder paths', async () => {
     const spHttpClient = {
       get: jest.fn((_url: string) =>
