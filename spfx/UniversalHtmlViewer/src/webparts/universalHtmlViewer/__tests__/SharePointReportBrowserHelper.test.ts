@@ -178,6 +178,64 @@ describe('SharePointReportBrowserHelper', () => {
     );
   });
 
+  it('stops paging when max item budget is reached', async () => {
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        if (url === 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value: [
+                  {
+                    Name: 'Second.html',
+                    ServerRelativeUrl:
+                      '/sites/TestSite1/SiteAssets/Reports/Second.html',
+                  },
+                ],
+              }),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              value: url.includes('/Folders?')
+                ? []
+                : [
+                    {
+                      Name: 'First.html',
+                      ServerRelativeUrl:
+                        '/sites/TestSite1/SiteAssets/Reports/First.html',
+                    },
+                  ],
+              '@odata.nextLink': url.includes('/Files?')
+                ? 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files'
+                : undefined,
+            }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: '/sites/TestSite1/SiteAssets/Reports',
+      allowedExtensions: ['.html'],
+      view: 'Files',
+      maxItems: 1,
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['First.html']);
+    expect(
+      spHttpClient.get.mock.calls.some(
+        ([url]) => url === 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files',
+      ),
+    ).toBe(false);
+    expect(spHttpClient.get.mock.calls[0][0]).toContain('$top=1');
+  });
+
   it('does not double-encode URL-derived folder paths', async () => {
     const spHttpClient = {
       get: jest.fn((_url: string) =>

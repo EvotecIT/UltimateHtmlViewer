@@ -39,6 +39,7 @@ interface ISharePointListResponse<T> {
 
 const DEFAULT_MAX_ITEMS = 300;
 const MAX_RECURSION_DEPTH = 12;
+const MAX_SHAREPOINT_PAGE_SIZE = 5000;
 const skippedFolderNames = new Set<string>(['forms']);
 
 export async function loadSharePointReportBrowserItems(
@@ -74,8 +75,8 @@ export async function loadSharePointReportBrowserItems(
   }
 
   const [folders, files] = await Promise.all([
-    loadFolderEntries(options, currentFolderPath),
-    loadFileEntries(options, currentFolderPath),
+    loadFolderEntries(options, currentFolderPath, maxItems),
+    loadFileEntries(options, currentFolderPath, maxItems),
   ]);
 
   return [
@@ -156,7 +157,7 @@ async function appendFolderFilesRecursive(
     return;
   }
 
-  const files = await loadFileEntries(options, folderPath);
+  const files = await loadFileEntries(options, folderPath, maxItems - result.length);
   files
     .filter((file) => isAllowedReportFile(file.ServerRelativeUrl, allowedExtensions))
     .forEach((file) => {
@@ -199,54 +200,58 @@ async function appendFolderFilesRecursive(
 async function loadFolderEntries(
   options: ILoadSharePointReportBrowserItemsOptions,
   folderPath: string,
+  maxEntries?: number,
 ): Promise<ISharePointFolderListEntry[]> {
   const apiUrl = buildFolderChildrenApiUrl(
     options.webAbsoluteUrl,
     folderPath,
     'Folders',
-    '$select=Name,ServerRelativeUrl&$orderby=Name',
+    `$select=Name,ServerRelativeUrl&$orderby=Name&$top=${normalizeSharePointPageSize(maxEntries)}`,
   );
   const response = await loadSharePointJson<ISharePointListResponse<ISharePointFolderListEntry>>(
     options,
     apiUrl,
   );
-  return loadSharePointPagedListEntries(options, response, apiUrl);
+  return loadSharePointPagedListEntries(options, response, apiUrl, maxEntries);
 }
 
 async function loadFileEntries(
   options: ILoadSharePointReportBrowserItemsOptions,
   folderPath: string,
+  maxEntries?: number,
 ): Promise<ISharePointFileListEntry[]> {
   const apiUrl = buildFolderChildrenApiUrl(
     options.webAbsoluteUrl,
     folderPath,
     'Files',
-    '$select=Name,ServerRelativeUrl,TimeLastModified&$orderby=Name',
+    `$select=Name,ServerRelativeUrl,TimeLastModified&$orderby=Name&$top=${normalizeSharePointPageSize(maxEntries)}`,
   );
   const response = await loadSharePointJson<ISharePointListResponse<ISharePointFileListEntry>>(
     options,
     apiUrl,
   );
-  return loadSharePointPagedListEntries(options, response, apiUrl);
+  return loadSharePointPagedListEntries(options, response, apiUrl, maxEntries);
 }
 
 async function loadSharePointPagedListEntries<T>(
   options: ILoadSharePointReportBrowserItemsOptions,
   firstPage: ISharePointListResponse<T>,
   firstPageUrl: string,
+  maxEntries?: number,
 ): Promise<T[]> {
+  const entryLimit = normalizeSharePointEntryLimit(maxEntries);
   const entries: T[] = [...(firstPage.value || [])];
   let nextLink = getNextLink(firstPage);
   const visitedUrls = new Set<string>([firstPageUrl]);
 
-  while (nextLink && !visitedUrls.has(nextLink)) {
+  while (nextLink && entries.length < entryLimit && !visitedUrls.has(nextLink)) {
     visitedUrls.add(nextLink);
     const nextPage = await loadSharePointJson<ISharePointListResponse<T>>(options, nextLink);
     entries.push(...(nextPage.value || []));
     nextLink = getNextLink(nextPage);
   }
 
-  return entries;
+  return entries.slice(0, entryLimit);
 }
 
 function getNextLink<T>(response: ISharePointListResponse<T>): string {
@@ -362,6 +367,18 @@ function normalizeMaxItems(value: number): number {
     return DEFAULT_MAX_ITEMS;
   }
   return Math.max(1, Math.min(Math.floor(value), 1000));
+}
+
+function normalizeSharePointPageSize(value?: number): number {
+  if (!Number.isFinite(value) || !value || value <= 0) {
+    return MAX_SHAREPOINT_PAGE_SIZE;
+  }
+
+  return Math.max(1, Math.min(Math.floor(value), MAX_SHAREPOINT_PAGE_SIZE));
+}
+
+function normalizeSharePointEntryLimit(value?: number): number {
+  return normalizeSharePointPageSize(value);
 }
 
 function getRelativePath(rootPath: string, serverRelativeUrl: string): string {
