@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import { getQueryStringParam } from './QueryStringHelper';
@@ -17,6 +18,7 @@ import {
   TenantConfigMode,
   isInlineContentDeliveryMode,
 } from './UniversalHtmlViewerTypes';
+import { normalizeSharePointReportBrowserRootPath } from './SharePointReportBrowserHelper';
 
 const blockedTenantConfigKeys = new Set<string>(['__proto__', 'prototype', 'constructor']);
 const tenantMergeDefaultValues: Record<string, boolean | number> = {
@@ -33,6 +35,8 @@ const tenantMergeDefaultValues: Record<string, boolean | number> = {
   showConfigActions: false,
   showDashboardSelector: false,
   allowQueryStringPageOverride: false,
+  showReportBrowser: false,
+  reportBrowserMaxItems: 300,
   showChrome: true,
   showOpenInNewTab: true,
   showRefreshButton: true,
@@ -82,6 +86,20 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       )
     ) {
       allowedPathPrefixes.push(inferredSourcePathPrefix);
+    }
+    const inferredReportBrowserPathPrefix = this.inferReportBrowserPathPrefix(
+      effectiveProps,
+      currentPageUrl,
+    );
+    if (
+      inferredReportBrowserPathPrefix &&
+      !allowedPathPrefixes.some(
+        (prefix) =>
+          this.normalizePathPrefixForComparison(prefix) ===
+          this.normalizePathPrefixForComparison(inferredReportBrowserPathPrefix),
+      )
+    ) {
+      allowedPathPrefixes.push(inferredReportBrowserPathPrefix);
     }
     const allowedFileExtensions: string[] = this.parseFileExtensions(
       effectiveProps.allowedFileExtensions,
@@ -160,6 +178,30 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     });
 
     return uniquePrefixes.sort((left, right) => left.length - right.length)[0];
+  }
+
+  private inferReportBrowserPathPrefix(
+    effectiveProps: IUniversalHtmlViewerWebPartProps,
+    currentPageUrl: string,
+  ): string | undefined {
+    const deliveryMode = this.resolveContentDeliveryMode(effectiveProps);
+    if (
+      !isInlineContentDeliveryMode(deliveryMode) ||
+      effectiveProps.showReportBrowser !== true
+    ) {
+      return undefined;
+    }
+
+    const configuredRootPath = (effectiveProps.reportBrowserRootPath || '').trim();
+    if (!configuredRootPath) {
+      return undefined;
+    }
+
+    const normalizedRootPath = normalizeSharePointReportBrowserRootPath(
+      configuredRootPath,
+      this.context.pageContext.web.absoluteUrl || currentPageUrl,
+    );
+    return normalizedRootPath ? `${normalizedRootPath}/` : undefined;
   }
 
   private tryGetCurrentWebPrefix(): string | undefined {

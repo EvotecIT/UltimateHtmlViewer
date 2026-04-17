@@ -29,6 +29,7 @@ const enumValues: Record<string, string[]> = {
     'unsafe-url',
   ],
   chromeDensity: ['Comfortable', 'Compact'],
+  reportBrowserDefaultView: ['Folders', 'Files'],
 };
 
 const numberRanges: Record<string, { min: number; max: number }> = {
@@ -36,6 +37,7 @@ const numberRanges: Record<string, { min: number; max: number }> = {
   iframeLoadTimeoutSeconds: { min: 0, max: 60 },
   refreshIntervalMinutes: { min: 0, max: 120 },
   inlineContentCacheTtlSeconds: { min: 0, max: 300 },
+  reportBrowserMaxItems: { min: 1, max: 1000 },
 };
 
 const booleanKeys = new Set<string>([
@@ -54,6 +56,7 @@ const booleanKeys = new Set<string>([
   'showDashboardSelector',
   'allowQueryStringPageOverride',
   'enforceStrictInlineCsp',
+  'showReportBrowser',
 ]);
 
 const numberKeys = new Set<string>([
@@ -61,6 +64,7 @@ const numberKeys = new Set<string>([
   'iframeLoadTimeoutSeconds',
   'refreshIntervalMinutes',
   'inlineContentCacheTtlSeconds',
+  'reportBrowserMaxItems',
 ]);
 
 const stringKeys = new Set<string>([
@@ -92,6 +96,8 @@ const stringKeys = new Set<string>([
   'chromeTitle',
   'chromeSubtitle',
   'chromeDensity',
+  'reportBrowserRootPath',
+  'reportBrowserDefaultView',
 ]);
 
 const allSupportedKeys = new Set<string>([
@@ -259,6 +265,10 @@ export function buildConfigExport(
     showConfigActions: props.showConfigActions === true,
     showDashboardSelector: props.showDashboardSelector === true,
     allowQueryStringPageOverride: props.allowQueryStringPageOverride === true,
+    showReportBrowser: props.showReportBrowser === true,
+    reportBrowserRootPath: props.reportBrowserRootPath || '',
+    reportBrowserDefaultView: props.reportBrowserDefaultView || 'Folders',
+    reportBrowserMaxItems: props.reportBrowserMaxItems ?? 300,
   };
 }
 

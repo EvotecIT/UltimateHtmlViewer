@@ -1,4 +1,6 @@
+/* eslint-disable max-lines */
 import { escape } from '@microsoft/sp-lodash-subset';
+import { SPHttpClient } from '@microsoft/sp-http';
 import styles from './UniversalHtmlViewerWebPart.module.scss';
 import {
   applyImportedConfigToProps,
@@ -10,13 +12,25 @@ import {
   ConfigurationPreset,
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
+  ReportBrowserDefaultView,
 } from './UniversalHtmlViewerTypes';
 import {
   buildOpenInNewTabUrl,
 } from './InlineDeepLinkHelper';
 import { UniversalHtmlViewerWebPartRuntimeBase } from './UniversalHtmlViewerWebPartRuntimeBase';
+import {
+  getReportBrowserParentFolderPath,
+  ISharePointReportBrowserItem,
+  isPathInsideRoot,
+  loadSharePointReportBrowserItems,
+  normalizeSharePointReportBrowserRootPath,
+} from './SharePointReportBrowserHelper';
 
 export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlViewerWebPartRuntimeBase {
+  private reportBrowserView: ReportBrowserDefaultView | undefined;
+  private reportBrowserFolderPath: string | undefined;
+  private reportBrowserRootPath: string | undefined;
+
   protected getIframeHeightStyle(props: IUniversalHtmlViewerWebPartProps): string {
     const heightMode: HeightMode = props.heightMode || 'Fixed';
 
@@ -192,6 +206,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     const dashboardHtml: string = showDashboardSelector
       ? this.buildDashboardSelectorHtml(props.dashboardList, currentDashboardId)
       : '';
+    const reportBrowserHtml: string = this.buildReportBrowserHtml(props);
 
     return `
       <div class="${chromeClass}">
@@ -208,7 +223,8 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
           ${openInNewTabHtml}
         </div>
       </div>
-      ${dashboardHtml}`;
+      ${dashboardHtml}
+      ${reportBrowserHtml}`;
   }
   private getOpenInNewTabUrl(
     resolvedUrl: string,
@@ -274,6 +290,35 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
         <select class="${styles.dashboardSelect}" data-uhv-dashboard-select>
           ${optionsHtml}
         </select>
+      </div>`;
+  }
+
+  private buildReportBrowserHtml(props: IUniversalHtmlViewerWebPartProps): string {
+    if (props.showReportBrowser !== true || !props.showChrome) {
+      return '';
+    }
+
+    const defaultView = this.normalizeReportBrowserView(props.reportBrowserDefaultView);
+    const currentView = this.reportBrowserView || defaultView;
+    const folderButtonClass =
+      currentView === 'Folders'
+        ? `${styles.reportBrowserViewButton} ${styles.reportBrowserViewButtonActive}`
+        : styles.reportBrowserViewButton;
+    const filesButtonClass =
+      currentView === 'Files'
+        ? `${styles.reportBrowserViewButton} ${styles.reportBrowserViewButtonActive}`
+        : styles.reportBrowserViewButton;
+
+    return `
+      <div class="${styles.reportBrowser}" data-uhv-report-browser>
+        <div class="${styles.reportBrowserToolbar}">
+          <div class="${styles.reportBrowserTitle}">Reports</div>
+          <button class="${folderButtonClass}" type="button" data-uhv-report-view="Folders">Folders</button>
+          <button class="${filesButtonClass}" type="button" data-uhv-report-view="Files">Files</button>
+          <input class="${styles.reportBrowserSearch}" type="search" placeholder="Filter reports" data-uhv-report-filter />
+        </div>
+        <div class="${styles.reportBrowserStatus}" data-uhv-report-status>Loading reports...</div>
+        <div class="${styles.reportBrowserList}" data-uhv-report-list></div>
       </div>`;
   }
 
@@ -416,11 +461,368 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       });
     }
 
+    this.attachReportBrowserHandlers(
+      baseUrl,
+      cacheBusterMode,
+      cacheBusterParamName,
+      pageUrl,
+      effectiveProps,
+    );
+
     const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
     if (iframe) {
       iframe.addEventListener('load', () => {
         this.setLoadingVisible(false);
       });
+    }
+  }
+
+  private attachReportBrowserHandlers(
+    baseUrl: string,
+    cacheBusterMode: CacheBusterMode,
+    cacheBusterParamName: string,
+    pageUrl: string,
+    effectiveProps: IUniversalHtmlViewerWebPartProps,
+  ): void {
+    const browserElement: HTMLElement | null = this.domElement.querySelector(
+      '[data-uhv-report-browser]',
+    );
+    if (!browserElement || effectiveProps.showReportBrowser !== true) {
+      return;
+    }
+
+    const rootPath = this.getEffectiveReportBrowserRootPath(
+      effectiveProps,
+      baseUrl,
+    );
+    if (!rootPath) {
+      this.updateReportBrowserStatus('Configure a report browser root folder.');
+      return;
+    }
+
+    if (this.reportBrowserRootPath !== rootPath) {
+      this.reportBrowserRootPath = rootPath;
+      this.reportBrowserFolderPath = rootPath;
+      this.reportBrowserView = this.normalizeReportBrowserView(
+        effectiveProps.reportBrowserDefaultView,
+      );
+    }
+
+    const viewButtons = this.domElement.querySelectorAll<HTMLButtonElement>(
+      '[data-uhv-report-view]',
+    );
+    viewButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextView = this.normalizeReportBrowserView(
+          button.getAttribute('data-uhv-report-view') || undefined,
+        );
+        this.reportBrowserView = nextView;
+        if (nextView === 'Files') {
+          this.reportBrowserFolderPath = rootPath;
+        }
+        this.updateReportBrowserViewButtons(nextView);
+        this.loadAndRenderReportBrowser(effectiveProps, rootPath).catch(() => {
+          return undefined;
+        });
+      });
+    });
+
+    const filterInput: HTMLInputElement | null = this.domElement.querySelector(
+      '[data-uhv-report-filter]',
+    );
+    if (filterInput) {
+      filterInput.addEventListener('input', () => {
+        this.filterReportBrowserRows(filterInput.value);
+      });
+    }
+
+    const listElement: HTMLElement | null = this.domElement.querySelector(
+      '[data-uhv-report-list]',
+    );
+    if (listElement) {
+      listElement.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+
+        const folderButton = target.closest<HTMLButtonElement>(
+          '[data-uhv-report-folder]',
+        );
+        if (folderButton) {
+          const folderPath = folderButton.getAttribute('data-uhv-report-folder') || '';
+          if (folderPath && isPathInsideRoot(folderPath, rootPath)) {
+            this.reportBrowserFolderPath = folderPath;
+            this.loadAndRenderReportBrowser(effectiveProps, rootPath).catch(() => {
+              return undefined;
+            });
+          }
+          return;
+        }
+
+        const fileButton = target.closest<HTMLButtonElement>('[data-uhv-report-file]');
+        if (!fileButton) {
+          return;
+        }
+
+        const filePath = fileButton.getAttribute('data-uhv-report-file') || '';
+        if (!filePath) {
+          return;
+        }
+
+        this.handleReportBrowserFileSelection(
+          filePath,
+          effectiveProps,
+          pageUrl,
+          cacheBusterMode,
+          cacheBusterParamName,
+        ).catch(() => {
+          return undefined;
+        });
+      });
+    }
+
+    this.loadAndRenderReportBrowser(effectiveProps, rootPath).catch(() => {
+      return undefined;
+    });
+  }
+
+  private async loadAndRenderReportBrowser(
+    props: IUniversalHtmlViewerWebPartProps,
+    rootPath: string,
+  ): Promise<void> {
+    const view = this.reportBrowserView || this.normalizeReportBrowserView(
+      props.reportBrowserDefaultView,
+    );
+    const currentFolderPath = this.reportBrowserFolderPath || rootPath;
+    this.updateReportBrowserStatus('Loading reports...');
+
+    try {
+      const items = await loadSharePointReportBrowserItems({
+        spHttpClient: this.context.spHttpClient,
+        webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
+        rootPath,
+        currentFolderPath,
+        allowedExtensions: this.parseFileExtensions(props.allowedFileExtensions),
+        view,
+        maxItems: props.reportBrowserMaxItems ?? 300,
+        spHttpClientConfiguration: SPHttpClient.configurations.v1,
+      });
+
+      this.renderReportBrowserItems(items, rootPath, currentFolderPath, view);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load reports.';
+      this.updateReportBrowserStatus(message);
+      this.updateReportBrowserList('');
+    }
+  }
+
+  private renderReportBrowserItems(
+    items: ISharePointReportBrowserItem[],
+    rootPath: string,
+    currentFolderPath: string,
+    view: ReportBrowserDefaultView,
+  ): void {
+    const rows: string[] = [];
+    if (view === 'Folders' && currentFolderPath !== rootPath) {
+      const parentPath = getReportBrowserParentFolderPath(rootPath, currentFolderPath);
+      rows.push(this.buildReportBrowserFolderRow('..', parentPath, 'Parent folder'));
+    }
+
+    items.forEach((item) => {
+      if (item.kind === 'Folder') {
+        rows.push(
+          this.buildReportBrowserFolderRow(
+            item.name,
+            item.serverRelativeUrl,
+            item.relativePath || item.name,
+          ),
+        );
+      } else {
+        rows.push(this.buildReportBrowserFileRow(item, view));
+      }
+    });
+
+    this.updateReportBrowserList(rows.join(''));
+    const visibleItemCount = items.length;
+    const scopeLabel =
+      view === 'Files'
+        ? 'all accessible files'
+        : this.getReportBrowserFolderLabel(rootPath, currentFolderPath);
+    this.updateReportBrowserStatus(`${visibleItemCount} item(s) in ${scopeLabel}`);
+  }
+
+  private buildReportBrowserFolderRow(
+    label: string,
+    folderPath: string,
+    title: string,
+  ): string {
+    return `
+      <button class="${styles.reportBrowserRow}" type="button" data-uhv-report-folder="${escape(folderPath)}" data-uhv-report-row>
+        <span class="${styles.reportBrowserIcon}">Folder</span>
+        <span class="${styles.reportBrowserName}">${escape(label)}</span>
+        <span class="${styles.reportBrowserPath}">${escape(title)}</span>
+      </button>`;
+  }
+
+  private buildReportBrowserFileRow(
+    item: ISharePointReportBrowserItem,
+    view: ReportBrowserDefaultView,
+  ): string {
+    const label = view === 'Files' && item.relativePath ? item.relativePath : item.name;
+    const modifiedLabel = item.timeLastModified
+      ? new Date(item.timeLastModified).toLocaleString()
+      : '';
+    return `
+      <button class="${styles.reportBrowserRow}" type="button" data-uhv-report-file="${escape(item.serverRelativeUrl)}" data-uhv-report-row>
+        <span class="${styles.reportBrowserIcon}">HTML</span>
+        <span class="${styles.reportBrowserName}">${escape(label)}</span>
+        <span class="${styles.reportBrowserPath}">${escape(modifiedLabel || item.relativePath)}</span>
+      </button>`;
+  }
+
+  private updateReportBrowserViewButtons(view: ReportBrowserDefaultView): void {
+    const viewButtons = this.domElement.querySelectorAll<HTMLButtonElement>(
+      '[data-uhv-report-view]',
+    );
+    viewButtons.forEach((button) => {
+      const buttonView = this.normalizeReportBrowserView(
+        button.getAttribute('data-uhv-report-view') || undefined,
+      );
+      if (buttonView === view) {
+        button.classList.add(styles.reportBrowserViewButtonActive);
+      } else {
+        button.classList.remove(styles.reportBrowserViewButtonActive);
+      }
+    });
+  }
+
+  private filterReportBrowserRows(filterValue: string): void {
+    const normalizedFilter = filterValue.trim().toLowerCase();
+    const rows = this.domElement.querySelectorAll<HTMLElement>('[data-uhv-report-row]');
+    rows.forEach((row) => {
+      const text = row.textContent || '';
+      row.style.display =
+        !normalizedFilter || text.toLowerCase().includes(normalizedFilter) ? '' : 'none';
+    });
+  }
+
+  private async handleReportBrowserFileSelection(
+    filePath: string,
+    props: IUniversalHtmlViewerWebPartProps,
+    pageUrl: string,
+    cacheBusterMode: CacheBusterMode,
+    cacheBusterParamName: string,
+  ): Promise<void> {
+    const currentPageUrl: string = this.getCurrentPageUrl() || pageUrl;
+    const validationOptions = this.buildUrlValidationOptions(currentPageUrl, props);
+    this.lastValidationOptions = validationOptions;
+    if (!isUrlAllowed(filePath, validationOptions)) {
+      this.updateReportBrowserStatus('Selected report is not allowed by UHV security settings.');
+      return;
+    }
+
+    this.lastCacheBusterMode = cacheBusterMode;
+    this.setLoadingVisible(true);
+    this.currentBaseUrl = filePath;
+    this.onNavigatedToUrl(filePath, currentPageUrl);
+    const updatedPageUrl: string = this.getCurrentPageUrl() || currentPageUrl;
+    this.updateOpenInNewTabLink(filePath, updatedPageUrl, props);
+    this.setupIframeLoadFallback(filePath, props);
+    await this.refreshIframe(
+      filePath,
+      cacheBusterMode,
+      cacheBusterParamName,
+      updatedPageUrl,
+      true,
+      true,
+    );
+    this.setupAutoRefresh(filePath, cacheBusterMode, cacheBusterParamName, updatedPageUrl, props);
+    this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+  }
+
+  private getEffectiveReportBrowserRootPath(
+    props: IUniversalHtmlViewerWebPartProps,
+    baseUrl: string,
+  ): string {
+    const configuredRootPath = (props.reportBrowserRootPath || '').trim();
+    if (configuredRootPath) {
+      return normalizeSharePointReportBrowserRootPath(
+        configuredRootPath,
+        this.context.pageContext.web.absoluteUrl,
+      );
+    }
+
+    if (props.basePath) {
+      return normalizeSharePointReportBrowserRootPath(
+        props.basePath,
+        this.context.pageContext.web.absoluteUrl,
+      );
+    }
+
+    const sourceDirectory = this.getDirectoryPathFromUrl(baseUrl);
+    return normalizeSharePointReportBrowserRootPath(
+      sourceDirectory,
+      this.context.pageContext.web.absoluteUrl,
+    );
+  }
+
+  private getDirectoryPathFromUrl(value: string): string {
+    const trimmed = (value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    let path = trimmed;
+    try {
+      path = new URL(trimmed, this.getCurrentPageUrl()).pathname;
+    } catch {
+      path = trimmed;
+    }
+
+    const queryIndex = path.indexOf('?');
+    if (queryIndex !== -1) {
+      path = path.substring(0, queryIndex);
+    }
+    const hashIndex = path.indexOf('#');
+    if (hashIndex !== -1) {
+      path = path.substring(0, hashIndex);
+    }
+
+    const lastSlashIndex = path.lastIndexOf('/');
+    return lastSlashIndex <= 0 ? path : path.substring(0, lastSlashIndex);
+  }
+
+  private getReportBrowserFolderLabel(rootPath: string, currentFolderPath: string): string {
+    if (rootPath === currentFolderPath) {
+      return 'root folder';
+    }
+
+    const relativePath = currentFolderPath.substring(rootPath.length).replace(/^\/+/, '');
+    return relativePath || 'root folder';
+  }
+
+  private normalizeReportBrowserView(
+    value?: string,
+  ): ReportBrowserDefaultView {
+    return value === 'Files' ? 'Files' : 'Folders';
+  }
+
+  private updateReportBrowserStatus(message: string): void {
+    const statusElement: HTMLElement | null = this.domElement.querySelector(
+      '[data-uhv-report-status]',
+    );
+    if (statusElement) {
+      statusElement.textContent = message;
+    }
+  }
+
+  private updateReportBrowserList(html: string): void {
+    const listElement: HTMLElement | null = this.domElement.querySelector(
+      '[data-uhv-report-list]',
+    );
+    if (listElement) {
+      listElement.innerHTML = html;
     }
   }
 

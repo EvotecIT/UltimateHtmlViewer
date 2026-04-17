@@ -165,7 +165,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       propertyPath === 'configurationPreset' ||
       propertyPath === 'lockPresetSettings' ||
       propertyPath === 'tenantConfigMode' ||
-      propertyPath === 'showDashboardSelector'
+      propertyPath === 'showDashboardSelector' ||
+      propertyPath === 'showReportBrowser'
     ) {
       this.context.propertyPane.refresh();
     }
@@ -212,6 +213,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const isPresetLocked: boolean =
       !!this.properties.lockPresetSettings && preset !== 'Custom';
     const showDashboardSelector: boolean = this.properties.showDashboardSelector === true;
+    const showReportBrowser: boolean = this.properties.showReportBrowser === true;
     const showLegacyDirectUrlOption: boolean =
       enableExpertSecurityModes ||
       currentContentDeliveryMode === 'DirectUrl' ||
@@ -410,6 +412,33 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   label: 'Dashboard list (comma-separated)',
                   description: 'Optional list, e.g. Sales|sales, Ops|ops',
                   disabled: !showDashboardSelector,
+                }),
+                PropertyPaneToggle('showReportBrowser', {
+                  label: 'Show SharePoint report browser',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !showChrome || !isInlineContentMode,
+                }),
+                PropertyPaneTextField('reportBrowserRootPath', {
+                  label: 'Report browser root folder',
+                  description:
+                    'Server-relative or web-relative folder, e.g. /sites/Reports/SiteAssets/Reports',
+                  disabled: !showReportBrowser || !isInlineContentMode,
+                }),
+                PropertyPaneDropdown('reportBrowserDefaultView', {
+                  label: 'Report browser default view',
+                  options: [
+                    { key: 'Folders', text: 'Folders' },
+                    { key: 'Files', text: 'Files (recursive)' },
+                  ],
+                  disabled: !showReportBrowser || !isInlineContentMode,
+                }),
+                PropertyPaneSlider('reportBrowserMaxItems', {
+                  label: 'Report browser max files/items',
+                  min: 25,
+                  max: 1000,
+                  step: 25,
+                  disabled: !showReportBrowser || !isInlineContentMode,
                 }),
               ],
             },

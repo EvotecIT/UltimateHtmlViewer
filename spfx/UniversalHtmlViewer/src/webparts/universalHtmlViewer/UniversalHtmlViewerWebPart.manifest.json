@@ -3,7 +3,7 @@
   "id": "b5e51af1-1d0c-4b57-9b90-4f2af5120a4d",
   "alias": "UniversalHtmlViewerWebPart",
   "componentType": "WebPart",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "manifestVersion": 2,
   "requiresCustomScript": false,
   "supportsFullBleed": true,
@@ -72,7 +72,11 @@
         "showLoadingIndicator": true,
         "showConfigActions": false,
         "showDashboardSelector": false,
-        "allowQueryStringPageOverride": false
+        "allowQueryStringPageOverride": false,
+        "showReportBrowser": false,
+        "reportBrowserRootPath": "",
+        "reportBrowserDefaultView": "Folders",
+        "reportBrowserMaxItems": 300
       }
     }
   ]

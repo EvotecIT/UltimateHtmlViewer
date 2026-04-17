@@ -12,8 +12,8 @@ SPFx security-uplift spike runbook: `docs/SPFx-Security-Uplift-Spike.md`
 ## 📦 Platform and Compatibility
 
 - SPFx runtime target: `1.22.2` packages in `spfx/UniversalHtmlViewer/package.json`.
-- SharePoint package version (`.sppkg`): `1.0.32.6` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
-- Web part manifest version: `1.0.21` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
+- SharePoint package version (`.sppkg`): `1.0.32.7` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
+- Web part manifest version: `1.0.22` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
 - Node for CI/build: `22.x` (see GitHub workflows and package engine constraint).
 
 ## 🔄 CI/CD Workflows
@@ -224,6 +224,10 @@ sequenceDiagram
 | `fitContentWidth` | `true` | Shrinks wide report content to frame width. |
 | `showChrome` | `true` | Top header with status/actions. |
 | `showOpenInNewTab` | `true` | Gives fallback path to open raw report page. |
+| `showReportBrowser` | `true` / `false` | Shows a SharePoint-backed report picker above the iframe. |
+| `reportBrowserRootPath` | folder path | Root folder to enumerate with SharePoint REST security trimming. |
+| `reportBrowserDefaultView` | `Folders`, `Files` | Starts the picker in folder navigation or recursive file-list mode. |
+| `reportBrowserMaxItems` | `300` | Limits recursive file-list results to avoid expensive folder scans. |
 
 ### Security and iframe policy
 
@@ -258,8 +262,17 @@ When reports live under one SharePoint folder tree, prefer one UHV host page plu
 - Set one default entry file.
 - Enable `allowQueryStringPageOverride`.
 - Constrain `allowedPathPrefixes` to the report root you want UHV to serve.
+- Optionally enable `showReportBrowser` and set `reportBrowserRootPath` so users can browse accessible folders/files.
 - Share report links as `.../SitePages/Reports.aspx?uhvPage=<encoded-server-relative-path>`.
 - For mixed permissions, use one host page per secured folder boundary when possible, not per file.
+
+### SharePoint Report Browser
+
+The optional report browser lists report files from SharePoint as the current user. SharePoint permissions are not bypassed: users only see folders/files that the SharePoint REST API returns for them, and opening a file still goes through UHV URL validation.
+
+- `Folders` view shows folders and report files in the current folder, with parent-folder navigation.
+- `Files` view recursively searches from `reportBrowserRootPath` and shows a flat searchable list.
+- If a user can open one specific file but SharePoint does not allow them to enumerate its parent folder, the file cannot be discovered from the browser. Use a direct `uhvPage` link for that edge case.
 
 ## 🔗 URL Contract (Deep-Linking)
 

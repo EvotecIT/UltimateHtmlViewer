@@ -15,6 +15,7 @@ export type ContentDeliveryMode =
   | 'DirectUrl'
   | 'SharePointFileContent'
   | 'SharePointFileBlobUrl';
+export type ReportBrowserDefaultView = 'Folders' | 'Files';
 
 export function isInlineContentDeliveryMode(
   value?: ContentDeliveryMode,
@@ -70,6 +71,10 @@ export interface IUniversalHtmlViewerWebPartProps {
   showConfigActions?: boolean;
   showDashboardSelector?: boolean;
   allowQueryStringPageOverride?: boolean;
+  showReportBrowser?: boolean;
+  reportBrowserRootPath?: string;
+  reportBrowserDefaultView?: ReportBrowserDefaultView;
+  reportBrowserMaxItems?: number;
 }
 
 export interface ITenantConfig {
@@ -120,4 +125,8 @@ export interface ITenantConfig {
   showConfigActions?: boolean;
   showDashboardSelector?: boolean;
   allowQueryStringPageOverride?: boolean;
+  showReportBrowser?: boolean;
+  reportBrowserRootPath?: string;
+  reportBrowserDefaultView?: ReportBrowserDefaultView;
+  reportBrowserMaxItems?: number;
 }

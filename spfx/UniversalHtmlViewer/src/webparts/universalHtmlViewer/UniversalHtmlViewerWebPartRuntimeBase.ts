@@ -1017,6 +1017,10 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       chromeDensity: props.chromeDensity || 'Comfortable',
       showConfigActions: props.showConfigActions === true,
       showDashboardSelector: props.showDashboardSelector === true,
+      showReportBrowser: props.showReportBrowser === true,
+      reportBrowserRootPath: props.reportBrowserRootPath || '',
+      reportBrowserDefaultView: props.reportBrowserDefaultView || 'Folders',
+      reportBrowserMaxItems: props.reportBrowserMaxItems ?? 300,
     };
   }
 
