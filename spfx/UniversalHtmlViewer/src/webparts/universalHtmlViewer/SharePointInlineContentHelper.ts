@@ -494,7 +494,9 @@ function getServerRelativePathForSharePointFile(
   }
 
   if (normalizedSourceUrl.startsWith('/')) {
-    const serverRelativePath = stripQueryAndHashFromPath(normalizedSourceUrl);
+    const serverRelativePath = tryDecodeUriComponent(
+      stripQueryAndHashFromPath(normalizedSourceUrl),
+    );
     return isSafeServerRelativePath(serverRelativePath) ? serverRelativePath : undefined;
   }
 
@@ -577,6 +579,14 @@ function decodePathSegment(segment: string): string {
   }
 
   return decoded;
+}
+
+function tryDecodeUriComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function stripQueryAndHashFromPath(value: string): string {

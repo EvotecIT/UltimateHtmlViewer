@@ -140,6 +140,9 @@ export function getReportBrowserParentFolderPath(
 export function isPathInsideRoot(path: string, rootPath: string): boolean {
   const normalizedPath = normalizeServerRelativeFolderPath(path).toLowerCase();
   const normalizedRoot = normalizeServerRelativeFolderPath(rootPath).toLowerCase();
+  if (normalizedRoot === '/') {
+    return normalizedPath.startsWith('/');
+  }
   return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
 }
 

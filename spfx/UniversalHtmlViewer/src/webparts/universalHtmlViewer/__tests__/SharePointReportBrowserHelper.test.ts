@@ -39,6 +39,14 @@ describe('SharePointReportBrowserHelper', () => {
     ).toBe(false);
   });
 
+  it('treats tenant root as containing server-relative descendants', () => {
+    expect(isPathInsideRoot('/sites/TestSite1/SiteAssets/Reports/index.html', '/')).toBe(
+      true,
+    );
+    expect(isPathInsideRoot('/', '/')).toBe(true);
+    expect(isPathInsideRoot('', '/')).toBe(false);
+  });
+
   it('does not walk above the configured browser root', () => {
     expect(
       getReportBrowserParentFolderPath(
