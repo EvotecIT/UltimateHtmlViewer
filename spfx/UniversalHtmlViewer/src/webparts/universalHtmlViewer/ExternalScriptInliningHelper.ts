@@ -189,7 +189,7 @@ async function loadExternalScriptText(
   );
 
   for (const candidateUrl of candidateUrls) {
-    const scriptText = await loadSingleExternalScriptText(candidateUrl);
+    const scriptText = await loadSingleExternalScriptText(candidateUrl, pageUrl);
     if (scriptText) {
       return { scriptText, sourceUrl: candidateUrl };
     }
@@ -217,7 +217,10 @@ function getExternalScriptCandidateUrls(scriptUrl: string): string[] {
   return [scriptUrl];
 }
 
-async function loadSingleExternalScriptText(scriptUrl: string): Promise<string> {
+async function loadSingleExternalScriptText(
+  scriptUrl: string,
+  pageUrl: string,
+): Promise<string> {
   const cachedScript = externalScriptCache.get(scriptUrl);
   if (cachedScript) {
     externalScriptCache.delete(scriptUrl);
@@ -230,7 +233,8 @@ async function loadSingleExternalScriptText(scriptUrl: string): Promise<string> 
     return inFlightRequest;
   }
 
-  const request = fetch(scriptUrl, { credentials: 'omit', mode: 'cors' })
+  const credentials = isSameOrigin(scriptUrl, pageUrl) ? 'same-origin' : 'omit';
+  const request = fetch(scriptUrl, { credentials, mode: 'cors' })
     .then(async (response) => {
       if (!response.ok) {
         return '';
@@ -250,6 +254,14 @@ async function loadSingleExternalScriptText(scriptUrl: string): Promise<string> 
 
   externalScriptInFlightRequests.set(scriptUrl, request);
   return request;
+}
+
+function isSameOrigin(scriptUrl: string, pageUrl: string): boolean {
+  try {
+    return new URL(scriptUrl).origin === new URL(pageUrl).origin;
+  } catch {
+    return false;
+  }
 }
 
 function trimExternalScriptCache(): void {

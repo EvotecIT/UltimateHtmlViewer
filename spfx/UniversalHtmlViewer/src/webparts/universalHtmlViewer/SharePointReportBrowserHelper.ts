@@ -38,7 +38,6 @@ interface ISharePointListResponse<T> {
 }
 
 const DEFAULT_MAX_ITEMS = 300;
-const MAX_RECURSION_DEPTH = 12;
 const MAX_SHAREPOINT_PAGE_SIZE = 5000;
 const skippedFolderNames = new Set<string>(['forms']);
 
@@ -69,7 +68,7 @@ export async function loadSharePointReportBrowserItems(
       allowedExtensions,
       maxItems,
       files,
-      0,
+      new Set<string>(),
     );
     return files;
   }
@@ -151,16 +150,23 @@ async function appendFolderFilesRecursive(
   allowedExtensions: string[],
   maxItems: number,
   result: ISharePointReportBrowserItem[],
-  depth: number,
+  visitedFolderPaths: Set<string>,
 ): Promise<void> {
-  if (result.length >= maxItems || depth > MAX_RECURSION_DEPTH) {
+  const normalizedFolderPath = normalizeServerRelativeFolderPath(folderPath);
+  const folderVisitKey = normalizedFolderPath.toLowerCase();
+  if (
+    result.length >= maxItems ||
+    !normalizedFolderPath ||
+    visitedFolderPaths.has(folderVisitKey)
+  ) {
     return;
   }
+  visitedFolderPaths.add(folderVisitKey);
 
   await appendAllowedFileItemsFromFolder(
     options,
     rootPath,
-    folderPath,
+    normalizedFolderPath,
     allowedExtensions,
     maxItems,
     result,
@@ -170,7 +176,7 @@ async function appendFolderFilesRecursive(
     return;
   }
 
-  const folders = await loadFolderEntries(options, folderPath);
+  const folders = await loadFolderEntries(options, normalizedFolderPath);
   for (const folder of folders) {
     const folderName = String(folder.Name || '').toLowerCase();
     const childFolderPath = normalizeServerRelativeFolderPath(folder.ServerRelativeUrl);
@@ -189,7 +195,7 @@ async function appendFolderFilesRecursive(
       allowedExtensions,
       maxItems,
       result,
-      depth + 1,
+      visitedFolderPaths,
     );
   }
 }

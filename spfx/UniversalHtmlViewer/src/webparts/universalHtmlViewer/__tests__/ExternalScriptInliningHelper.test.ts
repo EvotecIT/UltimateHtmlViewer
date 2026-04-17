@@ -50,6 +50,31 @@ describe('ExternalScriptInliningHelper', () => {
     expect(result).not.toContain('src="https://cdnjs.cloudflare.com/ajax/libs/jquery');
   });
 
+  it('includes credentials for same-origin SharePoint script assets', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: jest.fn().mockResolvedValue('window.localReportScriptLoaded = true;'),
+    });
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: mockFetch,
+    });
+
+    await inlineAllowedExternalScripts(
+      '<html><head><script src="/sites/TestSite2/SiteAssets/report-support.js"></script></head><body></body></html>',
+      baseUrlForRelativeLinks,
+      pageUrl,
+      {
+        enabled: true,
+      },
+    );
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://contoso.sharepoint.com/sites/TestSite2/SiteAssets/report-support.js',
+      { credentials: 'same-origin', mode: 'cors' },
+    );
+  });
+
   it('does not inline external scripts from non-allowlisted hosts', async () => {
     const mockFetch = jest.fn();
     Object.defineProperty(globalThis, 'fetch', {

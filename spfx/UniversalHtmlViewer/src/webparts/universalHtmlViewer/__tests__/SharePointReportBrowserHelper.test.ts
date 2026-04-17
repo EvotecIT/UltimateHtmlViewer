@@ -392,6 +392,110 @@ describe('SharePointReportBrowserHelper', () => {
     expect(spHttpClient.get.mock.calls.some(([url]) => url === folderNextLink)).toBe(true);
   });
 
+  it('traverses deeply nested report folders without a fixed depth cutoff', async () => {
+    const rootPath = '/sites/TestSite1/SiteAssets/Reports';
+    const finalFolderPath = `${rootPath}/${Array.from({ length: 14 }, (_, index) =>
+      `Level${index + 1}`,
+    ).join('/')}`;
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        const folderMatch = /@p1='([^']+)'/.exec(url);
+        const folderPath = folderMatch ? decodeURIComponent(folderMatch[1]) : rootPath;
+        if (url.includes('/Files?')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value:
+                  folderPath === finalFolderPath
+                    ? [
+                        {
+                          Name: 'Deep.html',
+                          ServerRelativeUrl: `${finalFolderPath}/Deep.html`,
+                        },
+                      ]
+                    : [],
+              }),
+          });
+        }
+
+        const currentDepth =
+          folderPath === rootPath
+            ? 0
+            : folderPath.substring(rootPath.length + 1).split('/').length;
+        const nextDepth = currentDepth + 1;
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              value:
+                nextDepth <= 14
+                  ? [
+                      {
+                        Name: `Level${nextDepth}`,
+                        ServerRelativeUrl: `${folderPath}/Level${nextDepth}`,
+                      },
+                    ]
+                  : [],
+            }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath,
+      allowedExtensions: ['.html'],
+      view: 'Files',
+      maxItems: 1,
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['Deep.html']);
+  });
+
+  it('does not recurse forever when SharePoint returns a folder cycle', async () => {
+    const rootPath = '/sites/TestSite1/SiteAssets/Reports';
+    const childPath = `${rootPath}/Loop`;
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        const folderMatch = /@p1='([^']+)'/.exec(url);
+        const folderPath = folderMatch ? decodeURIComponent(folderMatch[1]) : rootPath;
+        if (url.includes('/Files?')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ value: [] }),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              value: [
+                {
+                  Name: 'Loop',
+                  ServerRelativeUrl: folderPath === rootPath ? childPath : rootPath,
+                },
+              ],
+            }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath,
+      allowedExtensions: ['.html'],
+      view: 'Files',
+      maxItems: 10,
+    });
+
+    expect(items).toEqual([]);
+    expect(spHttpClient.get).toHaveBeenCalledTimes(4);
+  });
+
   it('does not double-encode URL-derived folder paths', async () => {
     const spHttpClient = {
       get: jest.fn((_url: string) =>
