@@ -238,11 +238,14 @@ sequenceDiagram
 | `allowedHosts` | host list | Explicit host allowlist for `Allowlist` mode. |
 | `allowedPathPrefixes` | path list | Optional path constraints for tighter scope. |
 | `allowQueryStringPageOverride` | `true` / `false` | Allows or disables `uhvPage` query-driven deep-link override in inline mode. |
+| `inlineExternalScripts` | `true` / `false` | Compatibility mode that fetches allowed external report scripts and inlines them before rendering. Useful when SharePoint CSP blocks CDN script tags used by generated reports. |
+| `inlineExternalScriptAllowedHosts` | host list | Optional host allowlist for external script inlining. When empty, UHV allows common PSWriteHTML CDN hosts: `code.jquery.com`, `cdnjs.cloudflare.com`, `cdn.jsdelivr.net`, `cdn.datatables.net`, `nightly.datatables.net`, `unpkg.com`. |
 | `sandboxPreset` | preset or custom | Controls iframe sandbox behavior. |
 | `iframeAllow` | permissions policy string | Optional iframe permissions (`fullscreen`, etc.). |
 
 - In `SharePointFileContent` mode, UHV injects a defensive `Content-Security-Policy` meta tag into `srcdoc` when the source HTML does not define one.
 - If your report HTML already defines a CSP meta tag, UHV preserves that policy and does not inject a second one.
+- `inlineExternalScripts` is intentionally opt-in because it executes the same third-party scripts the report references, but from inline HTML instead of blocked CDN `<script src>` tags.
 
 ## Recommended Setup (SharePoint-hosted report bundles)
 

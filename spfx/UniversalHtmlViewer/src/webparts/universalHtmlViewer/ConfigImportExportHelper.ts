@@ -56,6 +56,7 @@ const booleanKeys = new Set<string>([
   'showDashboardSelector',
   'allowQueryStringPageOverride',
   'enforceStrictInlineCsp',
+  'inlineExternalScripts',
   'showReportBrowser',
 ]);
 
@@ -87,6 +88,7 @@ const stringKeys = new Set<string>([
   'tenantConfigMode',
   'cacheBusterMode',
   'cacheBusterParamName',
+  'inlineExternalScriptAllowedHosts',
   'sandboxPreset',
   'iframeSandbox',
   'iframeAllow',
@@ -244,6 +246,8 @@ export function buildConfigExport(
     cacheBusterParamName: props.cacheBusterParamName || 'v',
     inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,
     enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
+    inlineExternalScripts: props.inlineExternalScripts === true,
+    inlineExternalScriptAllowedHosts: props.inlineExternalScriptAllowedHosts || '',
     sandboxPreset: props.sandboxPreset || 'None',
     iframeSandbox: props.iframeSandbox || '',
     iframeAllow: props.iframeAllow || '',

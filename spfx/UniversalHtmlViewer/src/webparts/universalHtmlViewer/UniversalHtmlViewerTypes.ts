@@ -50,6 +50,8 @@ export interface IUniversalHtmlViewerWebPartProps {
   cacheBusterParamName?: string;
   inlineContentCacheTtlSeconds?: number;
   enforceStrictInlineCsp?: boolean;
+  inlineExternalScripts?: boolean;
+  inlineExternalScriptAllowedHosts?: string;
   sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;
@@ -104,6 +106,8 @@ export interface ITenantConfig {
   cacheBusterParamName?: string;
   inlineContentCacheTtlSeconds?: number;
   enforceStrictInlineCsp?: boolean;
+  inlineExternalScripts?: boolean;
+  inlineExternalScriptAllowedHosts?: string;
   sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;

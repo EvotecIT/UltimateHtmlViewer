@@ -36,6 +36,7 @@ import { UniversalHtmlViewerWebPartUiBase } from './UniversalHtmlViewerWebPartUi
 import { applyInlineModeBehaviors } from './InlineModeBehaviorHelper';
 import { NestedIframeHydrationDiagnosticEvent } from './NestedIframeHydrationHelper';
 import {
+  ILoadSharePointInlineContentOptions,
   loadSharePointFileContentForBlobUrl,
   loadSharePointFileContentForInline,
 } from './SharePointInlineContentHelper';
@@ -474,6 +475,23 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   offText: 'Off',
                   disabled: !isInlineContentMode || isPresetLocked,
                 }),
+                PropertyPaneToggle('inlineExternalScripts', {
+                  label: 'Inline external report scripts (compatibility)',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                }),
+                PropertyPaneTextField('inlineExternalScriptAllowedHosts', {
+                  label: 'External script hosts to inline',
+                  description:
+                    'Optional. Defaults to common PSWriteHTML CDNs: code.jquery.com, cdnjs.cloudflare.com, cdn.jsdelivr.net, cdn.datatables.net, nightly.datatables.net, unpkg.com',
+                  disabled:
+                    !isInlineContentMode ||
+                    this.properties.inlineExternalScripts !== true ||
+                    isPresetLocked,
+                  onGetErrorMessage: (value?: string): string => validateAllowedHosts(value),
+                  deferredValidationTime: 200,
+                }),
                 PropertyPaneTextField('allowedHosts', {
                   label: 'Allowed hosts (comma-separated)',
                   description:
@@ -774,7 +792,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const iframeHeightStyle: string = this.getIframeHeightStyle(effectiveProps);
     const cacheBusterMode: CacheBusterMode = effectiveProps.cacheBusterMode || 'None';
     this.lastCacheBusterMode = cacheBusterMode;
-    const inlineContentCacheTtlMs = this.getInlineContentCacheTtlMs(effectiveProps);
     const cacheBusterParamName: string = this.normalizeCacheBusterParamName(
       effectiveProps.cacheBusterParamName,
     );
@@ -796,9 +813,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             initialContentUrl,
             pageUrl,
             SPHttpClient.configurations.v1,
-            {
-              cacheTtlMs: inlineContentCacheTtlMs,
-            },
+            this.getInlineContentOptions(effectiveProps),
           );
           iframeUrl = this.createInlineBlobUrl(inlineHtml);
         } else {
@@ -809,10 +824,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             initialContentUrl,
             pageUrl,
             SPHttpClient.configurations.v1,
-            {
-              cacheTtlMs: inlineContentCacheTtlMs,
-              enforceStrictInlineCsp: effectiveProps.enforceStrictInlineCsp === true,
-            },
+            this.getInlineContentOptions(effectiveProps),
           );
         }
       } catch (error) {
@@ -953,13 +965,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             baseUrlForRelativeLinks,
             this.getCurrentPageUrl(),
             SPHttpClient.configurations.v1,
-            {
-              cacheTtlMs: this.getInlineContentCacheTtlMs(
-                this.lastEffectiveProps || this.properties,
-              ),
-              enforceStrictInlineCsp:
-                (this.lastEffectiveProps || this.properties).enforceStrictInlineCsp === true,
-            },
+            this.getInlineContentOptions(this.lastEffectiveProps || this.properties),
           );
           this.lastInlineContentLoadError = '';
           return inlineHtml;
@@ -994,10 +1000,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           baseUrlForRelativeLinks,
           pageUrl,
           SPHttpClient.configurations.v1,
-          {
-            cacheTtlMs: this.getInlineContentCacheTtlMs(props),
-            bypassCache: bypassInlineContentCache,
-          },
+          this.getInlineContentOptions(props, bypassInlineContentCache),
         );
         this.lastInlineContentLoadError = '';
         iframe.removeAttribute('srcdoc');
@@ -1012,11 +1015,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         baseUrlForRelativeLinks,
         pageUrl,
         SPHttpClient.configurations.v1,
-        {
-          cacheTtlMs: this.getInlineContentCacheTtlMs(props),
-          bypassCache: bypassInlineContentCache,
-          enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
-        },
+        this.getInlineContentOptions(props, bypassInlineContentCache),
       );
       this.lastInlineContentLoadError = '';
       iframe.srcdoc = inlineHtml;
@@ -1026,6 +1025,22 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return false;
     }
   }
+
+  private getInlineContentOptions(
+    props: IUniversalHtmlViewerWebPartProps,
+    bypassCache: boolean = false,
+  ): ILoadSharePointInlineContentOptions {
+    return {
+      cacheTtlMs: this.getInlineContentCacheTtlMs(props),
+      bypassCache,
+      enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
+      inlineExternalScripts: props.inlineExternalScripts === true,
+      inlineExternalScriptAllowedHosts: this.parseHosts(
+        props.inlineExternalScriptAllowedHosts,
+      ),
+    };
+  }
+
   private createInlineBlobUrl(html: string): string {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const nextBlobUrl = URL.createObjectURL(blob);

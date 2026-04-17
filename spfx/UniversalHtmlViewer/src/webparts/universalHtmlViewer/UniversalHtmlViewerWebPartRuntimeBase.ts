@@ -1007,6 +1007,10 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       cacheBusterMode: props.cacheBusterMode || 'None',
       inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,
       enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
+      inlineExternalScripts: props.inlineExternalScripts === true,
+      inlineExternalScriptAllowedHosts: this.parseHosts(
+        props.inlineExternalScriptAllowedHosts,
+      ),
       sandboxPreset: props.sandboxPreset || 'None',
       iframeSandbox: props.iframeSandbox || '',
       iframeLoadTimeoutSeconds: this.getIframeLoadTimeoutSeconds(props),

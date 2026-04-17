@@ -27,6 +27,7 @@ const tenantMergeDefaultValues: Record<string, boolean | number> = {
   refreshIntervalMinutes: 0,
   inlineContentCacheTtlSeconds: 15,
   enforceStrictInlineCsp: false,
+  inlineExternalScripts: false,
   lockPresetSettings: false,
   allowHttp: false,
   enableExpertSecurityModes: false,
@@ -517,6 +518,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.iframeLoadTimeoutSeconds = 10;
     props.inlineContentCacheTtlSeconds = 15;
     props.enforceStrictInlineCsp = false;
+    props.inlineExternalScripts = false;
 
     if (!props.chromeTitle || props.chromeTitle.trim().length === 0) {
       props.chromeTitle = 'Universal HTML Viewer';
