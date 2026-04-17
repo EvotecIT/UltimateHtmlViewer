@@ -12,8 +12,8 @@ SPFx security-uplift spike runbook: `docs/SPFx-Security-Uplift-Spike.md`
 ## 📦 Platform and Compatibility
 
 - SPFx runtime target: `1.22.2` packages in `spfx/UniversalHtmlViewer/package.json`.
-- SharePoint package version (`.sppkg`): `1.0.32.7` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
-- Web part manifest version: `1.0.22` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
+- SharePoint package version (`.sppkg`): `1.0.32.9` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
+- Web part manifest version: `1.0.24` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
 - Node for CI/build: `22.x` (see GitHub workflows and package engine constraint).
 
 ## 🔄 CI/CD Workflows

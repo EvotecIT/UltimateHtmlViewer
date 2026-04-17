@@ -661,6 +661,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
         ? 'all accessible files'
         : this.getReportBrowserFolderLabel(rootPath, currentFolderPath);
     this.updateReportBrowserStatus(`${visibleItemCount} item(s) in ${scopeLabel}`);
+    this.filterReportBrowserRows(this.getReportBrowserFilterValue());
   }
 
   private buildReportBrowserFolderRow(
@@ -716,6 +717,13 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       row.style.display =
         !normalizedFilter || text.toLowerCase().includes(normalizedFilter) ? '' : 'none';
     });
+  }
+
+  private getReportBrowserFilterValue(): string {
+    const filterInput = this.domElement.querySelector<HTMLInputElement>(
+      '[data-uhv-report-filter]',
+    );
+    return filterInput?.value || '';
   }
 
   private async handleReportBrowserFileSelection(
