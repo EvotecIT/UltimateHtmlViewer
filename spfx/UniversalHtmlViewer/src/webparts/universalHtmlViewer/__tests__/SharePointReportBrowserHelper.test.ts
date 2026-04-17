@@ -120,4 +120,85 @@ describe('SharePointReportBrowserHelper', () => {
       }),
     );
   });
+
+  it('follows SharePoint OData nextLink pages', async () => {
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        if (url === 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value: [
+                  {
+                    Name: 'Second.html',
+                    ServerRelativeUrl:
+                      '/sites/TestSite1/SiteAssets/Reports/Second.html',
+                  },
+                ],
+              }),
+          });
+        }
+
+        const value = url.includes('/Folders?')
+          ? []
+          : [
+              {
+                Name: 'First.html',
+                ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/First.html',
+              },
+            ];
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              value,
+              '@odata.nextLink': url.includes('/Files?')
+                ? 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files'
+                : undefined,
+            }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: '/sites/TestSite1/SiteAssets/Reports',
+      allowedExtensions: ['.html'],
+      view: 'Folders',
+      maxItems: 100,
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['First.html', 'Second.html']);
+    expect(spHttpClient.get).toHaveBeenCalledWith(
+      'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files',
+      undefined,
+      expect.any(Object),
+    );
+  });
+
+  it('does not double-encode URL-derived folder paths', async () => {
+    const spHttpClient = {
+      get: jest.fn((_url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ value: [] }),
+        }),
+      ),
+    };
+
+    await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/My%20Reports',
+      allowedExtensions: ['.html'],
+      view: 'Folders',
+      maxItems: 100,
+    });
+
+    const firstUrl = spHttpClient.get.mock.calls[0][0] as string;
+    expect(firstUrl).toContain('My%20Reports');
+    expect(firstUrl).not.toContain('My%2520Reports');
+  });
 });

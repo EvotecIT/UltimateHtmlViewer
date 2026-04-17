@@ -33,6 +33,8 @@ interface ISharePointFileListEntry {
 
 interface ISharePointListResponse<T> {
   value?: T[];
+  '@odata.nextLink'?: string;
+  'odata.nextLink'?: string;
 }
 
 const DEFAULT_MAX_ITEMS = 300;
@@ -208,7 +210,7 @@ async function loadFolderEntries(
     options,
     apiUrl,
   );
-  return response.value || [];
+  return loadSharePointPagedListEntries(options, response, apiUrl);
 }
 
 async function loadFileEntries(
@@ -225,7 +227,30 @@ async function loadFileEntries(
     options,
     apiUrl,
   );
-  return response.value || [];
+  return loadSharePointPagedListEntries(options, response, apiUrl);
+}
+
+async function loadSharePointPagedListEntries<T>(
+  options: ILoadSharePointReportBrowserItemsOptions,
+  firstPage: ISharePointListResponse<T>,
+  firstPageUrl: string,
+): Promise<T[]> {
+  const entries: T[] = [...(firstPage.value || [])];
+  let nextLink = getNextLink(firstPage);
+  const visitedUrls = new Set<string>([firstPageUrl]);
+
+  while (nextLink && !visitedUrls.has(nextLink)) {
+    visitedUrls.add(nextLink);
+    const nextPage = await loadSharePointJson<ISharePointListResponse<T>>(options, nextLink);
+    entries.push(...(nextPage.value || []));
+    nextLink = getNextLink(nextPage);
+  }
+
+  return entries;
+}
+
+function getNextLink<T>(response: ISharePointListResponse<T>): string {
+  return response['@odata.nextLink'] || response['odata.nextLink'] || '';
 }
 
 async function loadSharePointJson<T>(
@@ -302,7 +327,7 @@ function buildFileItem(
 }
 
 function normalizeServerRelativeFolderPath(value?: string): string {
-  const trimmed = stripQueryAndHash(value || '').trim().replace(/\\/g, '/');
+  const trimmed = tryDecodeUriComponent(stripQueryAndHash(value || '').trim()).replace(/\\/g, '/');
   if (!trimmed) {
     return '';
   }
@@ -372,6 +397,14 @@ function stripQueryAndHash(value: string): string {
 function tryGetUrlPath(value: string): string {
   try {
     return new URL(value).pathname;
+  } catch {
+    return value;
+  }
+}
+
+function tryDecodeUriComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
   } catch {
     return value;
   }
