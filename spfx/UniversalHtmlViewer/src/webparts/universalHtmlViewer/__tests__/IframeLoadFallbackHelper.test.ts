@@ -112,6 +112,197 @@ describe('IframeLoadFallbackHelper', () => {
     expect(state.loadHandler).toBeUndefined();
   });
 
+  it('treats an already-complete iframe as loaded immediately', () => {
+    const addEventListenerSpy = jest.fn();
+    const removeEventListenerSpy = jest.fn();
+    const iframe = {
+      addEventListener: addEventListenerSpy,
+      removeEventListener: removeEventListenerSpy,
+      contentWindow: {
+        location: {
+          href: 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Index.html',
+        },
+      },
+      contentDocument: {
+        readyState: 'complete',
+      },
+    } as unknown as HTMLIFrameElement;
+    const state: IIframeLoadFallbackState = {};
+    const onLoad = jest.fn();
+    const onTimeout = jest.fn();
+    const setTimeoutFn = jest.fn().mockReturnValue(147);
+    const clearTimeoutFn = jest.fn();
+
+    setupIframeLoadFallbackLifecycleState({
+      state,
+      iframe,
+      timeoutMs: 1000,
+      onLoad,
+      onTimeout,
+      setTimeoutFn,
+      clearTimeoutFn,
+    });
+
+    expect(onLoad).toHaveBeenCalledTimes(1);
+    expect(onTimeout).not.toHaveBeenCalled();
+    expect(clearTimeoutFn).toHaveBeenCalledWith(147);
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('load', expect.any(Function));
+    expect(state.timeoutId).toBeUndefined();
+  });
+
+  it('treats timeout on an already-complete iframe as a successful load', () => {
+    const addEventListenerSpy = jest.fn();
+    const removeEventListenerSpy = jest.fn();
+    const iframe = {
+      addEventListener: addEventListenerSpy,
+      removeEventListener: removeEventListenerSpy,
+      contentWindow: {
+        location: {
+          href: 'about:blank',
+        },
+      },
+      contentDocument: {
+        readyState: 'loading',
+      },
+    } as unknown as HTMLIFrameElement;
+    const state: IIframeLoadFallbackState = {};
+    const onLoad = jest.fn();
+    const onTimeout = jest.fn();
+    let timeoutHandler: (() => void) | undefined;
+    const setTimeoutFn = jest.fn().mockImplementation((handler: () => void) => {
+      timeoutHandler = handler;
+      return 258;
+    });
+    const clearTimeoutFn = jest.fn();
+
+    setupIframeLoadFallbackLifecycleState({
+      state,
+      iframe,
+      timeoutMs: 1000,
+      onLoad,
+      onTimeout,
+      setTimeoutFn,
+      clearTimeoutFn,
+    });
+
+    (iframe as unknown as {
+      contentWindow: { location: { href: string } };
+      contentDocument: { readyState: string };
+    }).contentWindow.location.href =
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Index.html';
+    (iframe as unknown as {
+      contentWindow: { location: { href: string } };
+      contentDocument: { readyState: string };
+    }).contentDocument.readyState = 'complete';
+
+    if (!timeoutHandler) {
+      throw new Error('Expected timeout handler to be scheduled.');
+    }
+    timeoutHandler();
+
+    expect(onLoad).toHaveBeenCalledTimes(1);
+    expect(onTimeout).not.toHaveBeenCalled();
+    expect(clearTimeoutFn).toHaveBeenCalledWith(258);
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('load', expect.any(Function));
+    expect(state.timeoutId).toBeUndefined();
+  });
+
+  it('does not treat a populated iframe URL as loaded while the document is still loading', () => {
+    const addEventListenerSpy = jest.fn();
+    const removeEventListenerSpy = jest.fn();
+    const iframe = {
+      addEventListener: addEventListenerSpy,
+      removeEventListener: removeEventListenerSpy,
+      contentWindow: {
+        location: {
+          href: 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Index.html',
+        },
+      },
+      contentDocument: {
+        readyState: 'loading',
+      },
+    } as unknown as HTMLIFrameElement;
+    const state: IIframeLoadFallbackState = {};
+    const onLoad = jest.fn();
+    const onTimeout = jest.fn();
+    let timeoutHandler: (() => void) | undefined;
+    const setTimeoutFn = jest.fn().mockImplementation((handler: () => void) => {
+      timeoutHandler = handler;
+      return 369;
+    });
+    const clearTimeoutFn = jest.fn();
+
+    setupIframeLoadFallbackLifecycleState({
+      state,
+      iframe,
+      timeoutMs: 1000,
+      onLoad,
+      onTimeout,
+      setTimeoutFn,
+      clearTimeoutFn,
+    });
+
+    expect(onLoad).not.toHaveBeenCalled();
+
+    if (!timeoutHandler) {
+      throw new Error('Expected timeout handler to be scheduled.');
+    }
+    timeoutHandler();
+
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+    expect(clearTimeoutFn).toHaveBeenCalledWith(369);
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('load', expect.any(Function));
+  });
+
+  it('does not treat the initial about:blank document as a completed iframe load', () => {
+    const addEventListenerSpy = jest.fn();
+    const removeEventListenerSpy = jest.fn();
+    const iframe = {
+      addEventListener: addEventListenerSpy,
+      removeEventListener: removeEventListenerSpy,
+      contentWindow: {
+        location: {
+          href: 'about:blank',
+        },
+      },
+      contentDocument: {
+        readyState: 'complete',
+      },
+    } as unknown as HTMLIFrameElement;
+    const state: IIframeLoadFallbackState = {};
+    const onLoad = jest.fn();
+    const onTimeout = jest.fn();
+    let timeoutHandler: (() => void) | undefined;
+    const setTimeoutFn = jest.fn().mockImplementation((handler: () => void) => {
+      timeoutHandler = handler;
+      return 741;
+    });
+    const clearTimeoutFn = jest.fn();
+
+    setupIframeLoadFallbackLifecycleState({
+      state,
+      iframe,
+      timeoutMs: 1000,
+      onLoad,
+      onTimeout,
+      setTimeoutFn,
+      clearTimeoutFn,
+    });
+
+    expect(onLoad).not.toHaveBeenCalled();
+
+    if (!timeoutHandler) {
+      throw new Error('Expected timeout handler to be scheduled.');
+    }
+    timeoutHandler();
+
+    expect(onLoad).not.toHaveBeenCalled();
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+    expect(clearTimeoutFn).toHaveBeenCalledWith(741);
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('load', expect.any(Function));
+  });
+
   it('clears existing state and does not wire lifecycle when timeout is disabled', () => {
     const previousRemoveEventListenerSpy = jest.fn();
     const previousLoadHandler = jest.fn();

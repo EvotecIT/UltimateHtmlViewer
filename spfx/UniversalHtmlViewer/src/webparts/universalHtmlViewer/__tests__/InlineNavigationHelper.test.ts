@@ -268,6 +268,44 @@ describe('InlineNavigationHelper', () => {
     );
   });
 
+  it('intercepts same-site html links for iframe-realm element targets', () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Apps.html?v=123';
+    anchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Apps.html?v=123',
+    );
+
+    const iframeRealmAnchorLike = {
+      nodeType: Node.ELEMENT_NODE,
+      parentElement: null,
+      ownerDocument: anchor.ownerDocument,
+      tagName: anchor.tagName,
+      closest: anchor.closest.bind(anchor),
+      querySelectorAll: anchor.querySelectorAll.bind(anchor),
+      getAttribute: anchor.getAttribute.bind(anchor),
+      getAttributeNS: anchor.getAttributeNS.bind(anchor),
+      href: anchor.href,
+    } as unknown as EventTarget;
+
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: iframeRealmAnchorLike,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Apps.html',
+    );
+  });
+
   it('intercepts FullCalendar forced-url clicks when target is not the anchor', () => {
     const container = document.createElement('div');
     container.className = 'fc-event-forced-url';

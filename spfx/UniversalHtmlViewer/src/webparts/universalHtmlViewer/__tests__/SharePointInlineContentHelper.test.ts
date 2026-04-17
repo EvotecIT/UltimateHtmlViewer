@@ -1,4 +1,6 @@
-import { prepareInlineHtmlForSrcDoc } from '../InlineHtmlTransformHelper';
+import {
+  prepareInlineHtmlForSrcDoc,
+} from '../InlineHtmlTransformHelper';
 import {
   clearInlineHtmlCacheForTests,
   loadSharePointFileContentForInline,
@@ -125,7 +127,29 @@ describe('prepareInlineHtmlForSrcDoc', () => {
     );
     expect(result).not.toContain('&#39;unsafe-eval&#39;');
   });
+
+  it('stamps the current page nonce onto inline script tags', () => {
+    const pageScript = document.createElement('script');
+    pageScript.nonce = 'sharepoint-nonce-123';
+    document.head.appendChild(pageScript);
+
+    try {
+      const inputHtml =
+        '<html><head><title>Report</title><script>window.test=1;</script></head><body><script>window.test=2;</script></body></html>';
+      const result = prepareInlineHtmlForSrcDoc(
+        inputHtml,
+        '/sites/TestSite2/SiteAssets/GPOzaurr/',
+        'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx',
+      );
+
+      const nonceMatches = result.match(/nonce="sharepoint-nonce-123"/gi) || [];
+      expect(nonceMatches.length).toBeGreaterThanOrEqual(3);
+    } finally {
+      pageScript.remove();
+    }
+  });
 });
+
 
 describe('loadSharePointFileContentForInline', () => {
   const webAbsoluteUrl = 'https://contoso.sharepoint.com/sites/TestSite2';
@@ -667,4 +691,5 @@ describe('loadSharePointFileContentForInline', () => {
     expect(result).not.toContain('&#39;unsafe-eval&#39;');
   });
 });
+
 

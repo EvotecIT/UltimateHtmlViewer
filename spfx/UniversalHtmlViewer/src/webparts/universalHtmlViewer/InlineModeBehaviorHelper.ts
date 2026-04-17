@@ -1,5 +1,8 @@
 import { CacheBusterMode, HeightMode, UrlValidationOptions } from './UrlHelper';
-import { ContentDeliveryMode } from './UniversalHtmlViewerTypes';
+import {
+  ContentDeliveryMode,
+  isInlineContentDeliveryMode,
+} from './UniversalHtmlViewerTypes';
 import { wireInlineFrameLayout } from './InlineFrameLayoutHelper';
 import { wireInlineIframeNavigation } from './InlineNavigationHelper';
 import {
@@ -28,7 +31,7 @@ export interface IInlineModeBehaviorOptions {
 export function applyInlineModeBehaviors(
   options: IInlineModeBehaviorOptions,
 ): (() => void) | undefined {
-  if (options.contentDeliveryMode !== 'SharePointFileContent') {
+  if (!isInlineContentDeliveryMode(options.contentDeliveryMode)) {
     return undefined;
   }
 

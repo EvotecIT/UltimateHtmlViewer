@@ -11,7 +11,16 @@ export type ConfigurationPreset =
 export type TenantConfigMode = 'Merge' | 'Override';
 
 export type ChromeDensity = 'Comfortable' | 'Compact';
-export type ContentDeliveryMode = 'DirectUrl' | 'SharePointFileContent';
+export type ContentDeliveryMode =
+  | 'DirectUrl'
+  | 'SharePointFileContent'
+  | 'SharePointFileBlobUrl';
+
+export function isInlineContentDeliveryMode(
+  value?: ContentDeliveryMode,
+): value is 'SharePointFileContent' | 'SharePointFileBlobUrl' {
+  return value === 'SharePointFileContent' || value === 'SharePointFileBlobUrl';
+}
 
 export interface IUniversalHtmlViewerWebPartProps {
   configurationPreset?: ConfigurationPreset;

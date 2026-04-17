@@ -35,7 +35,10 @@ import {
 import { UniversalHtmlViewerWebPartUiBase } from './UniversalHtmlViewerWebPartUiBase';
 import { applyInlineModeBehaviors } from './InlineModeBehaviorHelper';
 import { NestedIframeHydrationDiagnosticEvent } from './NestedIframeHydrationHelper';
-import { loadSharePointFileContentForInline } from './SharePointInlineContentHelper';
+import {
+  loadSharePointFileContentForBlobUrl,
+  loadSharePointFileContentForInline,
+} from './SharePointInlineContentHelper';
 import {
   buildPageUrlWithoutInlineDeepLink,
   buildPageUrlWithInlineDeepLink,
@@ -51,6 +54,7 @@ import {
   ConfigurationPreset,
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
+  isInlineContentDeliveryMode,
 } from './UniversalHtmlViewerTypes';
 
 interface IInlineDeepLinkFrameMetrics {
@@ -70,6 +74,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   private isInlineDeepLinkScrollRestorationManaged: boolean = false;
   private previousInlineDeepLinkScrollRestoration: 'auto' | 'manual' | undefined;
   private hasLoggedAnyHttpsWarning: boolean = false;
+  private activeInlineBlobUrl: string | undefined;
   private readonly onInlineDeepLinkPopState = (): void => {
     this.render();
   };
@@ -175,6 +180,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const isDashboardId: boolean = htmlSourceMode === 'BasePathAndDashboardId';
     const securityMode: UrlSecurityMode = this.properties.securityMode || 'StrictTenant';
     const enableExpertSecurityModes: boolean = this.properties.enableExpertSecurityModes === true;
+    const currentContentDeliveryMode: ContentDeliveryMode =
+      this.properties.contentDeliveryMode || 'SharePointFileContent';
     const securityModeOptions = [
       { key: 'StrictTenant', text: 'Strict tenant (default)' },
       { key: 'Allowlist', text: 'Tenant + allowlist' },
@@ -184,8 +191,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     ];
     const isAllowlistMode: boolean = securityMode === 'Allowlist';
     const heightMode: HeightMode = this.properties.heightMode || 'Fixed';
-    const isInlineContentMode: boolean =
-      (this.properties.contentDeliveryMode || 'DirectUrl') === 'SharePointFileContent';
+    const isInlineContentMode: boolean = isInlineContentDeliveryMode(
+      currentContentDeliveryMode,
+    );
     const cacheBusterMode: CacheBusterMode = this.properties.cacheBusterMode || 'None';
     const sandboxPreset: string = this.properties.sandboxPreset || 'None';
     const isCustomSandbox: boolean = sandboxPreset === 'Custom';
@@ -204,6 +212,25 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const isPresetLocked: boolean =
       !!this.properties.lockPresetSettings && preset !== 'Custom';
     const showDashboardSelector: boolean = this.properties.showDashboardSelector === true;
+    const showLegacyDirectUrlOption: boolean =
+      enableExpertSecurityModes ||
+      currentContentDeliveryMode === 'DirectUrl' ||
+      preset === 'AllowlistCDN' ||
+      preset === 'AnyHttps' ||
+      securityMode === 'AnyHttps';
+    const contentDeliveryModeOptions = [
+      {
+        key: 'SharePointFileContent',
+        text: 'SharePoint file API (inline iframe)',
+      },
+      {
+        key: 'SharePointFileBlobUrl',
+        text: 'SharePoint file API (blob iframe)',
+      },
+      ...(showLegacyDirectUrlOption
+        ? [{ key: 'DirectUrl', text: 'Direct URL in iframe (legacy / external only)' }]
+        : []),
+    ];
 
     return {
       pages: [
@@ -258,13 +285,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                 }),
                 PropertyPaneDropdown('contentDeliveryMode', {
                   label: 'Content delivery mode',
-                  options: [
-                    { key: 'DirectUrl', text: 'Direct URL in iframe' },
-                    {
-                      key: 'SharePointFileContent',
-                      text: 'SharePoint file API (inline iframe)',
-                    },
-                  ],
+                  options: contentDeliveryModeOptions,
                 }),
                 PropertyPaneTextField('fullUrl', {
                   label: 'Full URL to HTML page',
@@ -587,6 +608,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.resetDeepLinkScrollLockDiagnostics();
     this.clearIframeLoadTimeout();
     this.clearNestedIframeHydration();
+    this.revokeActiveInlineBlobUrl();
     this.resetNestedIframeDiagnostics();
     const pageUrl: string = this.getCurrentPageUrl();
     const { effectiveProps, tenantConfig } = await this.getEffectiveProperties(pageUrl);
@@ -597,7 +619,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
       effectiveProps,
     );
-    this.configureInlineDeepLinkPopState(contentDeliveryMode === 'SharePointFileContent');
+    this.configureInlineDeepLinkPopState(isInlineContentDeliveryMode(contentDeliveryMode));
     const currentDashboardId: string | undefined = this.getEffectiveDashboardId(
       effectiveProps,
       pageUrl,
@@ -734,20 +756,36 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       pageUrl,
     );
     let inlineHtml: string | undefined;
-    if (contentDeliveryMode === 'SharePointFileContent') {
+    let iframeUrl: string = resolvedUrl;
+    if (isInlineContentDeliveryMode(contentDeliveryMode)) {
       try {
-        inlineHtml = await loadSharePointFileContentForInline(
-          this.context.spHttpClient,
-          this.context.pageContext.web.absoluteUrl,
-          resolvedUrl,
-          initialContentUrl,
-          pageUrl,
-          SPHttpClient.configurations.v1,
+        if (contentDeliveryMode === 'SharePointFileBlobUrl') {
+          inlineHtml = await loadSharePointFileContentForBlobUrl(
+            this.context.spHttpClient,
+            this.context.pageContext.web.absoluteUrl,
+            resolvedUrl,
+            initialContentUrl,
+            pageUrl,
+            SPHttpClient.configurations.v1,
+            {
+              cacheTtlMs: inlineContentCacheTtlMs,
+            },
+          );
+          iframeUrl = this.createInlineBlobUrl(inlineHtml);
+        } else {
+          inlineHtml = await loadSharePointFileContentForInline(
+            this.context.spHttpClient,
+            this.context.pageContext.web.absoluteUrl,
+            resolvedUrl,
+            initialContentUrl,
+            pageUrl,
+            SPHttpClient.configurations.v1,
             {
               cacheTtlMs: inlineContentCacheTtlMs,
               enforceStrictInlineCsp: effectiveProps.enforceStrictInlineCsp === true,
             },
           );
+        }
       } catch (error) {
         this.clearRefreshTimer();
         this.clearIframeLoadTimeout();
@@ -794,7 +832,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
     this.currentBaseUrl = initialContentUrl;
     this.renderIframe(
-      resolvedUrl,
+      iframeUrl,
       iframeHeightStyle,
       this.buildDiagnosticsHtml(
         this.buildDiagnosticsData({
@@ -817,9 +855,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       validationOptions,
       effectiveProps,
       currentDashboardId,
-      inlineHtml,
+      contentDeliveryMode === 'SharePointFileContent' ? inlineHtml : undefined,
     );
-    this.setupIframeLoadFallback(resolvedUrl, effectiveProps);
+    this.setupIframeLoadFallback(iframeUrl, effectiveProps);
     this.setupAutoRefresh(
       initialContentUrl,
       cacheBusterMode,
@@ -848,7 +886,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         const updatedPageUrl = this.getCurrentPageUrl();
         this.onNavigatedToUrl(targetUrl, updatedPageUrl);
         const navigatedPageUrl = this.getCurrentPageUrl();
-        if (contentDeliveryMode === 'SharePointFileContent') {
+        if (isInlineContentDeliveryMode(contentDeliveryMode)) {
           this.applyInitialDeepLinkScrollLock();
         }
         this.setupAutoRefresh(
@@ -913,15 +951,36 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     props: IUniversalHtmlViewerWebPartProps,
     bypassInlineContentCache: boolean = false,
   ): Promise<boolean> {
-    if (this.getContentDeliveryMode(props) !== 'SharePointFileContent') {
+    const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(props);
+    if (!isInlineContentDeliveryMode(contentDeliveryMode)) {
       return false;
     }
     try {
+      const baseUrlForRelativeLinks: string = this.currentBaseUrl || sourceUrl;
+      if (contentDeliveryMode === 'SharePointFileBlobUrl') {
+        const blobHtml = await loadSharePointFileContentForBlobUrl(
+          this.context.spHttpClient,
+          this.context.pageContext.web.absoluteUrl,
+          sourceUrl,
+          baseUrlForRelativeLinks,
+          pageUrl,
+          SPHttpClient.configurations.v1,
+          {
+            cacheTtlMs: this.getInlineContentCacheTtlMs(props),
+            bypassCache: bypassInlineContentCache,
+          },
+        );
+        this.lastInlineContentLoadError = '';
+        iframe.removeAttribute('srcdoc');
+        iframe.src = this.createInlineBlobUrl(blobHtml);
+        return true;
+      }
+
       const inlineHtml = await loadSharePointFileContentForInline(
         this.context.spHttpClient,
         this.context.pageContext.web.absoluteUrl,
         sourceUrl,
-        this.currentBaseUrl || sourceUrl,
+        baseUrlForRelativeLinks,
         pageUrl,
         SPHttpClient.configurations.v1,
         {
@@ -937,6 +996,24 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.lastInlineContentLoadError = this.formatInlineContentLoadError(error);
       return false;
     }
+  }
+  private createInlineBlobUrl(html: string): string {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const nextBlobUrl = URL.createObjectURL(blob);
+    const previousBlobUrl = this.activeInlineBlobUrl;
+    this.activeInlineBlobUrl = nextBlobUrl;
+    if (previousBlobUrl && previousBlobUrl !== nextBlobUrl) {
+      URL.revokeObjectURL(previousBlobUrl);
+    }
+    return nextBlobUrl;
+  }
+  private revokeActiveInlineBlobUrl(): void {
+    if (!this.activeInlineBlobUrl) {
+      return;
+    }
+
+    URL.revokeObjectURL(this.activeInlineBlobUrl);
+    this.activeInlineBlobUrl = undefined;
   }
   private getInlineContentCacheTtlMs(props: IUniversalHtmlViewerWebPartProps): number {
     const rawSeconds = props.inlineContentCacheTtlSeconds;
@@ -963,7 +1040,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   protected onNavigatedToUrl(targetUrl: string, pageUrl: string): void {
     const effectiveProps: IUniversalHtmlViewerWebPartProps =
       this.lastEffectiveProps || this.properties;
-    if (this.getContentDeliveryMode(effectiveProps) !== 'SharePointFileContent') {
+    if (!isInlineContentDeliveryMode(this.getContentDeliveryMode(effectiveProps))) {
       return;
     }
 
@@ -1111,7 +1188,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     contentDeliveryMode: ContentDeliveryMode,
     resolvedContentTarget: IResolvedInlineContentTarget,
   ): boolean {
-    return contentDeliveryMode === 'SharePointFileContent' && !!resolvedContentTarget.deepLinkedUrl;
+    return isInlineContentDeliveryMode(contentDeliveryMode) && !!resolvedContentTarget.deepLinkedUrl;
   }
   private configureInlineDeepLinkPopState(enabled: boolean): void {
     if (typeof window === 'undefined') {
@@ -1552,6 +1629,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.configureInlineDeepLinkPopState(false);
     this.clearInitialDeepLinkScrollLock('dispose');
     this.clearNestedIframeHydration();
+    this.revokeActiveInlineBlobUrl();
     super.onDispose();
   }
 }

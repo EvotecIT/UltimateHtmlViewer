@@ -168,6 +168,23 @@ describe('InlineDeepLinkHelper', () => {
     expect(href).toBe('https://external.example/report.html?v=1');
   });
 
+  it('builds open-in-new-tab deep link for blob inline mode', () => {
+    const href = buildOpenInNewTabUrl({
+      resolvedUrl: 'blob:https://contoso.sharepoint.com/1234',
+      baseUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Current.html',
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?legacy=1',
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops',
+      contentDeliveryMode: 'SharePointFileBlobUrl',
+    });
+
+    expect(href).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops&uhvPage=%2Fsites%2FTestSite1%2FSiteAssets%2FReports%2FCurrent.html',
+    );
+  });
+
   it('resolves initial content using deep link when allowed', () => {
     const result = resolveInlineContentTarget({
       pageUrl:

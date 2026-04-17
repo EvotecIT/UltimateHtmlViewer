@@ -9,7 +9,7 @@ const enumValues: Record<string, string[]> = {
     'AllowlistCDN',
     'AnyHttps',
   ],
-  contentDeliveryMode: ['DirectUrl', 'SharePointFileContent'],
+  contentDeliveryMode: ['DirectUrl', 'SharePointFileContent', 'SharePointFileBlobUrl'],
   htmlSourceMode: ['FullUrl', 'BasePathAndRelativePath', 'BasePathAndDashboardId'],
   heightMode: ['Fixed', 'Viewport', 'Auto'],
   securityMode: ['StrictTenant', 'Allowlist', 'AnyHttps'],
@@ -214,7 +214,7 @@ export function buildConfigExport(
   return {
     configurationPreset: props.configurationPreset || 'Custom',
     lockPresetSettings: !!props.lockPresetSettings,
-    contentDeliveryMode: props.contentDeliveryMode || 'DirectUrl',
+    contentDeliveryMode: props.contentDeliveryMode || 'SharePointFileContent',
     htmlSourceMode: props.htmlSourceMode,
     fullUrl: props.fullUrl || '',
     basePath: props.basePath || '',

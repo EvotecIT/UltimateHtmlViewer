@@ -51,7 +51,41 @@ export function setupIframeLoadFallbackLifecycleState(
   options.state.loadHandler = onIframeLoad;
 
   options.state.timeoutId = options.setTimeoutFn(() => {
+    if (isIframeNavigationAlreadyComplete(iframe)) {
+      onIframeLoad();
+      return;
+    }
     clearIframeLoadFallbackLifecycleState(options.state, options.clearTimeoutFn);
     options.onTimeout();
   }, options.timeoutMs);
+
+  if (isIframeNavigationAlreadyComplete(iframe)) {
+    onIframeLoad();
+  }
+}
+
+function isIframeNavigationAlreadyComplete(iframe: HTMLIFrameElement): boolean {
+  try {
+    const iframeWindow = iframe.contentWindow;
+    const iframeDocument = iframe.contentDocument;
+    const currentHref = String(iframeWindow?.location?.href || '').trim();
+    const readyState = String(iframeDocument?.readyState || '').trim().toLowerCase();
+
+    if (
+      !!iframeDocument &&
+      (readyState === 'interactive' || readyState === 'complete') &&
+      !isInitialBlankIframeUrl(currentHref)
+    ) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
+function isInitialBlankIframeUrl(currentHref: string): boolean {
+  const normalizedHref = currentHref.trim().toLowerCase();
+  return !normalizedHref || normalizedHref === 'about:blank';
 }

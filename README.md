@@ -12,8 +12,8 @@ SPFx security-uplift spike runbook: `docs/SPFx-Security-Uplift-Spike.md`
 ## 📦 Platform and Compatibility
 
 - SPFx runtime target: `1.22.2` packages in `spfx/UniversalHtmlViewer/package.json`.
-- SharePoint package version (`.sppkg`): `1.0.31.9` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
-- Web part manifest version: `1.0.14` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
+- SharePoint package version (`.sppkg`): `1.0.32.6` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
+- Web part manifest version: `1.0.21` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
 - Node for CI/build: `22.x` (see GitHub workflows and package engine constraint).
 
 ## 🔄 CI/CD Workflows
@@ -39,7 +39,7 @@ UHV is an SPFx app that delivers a reusable web part.
 
 | Capability | Native SharePoint file open | UHV web part host |
 | --- | --- | --- |
-| Complex HTML bundles (scripts + nested iframes) | Can render inconsistently, partially, or trigger file-download behavior depending on headers/viewer context. | `SharePointFileContent` mode renders inline in a controlled host with consistent behavior. |
+| Complex HTML bundles (scripts + nested iframes) | Can render inconsistently, partially, or trigger file-download behavior depending on headers/viewer context. | `SharePointFileContent` or `SharePointFileBlobUrl` renders inline in a controlled host with consistent behavior. |
 | Relative-link navigation between HTML pages | Often leaves current page context or behaves like raw file navigation. | Intercepts supported links and keeps navigation inside UHV host experience. |
 | Shareable links to specific subpages | Usually tied to raw file URLs, not unified host-page state. | Uses host-page URL state (`?uhvPage=...`) for stable, shareable deep links. |
 | Back/Forward browser behavior | Not guaranteed for embedded report-state transitions. | Managed through host URL state and history handling. |
@@ -82,7 +82,7 @@ Contributor skills (repo-local playbooks): `skills/README.md`
 
 ## 🧩 Key Capabilities
 
-- Render mode selection: `DirectUrl` or `SharePointFileContent` (inline `srcdoc`).
+- Render mode selection: `SharePointFileContent` (inline `srcdoc`) or `SharePointFileBlobUrl` (`blob:` iframe). `DirectUrl` remains a legacy/expert option for external scenarios.
 - Deep-link support with shareable page URLs via `?uhvPage=...` (disabled by default; enable with `allowQueryStringPageOverride`).
 - Nested iframe hydration for report wrappers.
 - Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
@@ -211,7 +211,7 @@ sequenceDiagram
 | Setting | Options | Purpose |
 | --- | --- | --- |
 | `htmlSourceMode` | `FullUrl`, `BasePathAndRelativePath`, `BasePathAndDashboardId` | Defines how target HTML URL is built. |
-| `contentDeliveryMode` | `DirectUrl`, `SharePointFileContent` | Chooses direct iframe URL vs inline file content from SharePoint API. |
+| `contentDeliveryMode` | `SharePointFileContent`, `SharePointFileBlobUrl` | Chooses inline file content from SharePoint API via `srcdoc` or `blob:` iframe. |
 | `queryStringParamName` | string | Query key used for ID/path source mode. |
 | `defaultFileName` | string | Default file when the requested id/path is missing. |
 
@@ -250,6 +250,16 @@ sequenceDiagram
 - Keep reports and linked pages in same tenant/site boundary
 - Avoid `AnyHttps` unless you explicitly accept cross-host embedding risk.
 - `AnyHttps` is available only when `enableExpertSecurityModes` is enabled.
+
+### One Host Page for Many Files
+
+When reports live under one SharePoint folder tree, prefer one UHV host page plus deep links instead of provisioning one page per report file.
+
+- Set one default entry file.
+- Enable `allowQueryStringPageOverride`.
+- Constrain `allowedPathPrefixes` to the report root you want UHV to serve.
+- Share report links as `.../SitePages/Reports.aspx?uhvPage=<encoded-server-relative-path>`.
+- For mixed permissions, use one host page per secured folder boundary when possible, not per file.
 
 ## 🔗 URL Contract (Deep-Linking)
 
@@ -478,7 +488,7 @@ Scripts support auth fallbacks from environment variables:
 
 ## 🩺 Troubleshooting
 
-- Report downloads instead of rendering: switch to `SharePointFileContent`.
+- Report downloads instead of rendering: switch to `SharePointFileContent` or `SharePointFileBlobUrl`.
 - Navigation not staying inline: verify relative links and allowed extensions.
 - Deep-link opens but landing position is wrong: retest with `?uhvTraceScroll=1` and review trace.
 - Page editing issues (`SavePageCoAuth 400`): often SharePoint authoring state; see deployment guide.

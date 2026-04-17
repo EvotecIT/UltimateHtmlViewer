@@ -1,10 +1,15 @@
 import type { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
-import { prepareInlineHtmlForSrcDoc } from './InlineHtmlTransformHelper';
+import {
+  prepareInlineHtmlForBlobUrl,
+  prepareInlineHtmlForSrcDoc,
+} from './InlineHtmlTransformHelper';
 
 interface IInlineHtmlCacheEntry {
   html: string;
   expiresAt: number;
 }
+
+type InlineHtmlRenderMode = 'SrcDoc' | 'BlobUrl';
 
 export interface ILoadSharePointInlineContentOptions {
   cacheTtlMs?: number;
@@ -32,6 +37,49 @@ export async function loadSharePointFileContentForInline(
   spHttpClientConfiguration?: unknown,
   options?: ILoadSharePointInlineContentOptions,
 ): Promise<string> {
+  return loadSharePointFileContent(
+    spHttpClient,
+    webAbsoluteUrl,
+    sourceUrl,
+    baseUrlForRelativeLinks,
+    pageUrl,
+    spHttpClientConfiguration,
+    options,
+    'SrcDoc',
+  );
+}
+
+export async function loadSharePointFileContentForBlobUrl(
+  spHttpClient: SPHttpClient,
+  webAbsoluteUrl: string,
+  sourceUrl: string,
+  baseUrlForRelativeLinks: string,
+  pageUrl: string,
+  spHttpClientConfiguration?: unknown,
+  options?: ILoadSharePointInlineContentOptions,
+): Promise<string> {
+  return loadSharePointFileContent(
+    spHttpClient,
+    webAbsoluteUrl,
+    sourceUrl,
+    baseUrlForRelativeLinks,
+    pageUrl,
+    spHttpClientConfiguration,
+    options,
+    'BlobUrl',
+  );
+}
+
+async function loadSharePointFileContent(
+  spHttpClient: SPHttpClient,
+  webAbsoluteUrl: string,
+  sourceUrl: string,
+  baseUrlForRelativeLinks: string,
+  pageUrl: string,
+  spHttpClientConfiguration?: unknown,
+  options?: ILoadSharePointInlineContentOptions,
+  renderMode: InlineHtmlRenderMode = 'SrcDoc',
+): Promise<string> {
   const serverRelativePath = getServerRelativePathForSharePointFile(sourceUrl, pageUrl);
 
   if (!serverRelativePath) {
@@ -45,6 +93,7 @@ export async function loadSharePointFileContentForInline(
     sourceUrl,
     baseUrlForRelativeLinks,
     pageUrl,
+    renderMode,
     options?.enforceStrictInlineCsp === true,
   );
   const bypassCache = options?.bypassCache === true;
@@ -73,6 +122,7 @@ export async function loadSharePointFileContentForInline(
     pageUrl,
     spHttpClientConfiguration,
     options,
+    renderMode,
   )
     .then((preparedHtml) => {
       if (useResponseCache) {
@@ -106,6 +156,7 @@ async function loadSharePointInlineHtmlFromApi(
   pageUrl: string,
   spHttpClientConfiguration?: unknown,
   options?: ILoadSharePointInlineContentOptions,
+  renderMode: InlineHtmlRenderMode = 'SrcDoc',
 ): Promise<string> {
   const encodedPath = encodeURIComponent(serverRelativePath);
   const apiUrl = `${webAbsoluteUrl}/_api/web/GetFileByServerRelativeUrl(@p1)/$value?@p1='${encodedPath}'`;
@@ -126,6 +177,10 @@ async function loadSharePointInlineHtmlFromApi(
   const html = await response.text();
   if (!html || html.trim().length === 0) {
     throw new Error('SharePoint API returned empty HTML content.');
+  }
+
+  if (renderMode === 'BlobUrl') {
+    return prepareInlineHtmlForBlobUrl(html, baseUrlForRelativeLinks, pageUrl);
   }
 
   return prepareInlineHtmlForSrcDoc(html, baseUrlForRelativeLinks, pageUrl, {
@@ -205,13 +260,15 @@ function buildInlineHtmlCacheKey(
   sourceUrl: string,
   baseUrlForRelativeLinks: string,
   pageUrl: string,
+  renderMode: InlineHtmlRenderMode,
   enforceStrictInlineCsp: boolean,
 ): string {
   const normalizedSourceUrl = (sourceUrl || '').trim();
   const normalizedBaseUrl = (baseUrlForRelativeLinks || '').trim();
   const normalizedPageUrl = normalizePageUrlForCache(pageUrl);
+  const normalizedRenderMode = renderMode === 'BlobUrl' ? 'blob-url' : 'srcdoc';
   const normalizedStrictMode = enforceStrictInlineCsp ? 'strict-csp' : 'default-csp';
-  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedStrictMode}`;
+  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedRenderMode}|${normalizedStrictMode}`;
 }
 
 function tryGetCachedInlineHtml(cacheKey: string): string | undefined {

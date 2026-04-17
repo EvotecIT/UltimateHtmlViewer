@@ -5,6 +5,16 @@ param(
 
     [string]$FullUrl,
     [string]$SiteRelativeDashboardPath = "SiteAssets/Index.html",
+    [ValidateSet("FullUrl", "BasePathAndRelativePath", "BasePathAndDashboardId")]
+    [string]$HtmlSourceMode = "FullUrl",
+    [string]$BasePath,
+    [string]$RelativePath,
+    [string]$DashboardId,
+    [string]$DefaultFileName,
+    [string]$QueryStringParamName,
+    [string]$AllowedPathPrefixes,
+    [string]$AllowedFileExtensions,
+    [switch]$AllowQueryStringPageOverride,
 
     [string]$PageName = "Dashboard",
     [string]$PageTitle = "Dashboard",
@@ -111,17 +121,19 @@ if (-not (Test-Path $addPageScript)) {
     throw "Add page script not found at $addPageScript"
 }
 
-$effectiveFullUrl = Resolve-FullUrl `
-    -TargetSiteUrl $SiteUrl `
-    -ExplicitFullUrl $FullUrl `
-    -RelativePath $SiteRelativeDashboardPath
-
 $siteUri = ConvertTo-HttpsUri -Value $SiteUrl -ParameterName "SiteUrl"
-$effectiveFullUri = ConvertTo-HttpsUri -Value $effectiveFullUrl -ParameterName "FullUrl"
+$effectiveFullUrl = $null
+if ($HtmlSourceMode -eq "FullUrl") {
+    $effectiveFullUrl = Resolve-FullUrl `
+        -TargetSiteUrl $SiteUrl `
+        -ExplicitFullUrl $FullUrl `
+        -RelativePath $SiteRelativeDashboardPath
 
-if ($ContentDeliveryMode -eq "SharePointFileContent") {
-    if ($effectiveFullUri.Host.ToLowerInvariant() -ne $siteUri.Host.ToLowerInvariant()) {
-        throw "For SharePointFileContent mode, FullUrl must use the same host as SiteUrl. SiteUrl host='$($siteUri.Host)', FullUrl host='$($effectiveFullUri.Host)'."
+    $effectiveFullUri = ConvertTo-HttpsUri -Value $effectiveFullUrl -ParameterName "FullUrl"
+    if ($ContentDeliveryMode -eq "SharePointFileContent") {
+        if ($effectiveFullUri.Host.ToLowerInvariant() -ne $siteUri.Host.ToLowerInvariant()) {
+            throw "For SharePointFileContent mode, FullUrl must use the same host as SiteUrl. SiteUrl host='$($siteUri.Host)', FullUrl host='$($effectiveFullUri.Host)'."
+        }
     }
 }
 if (-not $PSCmdlet.ShouldProcess($SiteUrl, "Provision UHV page '$PageName'")) {
@@ -130,11 +142,25 @@ if (-not $PSCmdlet.ShouldProcess($SiteUrl, "Provision UHV page '$PageName'")) {
 
 Write-Host "Running one-command UHV site setup..."
 Write-Host "Site: $SiteUrl"
-Write-Host "Dashboard URL: $effectiveFullUrl"
+Write-Host "HTML source mode: $HtmlSourceMode"
+if ($HtmlSourceMode -eq "FullUrl") {
+    Write-Host "Dashboard URL: $effectiveFullUrl"
+} elseif (-not [string]::IsNullOrWhiteSpace($BasePath)) {
+    Write-Host "Base path: $BasePath"
+}
 
 & $addPageScript `
     -SiteUrl $SiteUrl `
     -FullUrl $effectiveFullUrl `
+    -HtmlSourceMode $HtmlSourceMode `
+    -BasePath $BasePath `
+    -RelativePath $RelativePath `
+    -DashboardId $DashboardId `
+    -DefaultFileName $DefaultFileName `
+    -QueryStringParamName $QueryStringParamName `
+    -AllowedPathPrefixes $AllowedPathPrefixes `
+    -AllowedFileExtensions $AllowedFileExtensions `
+    -AllowQueryStringPageOverride:$AllowQueryStringPageOverride.IsPresent `
     -PageName $PageName `
     -PageTitle $PageTitle `
     -PageLayoutType $PageLayoutType `

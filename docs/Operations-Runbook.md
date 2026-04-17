@@ -94,7 +94,42 @@ Get-PnPApp -Scope Site | Where-Object { $_.Title -like "*Universal HTML Viewer*"
 - Sandbox preset: `Relaxed` (unless stricter governance is required)
 - Use same-tenant URLs for linked report pages
 
-## 8) Rollback
+## 8) One host page for many files
+
+If you have dozens of report files under one SharePoint library/folder tree, do not create one UHV page per file.
+Provision one host page, point it at a default entry file, and allow query-driven deep links inside the approved path boundary.
+
+Example:
+
+```powershell
+.\scripts\Setup-UHVSite.ps1 `
+  -SiteUrl "https://<tenant>.sharepoint.com/sites/Reports" `
+  -PageName "Reports" `
+  -PageTitle "Reports" `
+  -HtmlSourceMode "BasePathAndRelativePath" `
+  -BasePath "/sites/Reports/Shared Documents/Reports/" `
+  -RelativePath "Global/LegacyUsers.aspx" `
+  -AllowedPathPrefixes "/sites/Reports/Shared Documents/Reports/" `
+  -AllowedFileExtensions ".html,.htm,.aspx" `
+  -AllowQueryStringPageOverride `
+  -ConfigurationPreset "SharePointLibraryRelaxed" `
+  -ContentDeliveryMode "SharePointFileContent" `
+  -DeviceLogin
+```
+
+Then share links like:
+
+```text
+https://<tenant>.sharepoint.com/sites/Reports/SitePages/Reports.aspx?uhvPage=%2Fsites%2FReports%2FShared%20Documents%2FReports%2FGlobal%2FLegacyUsers.aspx
+```
+
+Permission notes:
+
+- UHV does not bypass SharePoint permissions.
+- Users still need access to both the host page and the target file.
+- In mixed-permission libraries, prefer one host page per permission boundary or top-level secured folder, not per individual file.
+
+## 9) Rollback
 
 ```powershell
 .\scripts\Rollback-UHV.ps1 `

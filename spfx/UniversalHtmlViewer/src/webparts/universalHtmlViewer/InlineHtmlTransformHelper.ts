@@ -8,30 +8,67 @@ export function prepareInlineHtmlForSrcDoc(
   pageUrl: string,
   options?: IPrepareInlineHtmlForSrcDocOptions,
 ): string {
+  return prepareInlineHtmlForFrameDocument(
+    html,
+    baseUrlForRelativeLinks,
+    pageUrl,
+    options,
+    true,
+  );
+}
+
+export function prepareInlineHtmlForBlobUrl(
+  html: string,
+  baseUrlForRelativeLinks: string,
+  pageUrl: string,
+): string {
+  return prepareInlineHtmlForFrameDocument(
+    html,
+    baseUrlForRelativeLinks,
+    pageUrl,
+    undefined,
+    false,
+  );
+}
+
+function prepareInlineHtmlForFrameDocument(
+  html: string,
+  baseUrlForRelativeLinks: string,
+  pageUrl: string,
+  options: IPrepareInlineHtmlForSrcDocOptions | undefined,
+  injectDefaultContentSecurityPolicy: boolean,
+): string {
   const enforceStrictInlineCsp = options?.enforceStrictInlineCsp === true;
+  const pageScriptNonce = tryGetCurrentPageScriptNonce();
   const htmlWithNeutralizedNestedFrames = neutralizeNestedIframeSources(html);
-  const shouldInjectCompatibilityShim = !/data-uhv-history-compat=/i.test(
+  const htmlWithNonceStampedScripts = applyPageScriptNonceToInlineScripts(
     htmlWithNeutralizedNestedFrames,
+    pageScriptNonce,
+  );
+  const shouldInjectCompatibilityShim = !/data-uhv-history-compat=/i.test(
+    htmlWithNonceStampedScripts,
   );
   const shouldInjectInlineNavigationBridge = !/data-uhv-inline-nav-bridge=/i.test(
-    htmlWithNeutralizedNestedFrames,
+    htmlWithNonceStampedScripts,
   );
   const inlineScriptNonce =
-    enforceStrictInlineCsp && (shouldInjectCompatibilityShim || shouldInjectInlineNavigationBridge)
+    pageScriptNonce ||
+    (enforceStrictInlineCsp && (shouldInjectCompatibilityShim || shouldInjectInlineNavigationBridge)
       ? createStrictInlineHistoryShimNonce()
-      : undefined;
-  const srcDocCspTag = hasContentSecurityPolicyMetaTag(htmlWithNeutralizedNestedFrames)
-    ? ''
-    : `<meta data-uhv-inline-csp="1" http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(
-        getDefaultSrcDocContentSecurityPolicy(
-          pageUrl,
-          baseUrlForRelativeLinks,
-          enforceStrictInlineCsp,
-          inlineScriptNonce,
-        ),
-      )}">`;
+      : undefined);
+  const srcDocCspTag =
+    injectDefaultContentSecurityPolicy && !hasContentSecurityPolicyMetaTag(htmlWithNonceStampedScripts)
+      ? `<meta data-uhv-inline-csp="1" http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(
+          getDefaultSrcDocContentSecurityPolicy(
+            pageUrl,
+            baseUrlForRelativeLinks,
+            enforceStrictInlineCsp,
+            inlineScriptNonce,
+          ),
+        )}">`
+      : '';
   const baseHref = getAbsoluteUrlWithoutQuery(baseUrlForRelativeLinks, pageUrl);
-  const baseTag = /<base\s+/i.test(htmlWithNeutralizedNestedFrames)
+  const baseTag = /<base\s+/i.test(htmlWithNonceStampedScripts)
     ? ''
     : `<base href="${escapeHtmlAttribute(baseHref)}">`;
   const compatibilityShimTag = shouldInjectCompatibilityShim
@@ -51,24 +88,77 @@ export function prepareInlineHtmlForSrcDoc(
   const headInjectedMarkup = `${srcDocCspTag}${compatibilityShimTag}${inlineNavigationBridgeTag}${baseTag}`;
 
   if (!headInjectedMarkup) {
-    return htmlWithNeutralizedNestedFrames;
+    return htmlWithNonceStampedScripts;
   }
 
-  if (/<head[\s>]/i.test(htmlWithNeutralizedNestedFrames)) {
-    return htmlWithNeutralizedNestedFrames.replace(
+  if (/<head[\s>]/i.test(htmlWithNonceStampedScripts)) {
+    return htmlWithNonceStampedScripts.replace(
       /<head([^>]*)>/i,
       `<head$1>${headInjectedMarkup}`,
     );
   }
 
-  if (/<html[\s>]/i.test(htmlWithNeutralizedNestedFrames)) {
-    return htmlWithNeutralizedNestedFrames.replace(
+  if (/<html[\s>]/i.test(htmlWithNonceStampedScripts)) {
+    return htmlWithNonceStampedScripts.replace(
       /<html([^>]*)>/i,
       `<html$1><head>${headInjectedMarkup}</head>`,
     );
   }
 
-  return `<head>${headInjectedMarkup}</head>${htmlWithNeutralizedNestedFrames}`;
+  return `<head>${headInjectedMarkup}</head>${htmlWithNonceStampedScripts}`;
+}
+
+function tryGetCurrentPageScriptNonce(): string | undefined {
+  if (typeof document === 'undefined') {
+    return undefined;
+  }
+
+  const scripts = Array.from(document.scripts || []);
+  for (let index = 0; index < scripts.length; index += 1) {
+    const script = scripts[index];
+    const scriptNonce = (script.nonce || script.getAttribute('nonce') || '').trim();
+    if (scriptNonce) {
+      return scriptNonce;
+    }
+  }
+
+  return undefined;
+}
+
+function applyPageScriptNonceToInlineScripts(
+  html: string,
+  pageScriptNonce?: string,
+): string {
+  if (!html || !pageScriptNonce || typeof DOMParser === 'undefined' || !/<script[\s>]/i.test(html)) {
+    return html;
+  }
+
+  try {
+    const hasDoctype: boolean = /^\s*<!doctype/i.test(html);
+    const parser = new DOMParser();
+    const parsed = parser.parseFromString(html, 'text/html');
+    if (!parsed || !parsed.documentElement) {
+      return html;
+    }
+
+    const scripts = parsed.querySelectorAll('script');
+    scripts.forEach((script) => {
+      const hasSrc = (script.getAttribute('src') || '').trim().length > 0;
+      const hasNonce = (script.getAttribute('nonce') || '').trim().length > 0;
+      if (!hasSrc && !hasNonce) {
+        script.setAttribute('nonce', pageScriptNonce);
+      }
+    });
+
+    const rebuiltHtml = parsed.documentElement.outerHTML;
+    if (!rebuiltHtml) {
+      return html;
+    }
+
+    return hasDoctype ? `<!DOCTYPE html>${rebuiltHtml}` : rebuiltHtml;
+  } catch {
+    return html;
+  }
 }
 
 function hasContentSecurityPolicyMetaTag(html: string): boolean {
