@@ -294,6 +294,56 @@ describe('SharePointReportBrowserHelper', () => {
     expect(spHttpClient.get.mock.calls.some(([url]) => url === nextFilesLink)).toBe(true);
   });
 
+  it('continues folder-view file paging after non-report files', async () => {
+    const nextFilesLink = 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files';
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        if (url === nextFilesLink) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value: [
+                  {
+                    Name: 'Report.html',
+                    ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Report.html',
+                  },
+                ],
+              }),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              value: url.includes('/Files?')
+                ? [
+                    {
+                      Name: 'Data.csv',
+                      ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Data.csv',
+                    },
+                  ]
+                : [],
+              '@odata.nextLink': url.includes('/Files?') ? nextFilesLink : undefined,
+            }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: '/sites/TestSite1/SiteAssets/Reports',
+      allowedExtensions: ['.html'],
+      view: 'Folders',
+      maxItems: 1,
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['Report.html']);
+    expect(spHttpClient.get.mock.calls.some(([url]) => url === nextFilesLink)).toBe(true);
+  });
+
   it('preserves file rows when folder view reaches the item cap', async () => {
     const spHttpClient = {
       get: jest.fn((url: string) => {

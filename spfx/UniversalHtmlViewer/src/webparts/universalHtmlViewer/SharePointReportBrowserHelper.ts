@@ -75,7 +75,7 @@ export async function loadSharePointReportBrowserItems(
 
   const [folders, files] = await Promise.all([
     loadFolderEntries(options, currentFolderPath, maxItems),
-    loadFileEntries(options, currentFolderPath, maxItems),
+    loadAllowedFileEntries(options, currentFolderPath, allowedExtensions, maxItems),
   ]);
 
   const folderItems = folders
@@ -85,7 +85,6 @@ export async function loadSharePointReportBrowserItems(
     )
     .filter((item): item is ISharePointReportBrowserItem => !!item);
   const fileItems = files
-    .filter((file) => isAllowedReportFile(file.ServerRelativeUrl, allowedExtensions))
     .map((file) => buildFileItem(file, rootPath))
     .filter((item): item is ISharePointReportBrowserItem => !!item);
 
@@ -211,34 +210,65 @@ async function appendAllowedFileItemsFromFolder(
   maxItems: number,
   result: ISharePointReportBrowserItem[],
 ): Promise<void> {
+  const files = await loadAllowedFileEntries(
+    options,
+    folderPath,
+    allowedExtensions,
+    maxItems - result.length,
+  );
+
+  for (const file of files) {
+    if (result.length >= maxItems) {
+      return;
+    }
+
+    const item = buildFileItem(file, rootPath);
+    if (item) {
+      result.push(item);
+    }
+  }
+}
+
+async function loadAllowedFileEntries(
+  options: ILoadSharePointReportBrowserItemsOptions,
+  folderPath: string,
+  allowedExtensions: string[],
+  maxAcceptedEntries: number,
+): Promise<ISharePointFileListEntry[]> {
+  if (maxAcceptedEntries <= 0) {
+    return [];
+  }
+
   let apiUrl = buildFolderChildrenApiUrl(
     options.webAbsoluteUrl,
     folderPath,
     'Files',
     `$select=Name,ServerRelativeUrl,TimeLastModified&$orderby=Name&$top=${MAX_SHAREPOINT_PAGE_SIZE}`,
   );
+  const files: ISharePointFileListEntry[] = [];
   const visitedUrls = new Set<string>();
 
-  while (apiUrl && result.length < maxItems && !visitedUrls.has(apiUrl)) {
+  while (apiUrl && files.length < maxAcceptedEntries && !visitedUrls.has(apiUrl)) {
     visitedUrls.add(apiUrl);
     const response = await loadSharePointJson<ISharePointListResponse<ISharePointFileListEntry>>(
       options,
       apiUrl,
     );
 
-    (response.value || [])
-      .filter((file) => isAllowedReportFile(file.ServerRelativeUrl, allowedExtensions))
-      .forEach((file) => {
-        if (result.length < maxItems) {
-          const item = buildFileItem(file, rootPath);
-          if (item) {
-            result.push(item);
-          }
-        }
-      });
+    for (const file of response.value || []) {
+      if (files.length >= maxAcceptedEntries) {
+        break;
+      }
+
+      if (isAllowedReportFile(file.ServerRelativeUrl, allowedExtensions)) {
+        files.push(file);
+      }
+    }
 
     apiUrl = getNextLink(response);
   }
+
+  return files;
 }
 
 async function loadFolderEntries(
@@ -253,24 +283,6 @@ async function loadFolderEntries(
     `$select=Name,ServerRelativeUrl&$orderby=Name&$top=${normalizeSharePointPageSize(maxEntries)}`,
   );
   const response = await loadSharePointJson<ISharePointListResponse<ISharePointFolderListEntry>>(
-    options,
-    apiUrl,
-  );
-  return loadSharePointPagedListEntries(options, response, apiUrl, maxEntries);
-}
-
-async function loadFileEntries(
-  options: ILoadSharePointReportBrowserItemsOptions,
-  folderPath: string,
-  maxEntries?: number,
-): Promise<ISharePointFileListEntry[]> {
-  const apiUrl = buildFolderChildrenApiUrl(
-    options.webAbsoluteUrl,
-    folderPath,
-    'Files',
-    `$select=Name,ServerRelativeUrl,TimeLastModified&$orderby=Name&$top=${normalizeSharePointPageSize(maxEntries)}`,
-  );
-  const response = await loadSharePointJson<ISharePointListResponse<ISharePointFileListEntry>>(
     options,
     apiUrl,
   );
