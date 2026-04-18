@@ -302,7 +302,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     if (
       !isReportBrowserSourceMode(props.htmlSourceMode) ||
       !isInlineContentDeliveryMode(contentDeliveryMode) ||
-      !props.showChrome
+      props.showChrome === false
     ) {
       return '';
     }

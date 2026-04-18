@@ -93,6 +93,29 @@ describe('UniversalHtmlViewerWebPart report browser filter', () => {
     expect(html).toBe('');
   });
 
+  it('renders the browser when showChrome is unset in SharePointReportBrowser mode', () => {
+    const webPart = createWebPartHarness();
+
+    const html = webPart.buildReportBrowserHtml({
+      htmlSourceMode: 'SharePointReportBrowser',
+      contentDeliveryMode: 'SharePointFileContent',
+    });
+
+    expect(html).toContain('data-uhv-report-browser');
+  });
+
+  it('does not render the browser when chrome is explicitly disabled', () => {
+    const webPart = createWebPartHarness();
+
+    const html = webPart.buildReportBrowserHtml({
+      htmlSourceMode: 'SharePointReportBrowser',
+      contentDeliveryMode: 'SharePointFileContent',
+      showChrome: false,
+    });
+
+    expect(html).toBe('');
+  });
+
   it('uses the configured browser root in SharePointReportBrowser mode', () => {
     const webPart = createWebPartHarness();
 
