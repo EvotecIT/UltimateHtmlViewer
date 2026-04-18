@@ -25,6 +25,7 @@ import {
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
   isInlineContentDeliveryMode,
+  isReportBrowserSourceMode,
 } from './UniversalHtmlViewerTypes';
 import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPartConfigBase';
 
@@ -653,7 +654,12 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   protected getContentDeliveryMode(
     props: IUniversalHtmlViewerWebPartProps,
   ): ContentDeliveryMode {
-    return props.contentDeliveryMode || 'SharePointFileContent';
+    const mode: ContentDeliveryMode = props.contentDeliveryMode || 'SharePointFileContent';
+    if (isReportBrowserSourceMode(props.htmlSourceMode) && !isInlineContentDeliveryMode(mode)) {
+      return 'SharePointFileContent';
+    }
+
+    return mode;
   }
 
   protected async trySetIframeSrcDocFromSource(

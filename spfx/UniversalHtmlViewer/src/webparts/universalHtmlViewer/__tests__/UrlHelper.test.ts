@@ -39,6 +39,26 @@ describe('buildFinalUrl', () => {
     expect(url).toBe('/sites/Reports/Dashboards/system1/index.html');
   });
 
+  it('uses report browser root and default file in SharePointReportBrowser mode', () => {
+    const url: string | undefined = buildFinalUrl({
+      htmlSourceMode: 'SharePointReportBrowser',
+      reportBrowserRootPath: '/sites/Reports/Dashboards',
+      defaultFileName: 'Index.html',
+    });
+
+    expect(url).toBe('/sites/Reports/Dashboards/Index.html');
+  });
+
+  it('falls back to index.html in SharePointReportBrowser mode', () => {
+    const url: string | undefined = buildFinalUrl({
+      htmlSourceMode: 'SharePointReportBrowser',
+      reportBrowserRootPath: '/sites/Reports/Dashboards/',
+      defaultFileName: '   ',
+    });
+
+    expect(url).toBe('/sites/Reports/Dashboards/index.html');
+  });
+
   it('builds URL using query string dashboard ID when present', () => {
     const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndDashboardId',

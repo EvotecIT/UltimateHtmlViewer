@@ -12,6 +12,8 @@ import {
   ConfigurationPreset,
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
+  isInlineContentDeliveryMode,
+  isReportBrowserSourceMode,
   ReportBrowserDefaultView,
 } from './UniversalHtmlViewerTypes';
 import {
@@ -296,7 +298,12 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
   }
 
   private buildReportBrowserHtml(props: IUniversalHtmlViewerWebPartProps): string {
-    if (props.showReportBrowser !== true || !props.showChrome) {
+    const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(props);
+    if (
+      !isReportBrowserSourceMode(props.htmlSourceMode) ||
+      !isInlineContentDeliveryMode(contentDeliveryMode) ||
+      !props.showChrome
+    ) {
       return '';
     }
 
@@ -489,7 +496,12 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     const browserElement: HTMLElement | null = this.domElement.querySelector(
       '[data-uhv-report-browser]',
     );
-    if (!browserElement || effectiveProps.showReportBrowser !== true) {
+    const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(effectiveProps);
+    if (
+      !browserElement ||
+      !isReportBrowserSourceMode(effectiveProps.htmlSourceMode) ||
+      !isInlineContentDeliveryMode(contentDeliveryMode)
+    ) {
       return;
     }
 
@@ -778,17 +790,6 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       );
     }
 
-    const sourceDirectory = this.getDirectoryPathFromUrl(baseUrl);
-    if (props.htmlSourceMode === 'FullUrl') {
-      const rootFromSource = normalizeSharePointReportBrowserRootPath(
-        sourceDirectory,
-        this.context.pageContext.web.absoluteUrl,
-      );
-      if (rootFromSource) {
-        return rootFromSource;
-      }
-    }
-
     if (props.basePath) {
       const rootFromBasePath = normalizeSharePointReportBrowserRootPath(
         props.basePath,
@@ -799,6 +800,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       }
     }
 
+    const sourceDirectory = this.getDirectoryPathFromUrl(baseUrl);
     return normalizeSharePointReportBrowserRootPath(
       sourceDirectory,
       this.context.pageContext.web.absoluteUrl,

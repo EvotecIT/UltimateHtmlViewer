@@ -10,7 +10,12 @@ const enumValues: Record<string, string[]> = {
     'AnyHttps',
   ],
   contentDeliveryMode: ['DirectUrl', 'SharePointFileContent', 'SharePointFileBlobUrl'],
-  htmlSourceMode: ['FullUrl', 'BasePathAndRelativePath', 'BasePathAndDashboardId'],
+  htmlSourceMode: [
+    'FullUrl',
+    'SharePointReportBrowser',
+    'BasePathAndRelativePath',
+    'BasePathAndDashboardId',
+  ],
   heightMode: ['Fixed', 'Viewport', 'Auto'],
   securityMode: ['StrictTenant', 'Allowlist', 'AnyHttps'],
   tenantConfigMode: ['Merge', 'Override'],

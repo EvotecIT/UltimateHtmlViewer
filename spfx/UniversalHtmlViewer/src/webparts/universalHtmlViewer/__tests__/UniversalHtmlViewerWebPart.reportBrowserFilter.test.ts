@@ -80,12 +80,26 @@ describe('UniversalHtmlViewerWebPart report browser filter', () => {
     expect(rows[1].style.display).toBe('none');
   });
 
-  it('uses the FullUrl directory before stale basePath for the browser root', () => {
+  it('does not render the browser for FullUrl even when the legacy flag is enabled', () => {
+    const webPart = createWebPartHarness();
+
+    const html = webPart.buildReportBrowserHtml({
+      htmlSourceMode: 'FullUrl',
+      contentDeliveryMode: 'SharePointFileContent',
+      showChrome: true,
+      showReportBrowser: true,
+    });
+
+    expect(html).toBe('');
+  });
+
+  it('uses the configured browser root in SharePointReportBrowser mode', () => {
     const webPart = createWebPartHarness();
 
     const rootPath = webPart.getEffectiveReportBrowserRootPath(
       {
-        htmlSourceMode: 'FullUrl',
+        htmlSourceMode: 'SharePointReportBrowser',
+        reportBrowserRootPath: '/sites/TestSite1/SiteAssets/Reports',
         basePath: '/sites/TestSite1/SiteAssets/Stale',
       },
       'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Index.html',
@@ -116,8 +130,8 @@ describe('UniversalHtmlViewerWebPart report browser filter', () => {
       'v',
       'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
       {
-        htmlSourceMode: 'BasePathAndRelativePath',
-        showReportBrowser: true,
+        htmlSourceMode: 'SharePointReportBrowser',
+        contentDeliveryMode: 'SharePointFileContent',
         basePath: '/sites/TestSite1/SiteAssets/Reports',
         reportBrowserDefaultView: 'Files',
       },

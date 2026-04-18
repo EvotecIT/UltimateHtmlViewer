@@ -1,6 +1,10 @@
 import { getQueryStringParam } from './QueryStringHelper';
 
-export type HtmlSourceMode = 'FullUrl' | 'BasePathAndRelativePath' | 'BasePathAndDashboardId';
+export type HtmlSourceMode =
+  | 'FullUrl'
+  | 'SharePointReportBrowser'
+  | 'BasePathAndRelativePath'
+  | 'BasePathAndDashboardId';
 
 export type HeightMode = 'Fixed' | 'Viewport' | 'Auto';
 
@@ -12,6 +16,7 @@ export interface BuildUrlParams {
   htmlSourceMode: HtmlSourceMode;
   fullUrl?: string;
   basePath?: string;
+  reportBrowserRootPath?: string;
   relativePath?: string;
   dashboardId?: string;
   defaultFileName?: string;
@@ -40,6 +45,20 @@ export function buildFinalUrl(params: BuildUrlParams): string | undefined {
   if (mode === 'FullUrl') {
     const normalizedFullUrl: string = (params.fullUrl || '').trim();
     return normalizedFullUrl || undefined;
+  }
+
+  if (mode === 'SharePointReportBrowser') {
+    const reportBrowserRootPathNormalized: string = normalizeFolderPath(
+      params.reportBrowserRootPath || params.basePath,
+    );
+    if (!reportBrowserRootPathNormalized) {
+      return undefined;
+    }
+
+    const defaultFileName: string = normalizeRelativePath(
+      params.defaultFileName || 'index.html',
+    );
+    return `${reportBrowserRootPathNormalized}${defaultFileName || 'index.html'}`;
   }
 
   const basePathNormalized: string = normalizeBasePath(params.basePath);
@@ -197,6 +216,20 @@ function normalizeBasePath(basePath?: string): string {
   }
 
   return normalized;
+}
+
+function normalizeFolderPath(folderPath?: string): string {
+  const value: string = (folderPath || '').trim();
+
+  if (!value) {
+    return '';
+  }
+
+  if (value.toLowerCase().startsWith('http://') || value.toLowerCase().startsWith('https://')) {
+    return value.endsWith('/') ? value : `${value}/`;
+  }
+
+  return normalizeBasePath(value);
 }
 
 function normalizeRelativePath(relativePath?: string): string {

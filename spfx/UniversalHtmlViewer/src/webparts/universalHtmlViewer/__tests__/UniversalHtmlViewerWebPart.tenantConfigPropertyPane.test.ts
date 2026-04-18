@@ -157,7 +157,7 @@ describe('UniversalHtmlViewerWebPart tenant config property pane behavior', () =
     expect(tenantConfigModeField?.properties?.disabled).toBe(false);
   });
 
-  it('keeps initial page settings separate from report browser source settings', () => {
+  it('keeps report browser disabled for single page URL mode', () => {
     const webPart = createWebPartHarness();
     webPart.properties.contentDeliveryMode = 'SharePointFileContent';
     webPart.properties.htmlSourceMode = 'FullUrl';
@@ -167,19 +167,40 @@ describe('UniversalHtmlViewerWebPart tenant config property pane behavior', () =
     const configuration = webPart.getPropertyPaneConfiguration();
     const groupNames = getGroupNames(configuration);
     const initialContentGroupIndex = groupNames.indexOf('Initial content (Required)');
-    const reportBrowserGroupIndex = groupNames.indexOf(
-      'Report browser source (Optional)',
-    );
+    const reportBrowserGroupIndex = groupNames.indexOf('Report browser source');
     const fullUrlField = findPropertyPaneField(configuration, 'fullUrl');
     const reportBrowserRootField = findPropertyPaneField(
       configuration,
       'reportBrowserRootPath',
     );
+    const reportBrowserToggle = findPropertyPaneField(configuration, 'showReportBrowser');
 
     expect(initialContentGroupIndex).toBeGreaterThan(-1);
     expect(reportBrowserGroupIndex).toBe(initialContentGroupIndex + 1);
-    expect(fullUrlField?.properties?.label).toBe('Initial/default HTML page');
+    expect(fullUrlField?.properties?.label).toBe('HTML page URL');
     expect(reportBrowserRootField?.properties?.label).toBe('Browser root folder');
+    expect(reportBrowserRootField?.properties?.disabled).toBe(true);
+    expect(reportBrowserToggle).toBeUndefined();
+  });
+
+  it('enables report browser source settings only in report browser mode', () => {
+    const webPart = createWebPartHarness();
+    webPart.properties.contentDeliveryMode = 'SharePointFileContent';
+    webPart.properties.htmlSourceMode = 'SharePointReportBrowser';
+    webPart.properties.showChrome = true;
+
+    const configuration = webPart.getPropertyPaneConfiguration();
+    const fullUrlField = findPropertyPaneField(configuration, 'fullUrl');
+    const basePathField = findPropertyPaneField(configuration, 'basePath');
+    const defaultFileNameField = findPropertyPaneField(configuration, 'defaultFileName');
+    const reportBrowserRootField = findPropertyPaneField(
+      configuration,
+      'reportBrowserRootPath',
+    );
+
+    expect(fullUrlField?.properties?.disabled).toBe(true);
+    expect(basePathField?.properties?.disabled).toBe(true);
+    expect(defaultFileNameField?.properties?.disabled).toBe(false);
     expect(reportBrowserRootField?.properties?.disabled).toBe(false);
   });
 });

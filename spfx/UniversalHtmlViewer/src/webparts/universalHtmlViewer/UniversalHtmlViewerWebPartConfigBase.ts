@@ -17,6 +17,7 @@ import {
   IUniversalHtmlViewerWebPartProps,
   TenantConfigMode,
   isInlineContentDeliveryMode,
+  isReportBrowserSourceMode,
 } from './UniversalHtmlViewerTypes';
 import { normalizeSharePointReportBrowserRootPath } from './SharePointReportBrowserHelper';
 
@@ -136,6 +137,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       htmlSourceMode,
       fullUrl: effectiveProps.fullUrl,
       basePath: effectiveProps.basePath,
+      reportBrowserRootPath: effectiveProps.reportBrowserRootPath,
       relativePath: effectiveProps.relativePath,
       dashboardId: effectiveProps.dashboardId,
       defaultFileName: effectiveProps.defaultFileName,
@@ -188,7 +190,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const deliveryMode = this.resolveContentDeliveryMode(effectiveProps);
     if (
       !isInlineContentDeliveryMode(deliveryMode) ||
-      effectiveProps.showReportBrowser !== true
+      !isReportBrowserSourceMode(effectiveProps.htmlSourceMode)
     ) {
       return undefined;
     }

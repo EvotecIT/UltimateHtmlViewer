@@ -76,7 +76,7 @@ describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () =>
     const configBase = createConfigHarness();
 
     const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
-      htmlSourceMode: 'FullUrl',
+      htmlSourceMode: 'SharePointReportBrowser',
       fullUrl: 'https://contoso.sharepoint.com/sites/TestSite2/SiteAssets/Index.html',
       contentDeliveryMode: 'SharePointFileBlobUrl',
       securityMode: 'StrictTenant',
@@ -84,7 +84,6 @@ describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () =>
       allowedHosts: '',
       allowedPathPrefixes: '',
       allowedFileExtensions: '.html,.htm,.aspx',
-      showReportBrowser: true,
       reportBrowserRootPath: 'Shared Documents/Reports',
     });
 

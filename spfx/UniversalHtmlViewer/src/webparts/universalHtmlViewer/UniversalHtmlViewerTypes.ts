@@ -23,6 +23,10 @@ export function isInlineContentDeliveryMode(
   return value === 'SharePointFileContent' || value === 'SharePointFileBlobUrl';
 }
 
+export function isReportBrowserSourceMode(value?: HtmlSourceMode): boolean {
+  return value === 'SharePointReportBrowser';
+}
+
 export interface IUniversalHtmlViewerWebPartProps {
   configurationPreset?: ConfigurationPreset;
   lockPresetSettings?: boolean;
