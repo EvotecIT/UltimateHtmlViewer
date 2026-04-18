@@ -12,8 +12,8 @@ SPFx security-uplift spike runbook: `docs/SPFx-Security-Uplift-Spike.md`
 ## 📦 Platform and Compatibility
 
 - SPFx runtime target: `1.22.2` packages in `spfx/UniversalHtmlViewer/package.json`.
-- SharePoint package version (`.sppkg`): `1.0.32.12` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
-- Web part manifest version: `1.0.27` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
+- SharePoint package version (`.sppkg`): `1.0.32.14` in `spfx/UniversalHtmlViewer/config/package-solution.json`.
+- Web part manifest version: `1.0.29` in `spfx/UniversalHtmlViewer/src/webparts/universalHtmlViewer/UniversalHtmlViewerWebPart.manifest.json`.
 - Node for CI/build: `22.x` (see GitHub workflows and package engine constraint).
 
 ## 🔄 CI/CD Workflows
@@ -87,6 +87,7 @@ Contributor skills (repo-local playbooks): `skills/README.md`
 - Nested iframe hydration for report wrappers.
 - Extension-aware inline navigation (`.html`, `.htm`, `.aspx` by default).
 - FRE/runtime-safe inline navigation bridge for `srcdoc` content hosted in modern SharePoint pages.
+- SharePoint-backed report browser source mode for folder/file discovery without creating one page per report.
 - Strong URL policy controls: `StrictTenant`, `Allowlist`, `AnyHttps`.
 - Expert-mode guardrail for unsafe security options (`AnyHttps`).
 - Property-pane presets for fast setup (`SharePointLibraryRelaxed`, `SharePointLibraryFullPage`, `SharePointLibraryStrict`).
@@ -156,13 +157,30 @@ Use this as a quick checklist when reproducing the setup from screenshots.
 | Screenshot | Where | Option | Recommended value |
 | --- | --- | --- | --- |
 | `uhv-showcase-editor-quick-setup.png` | Quick setup | `Configuration preset` | `SharePoint library (relaxed)` |
-| `uhv-showcase-editor-quick-setup.png` | Source | `HTML source mode` | `Full URL` |
+| `uhv-showcase-editor-quick-setup.png` | Source | `HTML source mode` | `Single page URL` |
 | `uhv-showcase-editor-quick-setup.png` | Source | `Content delivery mode` | `SharePoint file API (inline iframe)` |
-| `uhv-showcase-editor-quick-setup.png` | Source | `Full URL to HTML page` | `https://<tenant>.sharepoint.com/sites/<site>/Shared%20Documents/<entry>.html` |
+| `uhv-showcase-editor-quick-setup.png` | Source | `Initial/default HTML page` | `https://<tenant>.sharepoint.com/sites/<site>/Shared%20Documents/<entry>.html` |
+| `uhv-source-mode-single-page.png` | Source | `Initial HTML source mode` | `Single page URL` |
+| `uhv-source-mode-selector.png` | Source | `Initial HTML source mode` | Choose `Single page URL` for one file or `SharePoint report browser folder` for folder browsing. |
+| `uhv-source-mode-report-browser.png` | Source | `Initial HTML source mode` | `SharePoint report browser folder` |
 | `uhv-showcase-runtime-embedded.png` | Runtime shell | `?env=Embedded` | Optional (when supported by host context) |
 | `uhv-showcase-deeplink-security-ops.png` | Runtime behavior | `URL state` | `?uhvPage=<encoded-target>` |
 | `uhv-showcase-deeplink-security-ops.png` | Security | URL policy mode | `StrictTenant` or `Allowlist` |
 | `uhv-showcase-runtime-socialbar.png` | Site UX | Social bar | Optional; can be disabled per site |
+
+### Source Modes: Single Page vs Report Browser
+
+Use `Single page URL` when the web part should render exactly one configured HTML entry page. This mode does not show the Explorer/report browser, even if an older saved page still contains the legacy `showReportBrowser` flag.
+
+![UHV single page source mode](assets/uhv-source-mode-single-page.png)
+
+Use the source-mode picker to switch deliberately between a single page, a SharePoint report browser folder, or the older base-path URL builders.
+
+![UHV source mode picker](assets/uhv-source-mode-selector.png)
+
+Use `SharePoint report browser folder` when one UHV host page should let users browse the reports they can access under a configured SharePoint folder. The picker respects SharePoint permission trimming and UHV URL validation.
+
+![UHV report browser source mode](assets/uhv-source-mode-report-browser.png)
 
 ### Legacy Demo Screenshots
 
@@ -210,10 +228,13 @@ sequenceDiagram
 
 | Setting | Options | Purpose |
 | --- | --- | --- |
-| `htmlSourceMode` | `FullUrl`, `BasePathAndRelativePath`, `BasePathAndDashboardId` | Defines how target HTML URL is built. |
-| `contentDeliveryMode` | `SharePointFileContent`, `SharePointFileBlobUrl` | Chooses inline file content from SharePoint API via `srcdoc` or `blob:` iframe. |
+| `htmlSourceMode` | `FullUrl` (`Single page URL`), `SharePointReportBrowser` (`SharePoint report browser folder`), `BasePathAndRelativePath`, `BasePathAndDashboardId` | Defines whether UHV renders one configured page, shows a SharePoint-backed report browser, or builds the target URL from legacy base-path settings. |
+| `contentDeliveryMode` | `SharePointFileContent`, `SharePointFileBlobUrl`, `DirectUrl` (legacy / external only) | Chooses inline file content from SharePoint API via `srcdoc`/`blob:` iframe, or a direct iframe URL for hosts that allow it. SharePoint `.html` files usually download in direct mode, so use an inline SharePoint mode for SharePoint libraries. |
 | `queryStringParamName` | string | Query key used for ID/path source mode. |
 | `defaultFileName` | string | Default file when the requested id/path is missing. |
+| `reportBrowserRootPath` | folder path | Root folder to enumerate with SharePoint REST security trimming when `htmlSourceMode` is `SharePointReportBrowser`. |
+| `reportBrowserDefaultView` | `Folders`, `Files` | Starts the picker in folder navigation or recursive file-list mode. |
+| `reportBrowserMaxItems` | `300` | Limits recursive file-list results to avoid expensive folder scans. |
 
 ### Layout and UX
 
@@ -224,10 +245,6 @@ sequenceDiagram
 | `fitContentWidth` | `true` | Shrinks wide report content to frame width. |
 | `showChrome` | `true` | Top header with status/actions. |
 | `showOpenInNewTab` | `true` | Gives fallback path to open raw report page. |
-| `showReportBrowser` | `true` / `false` | Shows a SharePoint-backed report picker above the iframe. |
-| `reportBrowserRootPath` | folder path | Root folder to enumerate with SharePoint REST security trimming. |
-| `reportBrowserDefaultView` | `Folders`, `Files` | Starts the picker in folder navigation or recursive file-list mode. |
-| `reportBrowserMaxItems` | `300` | Limits recursive file-list results to avoid expensive folder scans. |
 
 ### Security and iframe policy
 
@@ -250,7 +267,7 @@ sequenceDiagram
 ## Recommended Setup (SharePoint-hosted report bundles)
 
 - Preset: `SharePointLibraryRelaxed`
-- Source mode: `FullUrl`
+- Source mode: `Single page URL` for one entry page, or `SharePoint report browser folder` for browsing a folder tree
 - Content delivery: `SharePointFileContent`
 - Height mode: `Auto`
 - Fit content to width: `On`
@@ -262,19 +279,20 @@ sequenceDiagram
 
 When reports live under one SharePoint folder tree, prefer one UHV host page plus deep links instead of provisioning one page per report file.
 
-- Set one default entry file.
+- For a single fixed report entry page, choose `Single page URL` and set one default entry file.
+- For end-user folder/file discovery, choose `SharePoint report browser folder` and set `reportBrowserRootPath`.
 - Enable `allowQueryStringPageOverride`.
 - Constrain `allowedPathPrefixes` to the report root you want UHV to serve.
-- Optionally enable `showReportBrowser` and set `reportBrowserRootPath` so users can browse accessible folders/files.
 - Share report links as `.../SitePages/Reports.aspx?uhvPage=<encoded-server-relative-path>`.
 - For mixed permissions, use one host page per secured folder boundary when possible, not per file.
 
 ### SharePoint Report Browser
 
-The optional report browser lists report files from SharePoint as the current user. SharePoint permissions are not bypassed: users only see folders/files that the SharePoint REST API returns for them, and opening a file still goes through UHV URL validation.
+The `SharePoint report browser folder` source mode lists report files from SharePoint as the current user. SharePoint permissions are not bypassed: users only see folders/files that the SharePoint REST API returns for them, and opening a file still goes through UHV URL validation.
 
 - `Folders` view shows folders and report files in the current folder, with parent-folder navigation.
 - `Files` view recursively searches from `reportBrowserRootPath` and shows a flat searchable list.
+- `Single page URL` never renders the Explorer/report browser. The old `showReportBrowser` property is treated as legacy saved state and is not the user-facing switch.
 - If a user can open one specific file but SharePoint does not allow them to enumerate its parent folder, the file cannot be discovered from the browser. Use a direct `uhvPage` link for that edge case.
 
 ## 🔗 URL Contract (Deep-Linking)
