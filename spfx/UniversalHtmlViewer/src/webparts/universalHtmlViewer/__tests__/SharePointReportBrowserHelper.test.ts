@@ -241,7 +241,7 @@ describe('SharePointReportBrowserHelper', () => {
         ([url]) => url === 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-files',
       ),
     ).toBe(false);
-    expect(spHttpClient.get.mock.calls[0][0]).toContain('$top=5000');
+    expect(spHttpClient.get.mock.calls[0][0]).toContain('$top=1');
   });
 
   it('continues file paging until enough allowed reports are found', async () => {

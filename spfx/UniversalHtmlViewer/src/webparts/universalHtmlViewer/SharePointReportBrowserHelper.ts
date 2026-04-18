@@ -287,7 +287,9 @@ async function loadAllowedFileEntries(
     options.webAbsoluteUrl,
     folderPath,
     'Files',
-    `$select=Name,ServerRelativeUrl,TimeLastModified&$orderby=Name&$top=${MAX_SHAREPOINT_PAGE_SIZE}`,
+    `$select=Name,ServerRelativeUrl,TimeLastModified&$orderby=Name&$top=${normalizeSharePointPageSize(
+      maxAcceptedEntries,
+    )}`,
   );
   const files: ISharePointFileListEntry[] = [];
   const visitedUrls = new Set<string>();
