@@ -17,6 +17,7 @@ export interface BuildUrlParams {
   fullUrl?: string;
   basePath?: string;
   reportBrowserRootPath?: string;
+  webAbsoluteUrl?: string;
   relativePath?: string;
   dashboardId?: string;
   defaultFileName?: string;
@@ -48,8 +49,10 @@ export function buildFinalUrl(params: BuildUrlParams): string | undefined {
   }
 
   if (mode === 'SharePointReportBrowser') {
-    const reportBrowserRootPathNormalized: string = normalizeFolderPath(
+    const reportBrowserRootPathNormalized: string = normalizeReportBrowserFolderPath(
       params.reportBrowserRootPath || params.basePath,
+      params.webAbsoluteUrl,
+      params.pageUrl,
     );
     if (!reportBrowserRootPathNormalized) {
       return undefined;
@@ -218,18 +221,27 @@ function normalizeBasePath(basePath?: string): string {
   return normalized;
 }
 
-function normalizeFolderPath(folderPath?: string): string {
-  const value: string = (folderPath || '').trim();
+function normalizeReportBrowserFolderPath(
+  folderPath?: string,
+  webAbsoluteUrl?: string,
+  pageUrl?: string,
+): string {
+  const value: string = stripQueryAndHash(folderPath || '').trim();
 
   if (!value) {
     return '';
   }
 
   if (value.toLowerCase().startsWith('http://') || value.toLowerCase().startsWith('https://')) {
-    return value.endsWith('/') ? value : `${value}/`;
+    return normalizeBasePath(getAbsoluteUrlPath(value));
   }
 
-  return normalizeBasePath(value);
+  if (value.startsWith('/')) {
+    return normalizeBasePath(value);
+  }
+
+  const webPath: string = getWebServerRelativePath(webAbsoluteUrl, pageUrl);
+  return normalizeBasePath(`${webPath}/${value}`);
 }
 
 function normalizeRelativePath(relativePath?: string): string {
@@ -381,6 +393,70 @@ function getRawAbsolutePath(url: string): string {
   }
 
   return stripQueryAndHash(remainder);
+}
+
+function getAbsoluteUrlPath(url: string): string {
+  try {
+    return new URL(url).pathname || '/';
+  } catch {
+    return url;
+  }
+}
+
+function getWebServerRelativePath(
+  webAbsoluteUrl?: string,
+  pageUrl?: string,
+): string {
+  const webUrl = (webAbsoluteUrl || '').trim();
+  if (webUrl) {
+    return normalizePathForOutput(getAbsoluteUrlPath(webUrl));
+  }
+
+  const currentPageUrl = (pageUrl || '').trim();
+  if (!currentPageUrl) {
+    return '';
+  }
+
+  return inferWebServerRelativePath(getAbsoluteUrlPath(currentPageUrl));
+}
+
+function inferWebServerRelativePath(pathname: string): string {
+  const normalizedPath = normalizePathForOutput(pathname);
+  const lowerPath = normalizedPath.toLowerCase();
+  const markers = ['/sitepages/', '/pages/', '/lists/'];
+
+  for (const marker of markers) {
+    const markerIndex = lowerPath.indexOf(marker);
+    if (markerIndex >= 0) {
+      return normalizedPath.substring(0, markerIndex) || '/';
+    }
+  }
+
+  const lastSlash = normalizedPath.lastIndexOf('/');
+  if (lastSlash <= 0) {
+    return '/';
+  }
+
+  return normalizedPath.substring(0, lastSlash);
+}
+
+function normalizePathForOutput(pathname: string): string {
+  let normalized = (pathname || '').trim().replace(/\\/g, '/');
+  if (!normalized) {
+    return '';
+  }
+
+  if (!normalized.startsWith('/')) {
+    normalized = `/${normalized}`;
+  }
+
+  while (normalized.includes('//')) {
+    normalized = normalized.replace(/\/{2,}/g, '/');
+  }
+
+  return normalized.endsWith('/') && normalized.length > 1
+    ? normalized.substring(0, normalized.length - 1)
+    : normalized;
 }
 
 function isExtensionAllowed(pathname: string, allowedExtensions: string[]): boolean {

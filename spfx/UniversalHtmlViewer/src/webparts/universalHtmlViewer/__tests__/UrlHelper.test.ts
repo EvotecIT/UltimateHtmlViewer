@@ -59,6 +59,17 @@ describe('buildFinalUrl', () => {
     expect(url).toBe('/sites/Reports/Dashboards/index.html');
   });
 
+  it('resolves web-relative report browser roots against the current web', () => {
+    const url: string | undefined = buildFinalUrl({
+      htmlSourceMode: 'SharePointReportBrowser',
+      reportBrowserRootPath: 'Shared Documents/Reports',
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite2',
+      defaultFileName: 'index.html',
+    });
+
+    expect(url).toBe('/sites/TestSite2/Shared Documents/Reports/index.html');
+  });
+
   it('builds URL using query string dashboard ID when present', () => {
     const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndDashboardId',

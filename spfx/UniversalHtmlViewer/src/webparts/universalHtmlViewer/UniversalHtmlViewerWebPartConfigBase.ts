@@ -138,6 +138,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       fullUrl: effectiveProps.fullUrl,
       basePath: effectiveProps.basePath,
       reportBrowserRootPath: effectiveProps.reportBrowserRootPath,
+      webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
       relativePath: effectiveProps.relativePath,
       dashboardId: effectiveProps.dashboardId,
       defaultFileName: effectiveProps.defaultFileName,

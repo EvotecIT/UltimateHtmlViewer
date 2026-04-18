@@ -384,7 +384,73 @@ describe('SharePointReportBrowserHelper', () => {
     expect(items.map((item) => item.name)).toContain('Index.html');
   });
 
-  it('does not cap recursive folder paging when searching for files', async () => {
+  it('continues recursive folder paging until a report is found', async () => {
+    const folderNextLink = 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-folders';
+    const spHttpClient = {
+      get: jest.fn((url: string) => {
+        if (url === folderNextLink) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value: [
+                  {
+                    Name: 'Folder 2',
+                    ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Folder2',
+                  },
+                ],
+              }),
+          });
+        }
+
+        if (url.includes('/Folders?')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                value: [
+                  {
+                    Name: 'Folder 1',
+                    ServerRelativeUrl: '/sites/TestSite1/SiteAssets/Reports/Folder1',
+                  },
+                ],
+                '@odata.nextLink': folderNextLink,
+              }),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              value: url.includes('/Files?') && url.includes('Folder2')
+                ? [
+                    {
+                      Name: 'Nested.html',
+                      ServerRelativeUrl:
+                        '/sites/TestSite1/SiteAssets/Reports/Folder2/Nested.html',
+                    },
+                  ]
+                : [],
+            }),
+        });
+      }),
+    };
+
+    const items = await loadSharePointReportBrowserItems({
+      spHttpClient: spHttpClient as never,
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite1',
+      rootPath: '/sites/TestSite1/SiteAssets/Reports',
+      allowedExtensions: ['.html'],
+      view: 'Files',
+      maxItems: 1,
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['Nested.html']);
+    expect(spHttpClient.get.mock.calls.some(([url]) => url === folderNextLink)).toBe(true);
+  });
+
+  it('stops recursive folder paging once the file budget is satisfied', async () => {
     const folderNextLink = 'https://contoso.sharepoint.com/sites/TestSite1/_api/next-folders';
     const spHttpClient = {
       get: jest.fn((url: string) => {
@@ -447,7 +513,12 @@ describe('SharePointReportBrowserHelper', () => {
     });
 
     expect(items.map((item) => item.name)).toEqual(['Nested.html']);
-    expect(spHttpClient.get.mock.calls.some(([url]) => url === folderNextLink)).toBe(true);
+    expect(spHttpClient.get.mock.calls.some(([url]) => url === folderNextLink)).toBe(false);
+    expect(
+      spHttpClient.get.mock.calls.some(
+        ([url]) => typeof url === 'string' && url.includes('/Folders?') && url.includes('$top=1'),
+      ),
+    ).toBe(true);
   });
 
   it('traverses deeply nested report folders without a fixed depth cutoff', async () => {

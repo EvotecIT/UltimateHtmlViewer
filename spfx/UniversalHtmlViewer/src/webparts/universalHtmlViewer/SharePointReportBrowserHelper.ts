@@ -178,27 +178,71 @@ async function appendFolderFilesRecursive(
     return;
   }
 
-  const folders = await loadFolderEntries(options, normalizedFolderPath);
-  for (const folder of folders) {
-    const folderName = String(folder.Name || '').toLowerCase();
-    const childFolderPath = normalizeServerRelativeFolderPath(folder.ServerRelativeUrl);
-    if (
-      !childFolderPath ||
-      skippedFolderNames.has(folderName) ||
-      !isPathInsideRoot(childFolderPath, rootPath)
-    ) {
-      continue;
+  await appendChildFolderFilesRecursive(
+    options,
+    rootPath,
+    normalizedFolderPath,
+    allowedExtensions,
+    maxItems,
+    result,
+    visitedFolderPaths,
+  );
+}
+
+async function appendChildFolderFilesRecursive(
+  options: ILoadSharePointReportBrowserItemsOptions,
+  rootPath: string,
+  folderPath: string,
+  allowedExtensions: string[],
+  maxItems: number,
+  result: ISharePointReportBrowserItem[],
+  visitedFolderPaths: Set<string>,
+): Promise<void> {
+  let apiUrl = buildFolderChildrenApiUrl(
+    options.webAbsoluteUrl,
+    folderPath,
+    'Folders',
+    `$select=Name,ServerRelativeUrl&$orderby=Name&$top=${normalizeSharePointPageSize(
+      maxItems - result.length,
+    )}`,
+  );
+  const visitedUrls = new Set<string>();
+
+  while (apiUrl && result.length < maxItems && !visitedUrls.has(apiUrl)) {
+    visitedUrls.add(apiUrl);
+    const response =
+      await loadSharePointJson<ISharePointListResponse<ISharePointFolderListEntry>>(
+        options,
+        apiUrl,
+      );
+
+    for (const folder of response.value || []) {
+      if (result.length >= maxItems) {
+        return;
+      }
+
+      const folderName = String(folder.Name || '').toLowerCase();
+      const childFolderPath = normalizeServerRelativeFolderPath(folder.ServerRelativeUrl);
+      if (
+        !childFolderPath ||
+        skippedFolderNames.has(folderName) ||
+        !isPathInsideRoot(childFolderPath, rootPath)
+      ) {
+        continue;
+      }
+
+      await appendFolderFilesRecursive(
+        options,
+        rootPath,
+        childFolderPath,
+        allowedExtensions,
+        maxItems,
+        result,
+        visitedFolderPaths,
+      );
     }
 
-    await appendFolderFilesRecursive(
-      options,
-      rootPath,
-      childFolderPath,
-      allowedExtensions,
-      maxItems,
-      result,
-      visitedFolderPaths,
-    );
+    apiUrl = getNextLink(response);
   }
 }
 
