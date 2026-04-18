@@ -25,6 +25,7 @@ import {
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
   isInlineContentDeliveryMode,
+  isReportBrowserSourceMode,
 } from './UniversalHtmlViewerTypes';
 import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPartConfigBase';
 
@@ -653,7 +654,12 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   protected getContentDeliveryMode(
     props: IUniversalHtmlViewerWebPartProps,
   ): ContentDeliveryMode {
-    return props.contentDeliveryMode || 'SharePointFileContent';
+    const mode: ContentDeliveryMode = props.contentDeliveryMode || 'SharePointFileContent';
+    if (isReportBrowserSourceMode(props.htmlSourceMode) && !isInlineContentDeliveryMode(mode)) {
+      return 'SharePointFileContent';
+    }
+
+    return mode;
   }
 
   protected async trySetIframeSrcDocFromSource(
@@ -1007,6 +1013,10 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       cacheBusterMode: props.cacheBusterMode || 'None',
       inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,
       enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
+      inlineExternalScripts: props.inlineExternalScripts === true,
+      inlineExternalScriptAllowedHosts: this.parseHosts(
+        props.inlineExternalScriptAllowedHosts,
+      ),
       sandboxPreset: props.sandboxPreset || 'None',
       iframeSandbox: props.iframeSandbox || '',
       iframeLoadTimeoutSeconds: this.getIframeLoadTimeoutSeconds(props),
@@ -1017,6 +1027,10 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       chromeDensity: props.chromeDensity || 'Comfortable',
       showConfigActions: props.showConfigActions === true,
       showDashboardSelector: props.showDashboardSelector === true,
+      showReportBrowser: isReportBrowserSourceMode(props.htmlSourceMode),
+      reportBrowserRootPath: props.reportBrowserRootPath || '',
+      reportBrowserDefaultView: props.reportBrowserDefaultView || 'Folders',
+      reportBrowserMaxItems: props.reportBrowserMaxItems ?? 300,
     };
   }
 

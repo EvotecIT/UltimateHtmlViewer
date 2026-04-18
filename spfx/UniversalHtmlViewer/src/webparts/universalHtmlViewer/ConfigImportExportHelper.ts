@@ -10,7 +10,12 @@ const enumValues: Record<string, string[]> = {
     'AnyHttps',
   ],
   contentDeliveryMode: ['DirectUrl', 'SharePointFileContent', 'SharePointFileBlobUrl'],
-  htmlSourceMode: ['FullUrl', 'BasePathAndRelativePath', 'BasePathAndDashboardId'],
+  htmlSourceMode: [
+    'FullUrl',
+    'SharePointReportBrowser',
+    'BasePathAndRelativePath',
+    'BasePathAndDashboardId',
+  ],
   heightMode: ['Fixed', 'Viewport', 'Auto'],
   securityMode: ['StrictTenant', 'Allowlist', 'AnyHttps'],
   tenantConfigMode: ['Merge', 'Override'],
@@ -29,6 +34,7 @@ const enumValues: Record<string, string[]> = {
     'unsafe-url',
   ],
   chromeDensity: ['Comfortable', 'Compact'],
+  reportBrowserDefaultView: ['Folders', 'Files'],
 };
 
 const numberRanges: Record<string, { min: number; max: number }> = {
@@ -36,6 +42,7 @@ const numberRanges: Record<string, { min: number; max: number }> = {
   iframeLoadTimeoutSeconds: { min: 0, max: 60 },
   refreshIntervalMinutes: { min: 0, max: 120 },
   inlineContentCacheTtlSeconds: { min: 0, max: 300 },
+  reportBrowserMaxItems: { min: 1, max: 1000 },
 };
 
 const booleanKeys = new Set<string>([
@@ -54,6 +61,8 @@ const booleanKeys = new Set<string>([
   'showDashboardSelector',
   'allowQueryStringPageOverride',
   'enforceStrictInlineCsp',
+  'inlineExternalScripts',
+  'showReportBrowser',
 ]);
 
 const numberKeys = new Set<string>([
@@ -61,6 +70,7 @@ const numberKeys = new Set<string>([
   'iframeLoadTimeoutSeconds',
   'refreshIntervalMinutes',
   'inlineContentCacheTtlSeconds',
+  'reportBrowserMaxItems',
 ]);
 
 const stringKeys = new Set<string>([
@@ -83,6 +93,7 @@ const stringKeys = new Set<string>([
   'tenantConfigMode',
   'cacheBusterMode',
   'cacheBusterParamName',
+  'inlineExternalScriptAllowedHosts',
   'sandboxPreset',
   'iframeSandbox',
   'iframeAllow',
@@ -92,6 +103,8 @@ const stringKeys = new Set<string>([
   'chromeTitle',
   'chromeSubtitle',
   'chromeDensity',
+  'reportBrowserRootPath',
+  'reportBrowserDefaultView',
 ]);
 
 const allSupportedKeys = new Set<string>([
@@ -238,6 +251,8 @@ export function buildConfigExport(
     cacheBusterParamName: props.cacheBusterParamName || 'v',
     inlineContentCacheTtlSeconds: props.inlineContentCacheTtlSeconds ?? 15,
     enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
+    inlineExternalScripts: props.inlineExternalScripts === true,
+    inlineExternalScriptAllowedHosts: props.inlineExternalScriptAllowedHosts || '',
     sandboxPreset: props.sandboxPreset || 'None',
     iframeSandbox: props.iframeSandbox || '',
     iframeAllow: props.iframeAllow || '',
@@ -259,6 +274,10 @@ export function buildConfigExport(
     showConfigActions: props.showConfigActions === true,
     showDashboardSelector: props.showDashboardSelector === true,
     allowQueryStringPageOverride: props.allowQueryStringPageOverride === true,
+    showReportBrowser: props.showReportBrowser === true,
+    reportBrowserRootPath: props.reportBrowserRootPath || '',
+    reportBrowserDefaultView: props.reportBrowserDefaultView || 'Folders',
+    reportBrowserMaxItems: props.reportBrowserMaxItems ?? 300,
   };
 }
 

@@ -39,6 +39,37 @@ describe('buildFinalUrl', () => {
     expect(url).toBe('/sites/Reports/Dashboards/system1/index.html');
   });
 
+  it('uses report browser root and default file in SharePointReportBrowser mode', () => {
+    const url: string | undefined = buildFinalUrl({
+      htmlSourceMode: 'SharePointReportBrowser',
+      reportBrowserRootPath: '/sites/Reports/Dashboards',
+      defaultFileName: 'Index.html',
+    });
+
+    expect(url).toBe('/sites/Reports/Dashboards/Index.html');
+  });
+
+  it('falls back to index.html in SharePointReportBrowser mode', () => {
+    const url: string | undefined = buildFinalUrl({
+      htmlSourceMode: 'SharePointReportBrowser',
+      reportBrowserRootPath: '/sites/Reports/Dashboards/',
+      defaultFileName: '   ',
+    });
+
+    expect(url).toBe('/sites/Reports/Dashboards/index.html');
+  });
+
+  it('resolves web-relative report browser roots against the current web', () => {
+    const url: string | undefined = buildFinalUrl({
+      htmlSourceMode: 'SharePointReportBrowser',
+      reportBrowserRootPath: 'Shared Documents/Reports',
+      webAbsoluteUrl: 'https://contoso.sharepoint.com/sites/TestSite2',
+      defaultFileName: 'index.html',
+    });
+
+    expect(url).toBe('/sites/TestSite2/Shared Documents/Reports/index.html');
+  });
+
   it('builds URL using query string dashboard ID when present', () => {
     const url: string | undefined = buildFinalUrl({
       htmlSourceMode: 'BasePathAndDashboardId',
@@ -240,6 +271,19 @@ describe('isUrlAllowed', () => {
     };
 
     expect(isUrlAllowed('/Sites/Reports/Dashboards/a.html', options)).toBe(true);
+  });
+
+  it('matches encoded SharePoint paths against decoded allowed path prefixes', () => {
+    const options = {
+      securityMode: 'StrictTenant' as UrlSecurityMode,
+      currentPageUrl,
+      allowedPathPrefixes: ['/sites/Reports/My Reports'],
+      allowedFileExtensions: ['.html'],
+    };
+
+    expect(
+      isUrlAllowed('/sites/Reports/My%20Reports/Quarter%20%231.html', options),
+    ).toBe(true);
   });
 
   it('enforces allowed file extensions when configured', () => {

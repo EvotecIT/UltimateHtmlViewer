@@ -77,6 +77,25 @@ describe('InlineNavigationHelper', () => {
     expect(result).toBeUndefined();
   });
 
+  it('does not intercept placeholder anchors without explicit href attributes', () => {
+    const anchor = document.createElement('a');
+    anchor.textContent = 'Expand';
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/start.html',
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBeUndefined();
+  });
+
   it('does not intercept middle-click navigation', () => {
     const anchor = document.createElement('a');
     anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html';

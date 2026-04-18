@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import { getQueryStringParam } from './QueryStringHelper';
@@ -16,7 +17,9 @@ import {
   IUniversalHtmlViewerWebPartProps,
   TenantConfigMode,
   isInlineContentDeliveryMode,
+  isReportBrowserSourceMode,
 } from './UniversalHtmlViewerTypes';
+import { normalizeSharePointReportBrowserRootPath } from './SharePointReportBrowserHelper';
 
 const blockedTenantConfigKeys = new Set<string>(['__proto__', 'prototype', 'constructor']);
 const tenantMergeDefaultValues: Record<string, boolean | number> = {
@@ -25,6 +28,7 @@ const tenantMergeDefaultValues: Record<string, boolean | number> = {
   refreshIntervalMinutes: 0,
   inlineContentCacheTtlSeconds: 15,
   enforceStrictInlineCsp: false,
+  inlineExternalScripts: false,
   lockPresetSettings: false,
   allowHttp: false,
   enableExpertSecurityModes: false,
@@ -33,6 +37,8 @@ const tenantMergeDefaultValues: Record<string, boolean | number> = {
   showConfigActions: false,
   showDashboardSelector: false,
   allowQueryStringPageOverride: false,
+  showReportBrowser: false,
+  reportBrowserMaxItems: 300,
   showChrome: true,
   showOpenInNewTab: true,
   showRefreshButton: true,
@@ -83,6 +89,20 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     ) {
       allowedPathPrefixes.push(inferredSourcePathPrefix);
     }
+    const inferredReportBrowserPathPrefix = this.inferReportBrowserPathPrefix(
+      effectiveProps,
+      currentPageUrl,
+    );
+    if (
+      inferredReportBrowserPathPrefix &&
+      !allowedPathPrefixes.some(
+        (prefix) =>
+          this.normalizePathPrefixForComparison(prefix) ===
+          this.normalizePathPrefixForComparison(inferredReportBrowserPathPrefix),
+      )
+    ) {
+      allowedPathPrefixes.push(inferredReportBrowserPathPrefix);
+    }
     const allowedFileExtensions: string[] = this.parseFileExtensions(
       effectiveProps.allowedFileExtensions,
     );
@@ -117,6 +137,8 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       htmlSourceMode,
       fullUrl: effectiveProps.fullUrl,
       basePath: effectiveProps.basePath,
+      reportBrowserRootPath: effectiveProps.reportBrowserRootPath,
+      webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
       relativePath: effectiveProps.relativePath,
       dashboardId: effectiveProps.dashboardId,
       defaultFileName: effectiveProps.defaultFileName,
@@ -160,6 +182,30 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     });
 
     return uniquePrefixes.sort((left, right) => left.length - right.length)[0];
+  }
+
+  private inferReportBrowserPathPrefix(
+    effectiveProps: IUniversalHtmlViewerWebPartProps,
+    currentPageUrl: string,
+  ): string | undefined {
+    const deliveryMode = this.resolveContentDeliveryMode(effectiveProps);
+    if (
+      !isInlineContentDeliveryMode(deliveryMode) ||
+      !isReportBrowserSourceMode(effectiveProps.htmlSourceMode)
+    ) {
+      return undefined;
+    }
+
+    const configuredRootPath = (effectiveProps.reportBrowserRootPath || '').trim();
+    if (!configuredRootPath) {
+      return undefined;
+    }
+
+    const normalizedRootPath = normalizeSharePointReportBrowserRootPath(
+      configuredRootPath,
+      this.context.pageContext.web.absoluteUrl || currentPageUrl,
+    );
+    return normalizedRootPath ? `${normalizedRootPath}/` : undefined;
   }
 
   private tryGetCurrentWebPrefix(): string | undefined {
@@ -475,6 +521,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.iframeLoadTimeoutSeconds = 10;
     props.inlineContentCacheTtlSeconds = 15;
     props.enforceStrictInlineCsp = false;
+    props.inlineExternalScripts = false;
 
     if (!props.chromeTitle || props.chromeTitle.trim().length === 0) {
       props.chromeTitle = 'Universal HTML Viewer';
@@ -549,13 +596,11 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0)
       .map((entry) => {
-        let hostValue: string = entry;
+        let hostValue: string;
         try {
-          if (entry.includes('://')) {
-            hostValue = new URL(entry).hostname;
-          } else {
-            hostValue = entry.split('/')[0];
-          }
+          hostValue = entry.includes('://')
+            ? new URL(entry).hostname
+            : entry.split('/')[0];
         } catch {
           hostValue = entry;
         }

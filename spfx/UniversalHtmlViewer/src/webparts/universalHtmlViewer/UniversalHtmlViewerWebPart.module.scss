@@ -133,6 +133,109 @@
   background: #ffffff;
 }
 
+.reportBrowser {
+  border: 1px solid #d8d8d8;
+  border-top: 0;
+  background: #fbfcfe;
+}
+
+.reportBrowserToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.reportBrowserTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1b1b1b;
+  margin-right: 4px;
+}
+
+.reportBrowserViewButton {
+  border: 1px solid #c9d6e8;
+  background: #ffffff;
+  color: #1b3a57;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.reportBrowserViewButton:hover {
+  background: #f2f6fb;
+}
+
+.reportBrowserViewButtonActive {
+  border-color: #0b5cab;
+  background: #e8f2ff;
+  color: #063d73;
+}
+
+.reportBrowserSearch {
+  flex: 1;
+  min-width: 160px;
+  border: 1px solid #cfd9e4;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.reportBrowserStatus {
+  padding: 6px 12px;
+  color: #5a5a5a;
+  font-size: 11px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.reportBrowserList {
+  display: grid;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.reportBrowserRow {
+  display: grid;
+  grid-template-columns: 72px minmax(180px, 1fr) minmax(120px, 0.8fr);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #edf1f5;
+  background: transparent;
+  color: #1b1b1b;
+  text-align: left;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.reportBrowserRow:hover {
+  background: #f4f8fd;
+}
+
+.reportBrowserIcon {
+  color: #44627c;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.reportBrowserName,
+.reportBrowserPath {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reportBrowserPath {
+  color: #667085;
+  font-size: 11px;
+}
+
 .hiddenInput {
   display: none;
 }

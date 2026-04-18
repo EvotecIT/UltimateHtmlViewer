@@ -15,11 +15,16 @@ export type ContentDeliveryMode =
   | 'DirectUrl'
   | 'SharePointFileContent'
   | 'SharePointFileBlobUrl';
+export type ReportBrowserDefaultView = 'Folders' | 'Files';
 
 export function isInlineContentDeliveryMode(
   value?: ContentDeliveryMode,
 ): value is 'SharePointFileContent' | 'SharePointFileBlobUrl' {
   return value === 'SharePointFileContent' || value === 'SharePointFileBlobUrl';
+}
+
+export function isReportBrowserSourceMode(value?: HtmlSourceMode): boolean {
+  return value === 'SharePointReportBrowser';
 }
 
 export interface IUniversalHtmlViewerWebPartProps {
@@ -49,6 +54,8 @@ export interface IUniversalHtmlViewerWebPartProps {
   cacheBusterParamName?: string;
   inlineContentCacheTtlSeconds?: number;
   enforceStrictInlineCsp?: boolean;
+  inlineExternalScripts?: boolean;
+  inlineExternalScriptAllowedHosts?: string;
   sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;
@@ -70,6 +77,10 @@ export interface IUniversalHtmlViewerWebPartProps {
   showConfigActions?: boolean;
   showDashboardSelector?: boolean;
   allowQueryStringPageOverride?: boolean;
+  showReportBrowser?: boolean;
+  reportBrowserRootPath?: string;
+  reportBrowserDefaultView?: ReportBrowserDefaultView;
+  reportBrowserMaxItems?: number;
 }
 
 export interface ITenantConfig {
@@ -99,6 +110,8 @@ export interface ITenantConfig {
   cacheBusterParamName?: string;
   inlineContentCacheTtlSeconds?: number;
   enforceStrictInlineCsp?: boolean;
+  inlineExternalScripts?: boolean;
+  inlineExternalScriptAllowedHosts?: string;
   sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;
@@ -120,4 +133,8 @@ export interface ITenantConfig {
   showConfigActions?: boolean;
   showDashboardSelector?: boolean;
   allowQueryStringPageOverride?: boolean;
+  showReportBrowser?: boolean;
+  reportBrowserRootPath?: string;
+  reportBrowserDefaultView?: ReportBrowserDefaultView;
+  reportBrowserMaxItems?: number;
 }

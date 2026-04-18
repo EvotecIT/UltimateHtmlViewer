@@ -3,6 +3,11 @@ import {
   prepareInlineHtmlForBlobUrl,
   prepareInlineHtmlForSrcDoc,
 } from './InlineHtmlTransformHelper';
+import {
+  clearExternalScriptInliningCacheForTests,
+  getInlineExternalScriptAllowedHosts,
+  inlineAllowedExternalScripts,
+} from './ExternalScriptInliningHelper';
 
 interface IInlineHtmlCacheEntry {
   html: string;
@@ -18,6 +23,8 @@ export interface ILoadSharePointInlineContentOptions {
   retryBaseDelayMs?: number;
   retryMaxDelayMs?: number;
   enforceStrictInlineCsp?: boolean;
+  inlineExternalScripts?: boolean;
+  inlineExternalScriptAllowedHosts?: string[];
 }
 
 const DEFAULT_INLINE_HTML_CACHE_TTL_MS = 15000;
@@ -95,6 +102,8 @@ async function loadSharePointFileContent(
     pageUrl,
     renderMode,
     options?.enforceStrictInlineCsp === true,
+    options?.inlineExternalScripts === true,
+    options?.inlineExternalScriptAllowedHosts || [],
   );
   const bypassCache = options?.bypassCache === true;
   const cacheTtlMs = normalizeCacheTtlMs(options?.cacheTtlMs);
@@ -146,6 +155,7 @@ async function loadSharePointFileContent(
 export function clearInlineHtmlCacheForTests(): void {
   inlineHtmlCache.clear();
   inlineHtmlInFlightRequests.clear();
+  clearExternalScriptInliningCacheForTests();
 }
 
 async function loadSharePointInlineHtmlFromApi(
@@ -179,11 +189,21 @@ async function loadSharePointInlineHtmlFromApi(
     throw new Error('SharePoint API returned empty HTML content.');
   }
 
+  const htmlWithInlinedScripts = await inlineAllowedExternalScripts(
+    html,
+    baseUrlForRelativeLinks,
+    pageUrl,
+    {
+      enabled: options?.inlineExternalScripts === true,
+      allowedHosts: options?.inlineExternalScriptAllowedHosts,
+    },
+  );
+
   if (renderMode === 'BlobUrl') {
-    return prepareInlineHtmlForBlobUrl(html, baseUrlForRelativeLinks, pageUrl);
+    return prepareInlineHtmlForBlobUrl(htmlWithInlinedScripts, baseUrlForRelativeLinks, pageUrl);
   }
 
-  return prepareInlineHtmlForSrcDoc(html, baseUrlForRelativeLinks, pageUrl, {
+  return prepareInlineHtmlForSrcDoc(htmlWithInlinedScripts, baseUrlForRelativeLinks, pageUrl, {
     enforceStrictInlineCsp: options?.enforceStrictInlineCsp === true,
   });
 }
@@ -262,13 +282,18 @@ function buildInlineHtmlCacheKey(
   pageUrl: string,
   renderMode: InlineHtmlRenderMode,
   enforceStrictInlineCsp: boolean,
+  inlineExternalScripts: boolean,
+  inlineExternalScriptAllowedHosts: string[],
 ): string {
   const normalizedSourceUrl = (sourceUrl || '').trim();
   const normalizedBaseUrl = (baseUrlForRelativeLinks || '').trim();
   const normalizedPageUrl = normalizePageUrlForCache(pageUrl);
   const normalizedRenderMode = renderMode === 'BlobUrl' ? 'blob-url' : 'srcdoc';
   const normalizedStrictMode = enforceStrictInlineCsp ? 'strict-csp' : 'default-csp';
-  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedRenderMode}|${normalizedStrictMode}`;
+  const normalizedExternalScriptMode = inlineExternalScripts
+    ? `inline-scripts:${getInlineExternalScriptAllowedHosts(inlineExternalScriptAllowedHosts).join(',')}`
+    : 'external-scripts';
+  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedRenderMode}|${normalizedStrictMode}|${normalizedExternalScriptMode}`;
 }
 
 function tryGetCachedInlineHtml(cacheKey: string): string | undefined {
@@ -469,7 +494,9 @@ function getServerRelativePathForSharePointFile(
   }
 
   if (normalizedSourceUrl.startsWith('/')) {
-    const serverRelativePath = stripQueryAndHashFromPath(normalizedSourceUrl);
+    const serverRelativePath = tryDecodeUriComponent(
+      stripQueryAndHashFromPath(normalizedSourceUrl),
+    );
     return isSafeServerRelativePath(serverRelativePath) ? serverRelativePath : undefined;
   }
 
@@ -552,6 +579,14 @@ function decodePathSegment(segment: string): string {
   }
 
   return decoded;
+}
+
+function tryDecodeUriComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function stripQueryAndHashFromPath(value: string): string {

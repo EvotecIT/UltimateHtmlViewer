@@ -21,6 +21,12 @@ describe('applyImportedConfigToProps', () => {
       chromeDensity: 'compact',
       allowQueryStringPageOverride: 'false',
       enforceStrictInlineCsp: 'true',
+      inlineExternalScripts: 'true',
+      inlineExternalScriptAllowedHosts: 'cdnjs.cloudflare.com,cdn.jsdelivr.net',
+      showReportBrowser: 'true',
+      reportBrowserRootPath: '/sites/TestSite1/SiteAssets/Reports',
+      reportBrowserDefaultView: 'files',
+      reportBrowserMaxItems: '250',
     });
 
     expect(result.ignoredEntries).toHaveLength(0);
@@ -38,6 +44,14 @@ describe('applyImportedConfigToProps', () => {
     expect(propsRecord.chromeDensity).toBe('Compact');
     expect(propsRecord.allowQueryStringPageOverride).toBe(false);
     expect(propsRecord.enforceStrictInlineCsp).toBe(true);
+    expect(propsRecord.inlineExternalScripts).toBe(true);
+    expect(propsRecord.inlineExternalScriptAllowedHosts).toBe(
+      'cdnjs.cloudflare.com,cdn.jsdelivr.net',
+    );
+    expect(propsRecord.showReportBrowser).toBe(true);
+    expect(propsRecord.reportBrowserRootPath).toBe('/sites/TestSite1/SiteAssets/Reports');
+    expect(propsRecord.reportBrowserDefaultView).toBe('Files');
+    expect(propsRecord.reportBrowserMaxItems).toBe(250);
   });
 
   it('ignores unknown keys and invalid values', () => {
@@ -73,6 +87,11 @@ describe('buildConfigExport', () => {
     expect(exported.iframeLoadTimeoutSeconds).toBe(10);
     expect(exported.inlineContentCacheTtlSeconds).toBe(15);
     expect(exported.enforceStrictInlineCsp).toBe(false);
+    expect(exported.inlineExternalScripts).toBe(false);
+    expect(exported.inlineExternalScriptAllowedHosts).toBe('');
     expect(exported.contentDeliveryMode).toBe('SharePointFileContent');
+    expect(exported.showReportBrowser).toBe(false);
+    expect(exported.reportBrowserDefaultView).toBe('Folders');
+    expect(exported.reportBrowserMaxItems).toBe(300);
   });
 });

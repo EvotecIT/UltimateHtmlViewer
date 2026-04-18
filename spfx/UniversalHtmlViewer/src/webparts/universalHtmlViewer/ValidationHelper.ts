@@ -54,13 +54,11 @@ export function validateAllowedHosts(value?: string): string {
     .filter((entry) => entry.length > 0);
 
   for (const entry of entries) {
-    let host = entry;
+    let host: string;
     try {
-      if (entry.includes('://')) {
-        host = new URL(entry).hostname;
-      } else {
-        host = entry.split('/')[0];
-      }
+      host = entry.includes('://')
+        ? new URL(entry).hostname
+        : entry.split('/')[0];
     } catch {
       return `Invalid host entry: "${entry}".`;
     }

@@ -72,6 +72,26 @@ describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () =>
     expect(options.allowedPathPrefixes).toEqual(['/sites/Reports/Dashboards/']);
   });
 
+  it('appends report browser root prefix for SharePoint inline mode', () => {
+    const configBase = createConfigHarness();
+
+    const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
+      htmlSourceMode: 'SharePointReportBrowser',
+      fullUrl: 'https://contoso.sharepoint.com/sites/TestSite2/SiteAssets/Index.html',
+      contentDeliveryMode: 'SharePointFileBlobUrl',
+      securityMode: 'StrictTenant',
+      allowHttp: false,
+      allowedHosts: '',
+      allowedPathPrefixes: '',
+      allowedFileExtensions: '.html,.htm,.aspx',
+      reportBrowserRootPath: 'Shared Documents/Reports',
+    });
+
+    expect(options.allowedPathPrefixes).toContain(
+      '/sites/TestSite2/Shared Documents/Reports/',
+    );
+  });
+
   it('does not append inferred source directory prefix for cross-host full URL', () => {
     const configBase = createConfigHarness();
 

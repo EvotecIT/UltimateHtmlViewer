@@ -36,6 +36,7 @@ import { UniversalHtmlViewerWebPartUiBase } from './UniversalHtmlViewerWebPartUi
 import { applyInlineModeBehaviors } from './InlineModeBehaviorHelper';
 import { NestedIframeHydrationDiagnosticEvent } from './NestedIframeHydrationHelper';
 import {
+  ILoadSharePointInlineContentOptions,
   loadSharePointFileContentForBlobUrl,
   loadSharePointFileContentForInline,
 } from './SharePointInlineContentHelper';
@@ -55,6 +56,7 @@ import {
   ContentDeliveryMode,
   IUniversalHtmlViewerWebPartProps,
   isInlineContentDeliveryMode,
+  isReportBrowserSourceMode,
 } from './UniversalHtmlViewerTypes';
 
 interface IInlineDeepLinkFrameMetrics {
@@ -165,8 +167,29 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       propertyPath === 'configurationPreset' ||
       propertyPath === 'lockPresetSettings' ||
       propertyPath === 'tenantConfigMode' ||
-      propertyPath === 'showDashboardSelector'
+      propertyPath === 'showDashboardSelector' ||
+      propertyPath === 'showReportBrowser'
     ) {
+      if (propertyPath === 'htmlSourceMode') {
+        const nextSourceMode = (newValue || 'FullUrl') as HtmlSourceMode;
+        const nextIsReportBrowserMode = isReportBrowserSourceMode(nextSourceMode);
+        this.properties.showReportBrowser = nextIsReportBrowserMode;
+        if (nextIsReportBrowserMode) {
+          if (!isInlineContentDeliveryMode(this.properties.contentDeliveryMode)) {
+            this.properties.contentDeliveryMode = 'SharePointFileContent';
+          }
+          if (!this.properties.reportBrowserRootPath && this.properties.basePath) {
+            this.properties.reportBrowserRootPath = this.properties.basePath;
+          }
+        }
+      }
+      if (
+        propertyPath === 'contentDeliveryMode' &&
+        isReportBrowserSourceMode(this.properties.htmlSourceMode) &&
+        !isInlineContentDeliveryMode(this.properties.contentDeliveryMode)
+      ) {
+        this.properties.contentDeliveryMode = 'SharePointFileContent';
+      }
       this.context.propertyPane.refresh();
     }
 
@@ -176,12 +199,14 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
     const htmlSourceMode: HtmlSourceMode = this.properties.htmlSourceMode || 'FullUrl';
     const isFullUrl: boolean = htmlSourceMode === 'FullUrl';
+    const isReportBrowserMode: boolean = isReportBrowserSourceMode(htmlSourceMode);
     const isRelativePath: boolean = htmlSourceMode === 'BasePathAndRelativePath';
     const isDashboardId: boolean = htmlSourceMode === 'BasePathAndDashboardId';
     const securityMode: UrlSecurityMode = this.properties.securityMode || 'StrictTenant';
     const enableExpertSecurityModes: boolean = this.properties.enableExpertSecurityModes === true;
-    const currentContentDeliveryMode: ContentDeliveryMode =
-      this.properties.contentDeliveryMode || 'SharePointFileContent';
+    const currentContentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
+      this.properties,
+    );
     const securityModeOptions = [
       { key: 'StrictTenant', text: 'Strict tenant (default)' },
       { key: 'Allowlist', text: 'Tenant + allowlist' },
@@ -212,6 +237,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const isPresetLocked: boolean =
       !!this.properties.lockPresetSettings && preset !== 'Custom';
     const showDashboardSelector: boolean = this.properties.showDashboardSelector === true;
+    const canUseReportBrowser: boolean = showChrome && isInlineContentMode;
     const showLegacyDirectUrlOption: boolean =
       enableExpertSecurityModes ||
       currentContentDeliveryMode === 'DirectUrl' ||
@@ -273,12 +299,16 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
               ],
             },
             {
-              groupName: 'Source (Required)',
+              groupName: 'Initial content (Required)',
               groupFields: [
                 PropertyPaneDropdown('htmlSourceMode', {
-                  label: 'HTML source mode',
+                  label: 'Initial HTML source mode',
                   options: [
-                    { key: 'FullUrl', text: 'Full URL' },
+                    { key: 'FullUrl', text: 'Single page URL' },
+                    {
+                      key: 'SharePointReportBrowser',
+                      text: 'SharePoint report browser folder',
+                    },
                     { key: 'BasePathAndRelativePath', text: 'Base path + relative path' },
                     { key: 'BasePathAndDashboardId', text: 'Base path + dashboard ID' },
                   ],
@@ -288,8 +318,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   options: contentDeliveryModeOptions,
                 }),
                 PropertyPaneTextField('fullUrl', {
-                  label: 'Full URL to HTML page',
-                  description: 'Used when HTML source mode is "FullUrl".',
+                  label: 'HTML page URL',
+                  description: 'Used only when initial HTML source mode is "Single page URL".',
                   disabled: !isFullUrl,
                   onGetErrorMessage: (value?: string): string =>
                     validateFullUrl(value, !!this.properties.allowHttp),
@@ -298,8 +328,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                 PropertyPaneTextField('basePath', {
                   label: 'Base path (site-relative)',
                   description:
-                    'Site-relative base path, used when HTML source mode is not "FullUrl". Example: /sites/Reports/Dashboards/',
-                  disabled: isFullUrl,
+                    'Site-relative base path for relative path or dashboard ID modes. Example: /sites/Reports/Dashboards/',
+                  disabled: isFullUrl || isReportBrowserMode,
                   onGetErrorMessage: (value?: string): string => validateBasePath(value),
                   deferredValidationTime: 200,
                 }),
@@ -316,16 +346,44 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   disabled: !isDashboardId,
                 }),
                 PropertyPaneTextField('defaultFileName', {
-                  label: 'Default file name',
+                  label: isReportBrowserMode
+                    ? 'Initial/default report file name'
+                    : 'Default file name',
                   description:
-                    'Used when HTML source mode is "BasePathAndDashboardId". Defaults to "index.html" when left empty.',
-                  disabled: !isDashboardId,
+                    'Used by dashboard ID and report browser modes. Defaults to "index.html" when left empty.',
+                  disabled: !isDashboardId && !isReportBrowserMode,
                 }),
                 PropertyPaneTextField('queryStringParamName', {
                   label: 'Query string parameter name',
                   description:
-                    'Used when HTML source mode is "BasePathAndDashboardId" to read the dashboard ID from the page URL. Defaults to "dashboard" when left empty.',
+                    'Used when initial HTML source mode is "Base path + dashboard ID" to read the dashboard ID from the page URL. Defaults to "dashboard" when left empty.',
                   disabled: !isDashboardId,
+                }),
+              ],
+            },
+            {
+              groupName: 'Report browser source',
+              groupFields: [
+                PropertyPaneTextField('reportBrowserRootPath', {
+                  label: 'Browser root folder',
+                  description:
+                    'Folder UHV enumerates for the report picker. Choose "SharePoint report browser folder" above to use this.',
+                  disabled: !isReportBrowserMode || !canUseReportBrowser,
+                }),
+                PropertyPaneDropdown('reportBrowserDefaultView', {
+                  label: 'Default browser view',
+                  options: [
+                    { key: 'Folders', text: 'Folders' },
+                    { key: 'Files', text: 'Files (recursive)' },
+                  ],
+                  disabled: !isReportBrowserMode || !canUseReportBrowser,
+                }),
+                PropertyPaneSlider('reportBrowserMaxItems', {
+                  label: 'Maximum browser items',
+                  min: 25,
+                  max: 1000,
+                  step: 25,
+                  disabled: !isReportBrowserMode || !canUseReportBrowser,
                 }),
               ],
             },
@@ -444,6 +502,23 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   onText: 'On',
                   offText: 'Off',
                   disabled: !isInlineContentMode || isPresetLocked,
+                }),
+                PropertyPaneToggle('inlineExternalScripts', {
+                  label: 'Inline external report scripts (compatibility)',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                }),
+                PropertyPaneTextField('inlineExternalScriptAllowedHosts', {
+                  label: 'External script hosts to inline',
+                  description:
+                    'Optional. Defaults to common PSWriteHTML CDNs: code.jquery.com, cdnjs.cloudflare.com, cdn.jsdelivr.net, cdn.datatables.net, nightly.datatables.net, unpkg.com',
+                  disabled:
+                    !isInlineContentMode ||
+                    this.properties.inlineExternalScripts !== true ||
+                    isPresetLocked,
+                  onGetErrorMessage: (value?: string): string => validateAllowedHosts(value),
+                  deferredValidationTime: 200,
                 }),
                 PropertyPaneTextField('allowedHosts', {
                   label: 'Allowed hosts (comma-separated)',
@@ -629,6 +704,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       htmlSourceMode,
       fullUrl: effectiveProps.fullUrl,
       basePath: effectiveProps.basePath,
+      reportBrowserRootPath: effectiveProps.reportBrowserRootPath,
+      webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
       relativePath: effectiveProps.relativePath,
       dashboardId: effectiveProps.dashboardId,
       defaultFileName: effectiveProps.defaultFileName,
@@ -745,7 +822,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const iframeHeightStyle: string = this.getIframeHeightStyle(effectiveProps);
     const cacheBusterMode: CacheBusterMode = effectiveProps.cacheBusterMode || 'None';
     this.lastCacheBusterMode = cacheBusterMode;
-    const inlineContentCacheTtlMs = this.getInlineContentCacheTtlMs(effectiveProps);
     const cacheBusterParamName: string = this.normalizeCacheBusterParamName(
       effectiveProps.cacheBusterParamName,
     );
@@ -767,9 +843,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             initialContentUrl,
             pageUrl,
             SPHttpClient.configurations.v1,
-            {
-              cacheTtlMs: inlineContentCacheTtlMs,
-            },
+            this.getInlineContentOptions(effectiveProps),
           );
           iframeUrl = this.createInlineBlobUrl(inlineHtml);
         } else {
@@ -780,10 +854,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             initialContentUrl,
             pageUrl,
             SPHttpClient.configurations.v1,
-            {
-              cacheTtlMs: inlineContentCacheTtlMs,
-              enforceStrictInlineCsp: effectiveProps.enforceStrictInlineCsp === true,
-            },
+            this.getInlineContentOptions(effectiveProps),
           );
         }
       } catch (error) {
@@ -924,13 +995,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             baseUrlForRelativeLinks,
             this.getCurrentPageUrl(),
             SPHttpClient.configurations.v1,
-            {
-              cacheTtlMs: this.getInlineContentCacheTtlMs(
-                this.lastEffectiveProps || this.properties,
-              ),
-              enforceStrictInlineCsp:
-                (this.lastEffectiveProps || this.properties).enforceStrictInlineCsp === true,
-            },
+            this.getInlineContentOptions(this.lastEffectiveProps || this.properties),
           );
           this.lastInlineContentLoadError = '';
           return inlineHtml;
@@ -965,10 +1030,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           baseUrlForRelativeLinks,
           pageUrl,
           SPHttpClient.configurations.v1,
-          {
-            cacheTtlMs: this.getInlineContentCacheTtlMs(props),
-            bypassCache: bypassInlineContentCache,
-          },
+          this.getInlineContentOptions(props, bypassInlineContentCache),
         );
         this.lastInlineContentLoadError = '';
         iframe.removeAttribute('srcdoc');
@@ -983,11 +1045,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         baseUrlForRelativeLinks,
         pageUrl,
         SPHttpClient.configurations.v1,
-        {
-          cacheTtlMs: this.getInlineContentCacheTtlMs(props),
-          bypassCache: bypassInlineContentCache,
-          enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
-        },
+        this.getInlineContentOptions(props, bypassInlineContentCache),
       );
       this.lastInlineContentLoadError = '';
       iframe.srcdoc = inlineHtml;
@@ -997,6 +1055,22 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return false;
     }
   }
+
+  private getInlineContentOptions(
+    props: IUniversalHtmlViewerWebPartProps,
+    bypassCache: boolean = false,
+  ): ILoadSharePointInlineContentOptions {
+    return {
+      cacheTtlMs: this.getInlineContentCacheTtlMs(props),
+      bypassCache,
+      enforceStrictInlineCsp: props.enforceStrictInlineCsp === true,
+      inlineExternalScripts: props.inlineExternalScripts === true,
+      inlineExternalScriptAllowedHosts: this.parseHosts(
+        props.inlineExternalScriptAllowedHosts,
+      ),
+    };
+  }
+
   private createInlineBlobUrl(html: string): string {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const nextBlobUrl = URL.createObjectURL(blob);
