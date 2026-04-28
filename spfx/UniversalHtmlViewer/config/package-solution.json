@@ -3,17 +3,30 @@
   "solution": {
     "name": "Universal HTML Viewer",
     "id": "15fe766e-03e4-4543-8129-c5e260b0b9e9",
-    "version": "1.0.32.16",
-    "iconPath": "AppIcon.png",
+    "version": "1.0.32.17",
+    "iconPath": "uhv-app-icon-96.png",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": false,
     "isDomainIsolated": false,
     "developer": {
-      "name": "",
-      "websiteUrl": "",
-      "privacyUrl": "",
-      "termsOfUseUrl": "",
+      "name": "Evotec IT",
+      "websiteUrl": "https://github.com/EvotecIT/UltimateHtmlViewer",
+      "privacyUrl": "https://github.com/EvotecIT/UltimateHtmlViewer",
+      "termsOfUseUrl": "https://github.com/EvotecIT/UltimateHtmlViewer",
       "mpnId": ""
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "Render trusted HTML reports and dashboards inside SharePoint pages."
+      },
+      "longDescription": {
+        "default": "Universal HTML Viewer lets site owners embed and navigate trusted HTML reports and supporting assets in SharePoint pages while keeping navigation inside the host experience."
+      },
+      "categories": [
+        "Productivity",
+        "Content management",
+        "Data + analytics"
+      ]
     }
   },
   "paths": {
