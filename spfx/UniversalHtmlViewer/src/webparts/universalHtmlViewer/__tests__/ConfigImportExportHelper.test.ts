@@ -23,6 +23,9 @@ describe('applyImportedConfigToProps', () => {
       enforceStrictInlineCsp: 'true',
       inlineExternalScripts: 'true',
       inlineExternalScriptAllowedHosts: 'cdnjs.cloudflare.com,cdn.jsdelivr.net',
+      inlineCspScriptAllowedHosts: 'cdn.jsdelivr.net,cdn.datatables.net',
+      inlineCspStyleAllowedHosts: 'fonts.googleapis.com,cdn.datatables.net',
+      inlineCspImageAllowedHosts: 'upload.wikimedia.org',
       showReportBrowser: 'true',
       reportBrowserRootPath: '/sites/TestSite1/SiteAssets/Reports',
       reportBrowserDefaultView: 'files',
@@ -48,6 +51,13 @@ describe('applyImportedConfigToProps', () => {
     expect(propsRecord.inlineExternalScriptAllowedHosts).toBe(
       'cdnjs.cloudflare.com,cdn.jsdelivr.net',
     );
+    expect(propsRecord.inlineCspScriptAllowedHosts).toBe(
+      'cdn.jsdelivr.net,cdn.datatables.net',
+    );
+    expect(propsRecord.inlineCspStyleAllowedHosts).toBe(
+      'fonts.googleapis.com,cdn.datatables.net',
+    );
+    expect(propsRecord.inlineCspImageAllowedHosts).toBe('upload.wikimedia.org');
     expect(propsRecord.showReportBrowser).toBe(true);
     expect(propsRecord.reportBrowserRootPath).toBe('/sites/TestSite1/SiteAssets/Reports');
     expect(propsRecord.reportBrowserDefaultView).toBe('Files');
@@ -89,6 +99,9 @@ describe('buildConfigExport', () => {
     expect(exported.enforceStrictInlineCsp).toBe(false);
     expect(exported.inlineExternalScripts).toBe(false);
     expect(exported.inlineExternalScriptAllowedHosts).toBe('');
+    expect(exported.inlineCspScriptAllowedHosts).toBe('');
+    expect(exported.inlineCspStyleAllowedHosts).toBe('');
+    expect(exported.inlineCspImageAllowedHosts).toBe('');
     expect(exported.contentDeliveryMode).toBe('SharePointFileContent');
     expect(exported.showReportBrowser).toBe(false);
     expect(exported.reportBrowserDefaultView).toBe('Folders');

@@ -520,6 +520,30 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   onGetErrorMessage: (value?: string): string => validateAllowedHosts(value),
                   deferredValidationTime: 200,
                 }),
+                PropertyPaneTextField('inlineCspScriptAllowedHosts', {
+                  label: 'Inline CSP script hosts',
+                  description:
+                    'Optional trusted hosts allowed by the generated inline CSP script-src directive. Example: cdn.jsdelivr.net, cdn.datatables.net, cdnjs.cloudflare.com',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                  onGetErrorMessage: (value?: string): string => validateAllowedHosts(value),
+                  deferredValidationTime: 200,
+                }),
+                PropertyPaneTextField('inlineCspStyleAllowedHosts', {
+                  label: 'Inline CSP style hosts',
+                  description:
+                    'Optional trusted hosts allowed by the generated inline CSP style-src/font-src directives. Example: fonts.googleapis.com, cdn.datatables.net',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                  onGetErrorMessage: (value?: string): string => validateAllowedHosts(value),
+                  deferredValidationTime: 200,
+                }),
+                PropertyPaneTextField('inlineCspImageAllowedHosts', {
+                  label: 'Inline CSP image hosts',
+                  description:
+                    'Optional trusted hosts allowed by the generated inline CSP img-src/media-src directives. Example: upload.wikimedia.org',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                  onGetErrorMessage: (value?: string): string => validateAllowedHosts(value),
+                  deferredValidationTime: 200,
+                }),
                 PropertyPaneTextField('allowedHosts', {
                   label: 'Allowed hosts (comma-separated)',
                   description:
@@ -1068,6 +1092,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       inlineExternalScriptAllowedHosts: this.parseHosts(
         props.inlineExternalScriptAllowedHosts,
       ),
+      inlineCspScriptAllowedHosts: this.parseHosts(props.inlineCspScriptAllowedHosts),
+      inlineCspStyleAllowedHosts: this.parseHosts(props.inlineCspStyleAllowedHosts),
+      inlineCspImageAllowedHosts: this.parseHosts(props.inlineCspImageAllowedHosts),
     };
   }
 

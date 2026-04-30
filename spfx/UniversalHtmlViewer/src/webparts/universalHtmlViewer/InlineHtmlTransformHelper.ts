@@ -1,5 +1,10 @@
+import { appendAdditionalCspHostSources } from './InlineCspSourceHelper';
+
 export interface IPrepareInlineHtmlForSrcDocOptions {
   enforceStrictInlineCsp?: boolean;
+  additionalScriptSrcHosts?: string[];
+  additionalStyleSrcHosts?: string[];
+  additionalImageSrcHosts?: string[];
 }
 
 export function prepareInlineHtmlForSrcDoc(
@@ -64,6 +69,7 @@ function prepareInlineHtmlForFrameDocument(
             baseUrlForRelativeLinks,
             enforceStrictInlineCsp,
             inlineScriptNonce,
+            options,
           ),
         )}">`
       : '';
@@ -182,18 +188,29 @@ function getDefaultSrcDocContentSecurityPolicy(
   baseUrlForRelativeLinks: string,
   enforceStrictInlineCsp: boolean,
   historyCompatibilityShimNonce?: string,
+  options?: IPrepareInlineHtmlForSrcDocOptions,
 ): string {
   const allowedOrigins = getAllowedOriginsForInlineSrcDoc(pageUrl, baseUrlForRelativeLinks);
-  const scriptSources = enforceStrictInlineCsp
+  const scriptSourcesBase = enforceStrictInlineCsp
     ? `${allowedOrigins} blob:${
         historyCompatibilityShimNonce
           ? ` 'nonce-${historyCompatibilityShimNonce}'`
           : ''
       }`
     : `${allowedOrigins} blob: 'unsafe-inline' 'unsafe-eval'`;
-  const styleSources = `${allowedOrigins} data: 'unsafe-inline'`;
+  const scriptSources = appendAdditionalCspHostSources(
+    scriptSourcesBase,
+    options?.additionalScriptSrcHosts,
+  );
+  const styleSources = appendAdditionalCspHostSources(
+    `${allowedOrigins} data: 'unsafe-inline'`,
+    options?.additionalStyleSrcHosts,
+  );
   const frameSources = `${allowedOrigins} blob:`;
-  const mediaSources = `${allowedOrigins} data: blob:`;
+  const mediaSources = appendAdditionalCspHostSources(
+    `${allowedOrigins} data: blob:`,
+    options?.additionalImageSrcHosts,
+  );
 
   return [
     `default-src ${allowedOrigins} data: blob:`,
