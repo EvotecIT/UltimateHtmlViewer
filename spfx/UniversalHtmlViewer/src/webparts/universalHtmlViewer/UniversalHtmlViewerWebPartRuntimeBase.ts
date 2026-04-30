@@ -1017,6 +1017,9 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       inlineExternalScriptAllowedHosts: this.parseHosts(
         props.inlineExternalScriptAllowedHosts,
       ),
+      inlineCspScriptAllowedHosts: this.parseHosts(props.inlineCspScriptAllowedHosts),
+      inlineCspStyleAllowedHosts: this.parseHosts(props.inlineCspStyleAllowedHosts),
+      inlineCspImageAllowedHosts: this.parseHosts(props.inlineCspImageAllowedHosts),
       sandboxPreset: props.sandboxPreset || 'None',
       iframeSandbox: props.iframeSandbox || '',
       iframeLoadTimeoutSeconds: this.getIframeLoadTimeoutSeconds(props),

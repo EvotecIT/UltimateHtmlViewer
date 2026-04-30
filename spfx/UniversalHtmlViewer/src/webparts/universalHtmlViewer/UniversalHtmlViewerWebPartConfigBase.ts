@@ -522,6 +522,9 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.inlineContentCacheTtlSeconds = 15;
     props.enforceStrictInlineCsp = false;
     props.inlineExternalScripts = false;
+    props.inlineCspScriptAllowedHosts = '';
+    props.inlineCspStyleAllowedHosts = '';
+    props.inlineCspImageAllowedHosts = '';
 
     if (!props.chromeTitle || props.chromeTitle.trim().length === 0) {
       props.chromeTitle = 'Universal HTML Viewer';

@@ -56,6 +56,9 @@ export interface IUniversalHtmlViewerWebPartProps {
   enforceStrictInlineCsp?: boolean;
   inlineExternalScripts?: boolean;
   inlineExternalScriptAllowedHosts?: string;
+  inlineCspScriptAllowedHosts?: string;
+  inlineCspStyleAllowedHosts?: string;
+  inlineCspImageAllowedHosts?: string;
   sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;
@@ -112,6 +115,9 @@ export interface ITenantConfig {
   enforceStrictInlineCsp?: boolean;
   inlineExternalScripts?: boolean;
   inlineExternalScriptAllowedHosts?: string;
+  inlineCspScriptAllowedHosts?: string;
+  inlineCspStyleAllowedHosts?: string;
+  inlineCspImageAllowedHosts?: string;
   sandboxPreset?: string;
   iframeSandbox?: string;
   iframeAllow?: string;
