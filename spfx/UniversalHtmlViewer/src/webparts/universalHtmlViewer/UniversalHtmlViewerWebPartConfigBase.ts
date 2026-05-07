@@ -44,6 +44,7 @@ const tenantMergeDefaultValues: Record<string, boolean | number> = {
   showRefreshButton: true,
   showStatus: true,
   showLastUpdated: true,
+  syncPageTitle: false,
   showLoadingIndicator: true,
 };
 
@@ -512,6 +513,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.showRefreshButton = true;
     props.showStatus = true;
     props.showLastUpdated = true;
+    props.syncPageTitle = false;
     props.showLoadingIndicator = true;
     props.showConfigActions = true;
     props.showDashboardSelector = false;

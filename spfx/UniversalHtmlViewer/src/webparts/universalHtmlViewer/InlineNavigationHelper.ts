@@ -1,4 +1,5 @@
 import { isUrlAllowed, UrlValidationOptions } from './UrlHelper';
+import { INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE } from './InlineNavigationAttributes';
 
 export interface IInlineNavigationOptions {
   iframe: HTMLIFrameElement;
@@ -367,6 +368,11 @@ function getEventComposedPathElements(event: MouseEvent): Element[] {
 }
 
 function getAnchorNavigationHref(anchor: Element): string {
+  const inlineOriginalHref = getInlineOriginalHref(anchor);
+  if (inlineOriginalHref) {
+    return inlineOriginalHref;
+  }
+
   const attributeHref = (anchor.getAttribute('href') || '').trim();
   if (attributeHref) {
     return attributeHref;
@@ -381,6 +387,11 @@ function getAnchorNavigationHref(anchor: Element): string {
 }
 
 function getAnchorAbsoluteHref(anchor: Element, fallbackUrl: string): string {
+  const inlineOriginalHref = getInlineOriginalHref(anchor);
+  if (inlineOriginalHref) {
+    return inlineOriginalHref;
+  }
+
   const hrefFromProperty = getAnchorHrefFromProperty(anchor);
   if (hrefFromProperty) {
     return hrefFromProperty;
@@ -441,6 +452,10 @@ function readXLinkHref(anchor: Element): string {
   }
 
   return '';
+}
+
+function getInlineOriginalHref(anchor: Element): string {
+  return (anchor.getAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE) || '').trim();
 }
 
 function hasExplicitNavigationHref(anchor: Element): boolean {

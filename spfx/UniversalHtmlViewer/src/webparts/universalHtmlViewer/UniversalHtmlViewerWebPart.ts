@@ -40,6 +40,7 @@ import {
   loadSharePointFileContentForBlobUrl,
   loadSharePointFileContentForInline,
 } from './SharePointInlineContentHelper';
+import { extractTitleFromHtml } from './PageTitleHelper';
 import {
   buildPageUrlWithoutInlineDeepLink,
   buildPageUrlWithInlineDeepLink,
@@ -77,6 +78,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   private previousInlineDeepLinkScrollRestoration: 'auto' | 'manual' | undefined;
   private hasLoggedAnyHttpsWarning: boolean = false;
   private activeInlineBlobUrl: string | undefined;
+  private originalDocumentTitle: string | undefined;
   private readonly onInlineDeepLinkPopState = (): void => {
     this.render();
   };
@@ -447,6 +449,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   offText: 'Off',
                   disabled: !showChrome || isPresetLocked,
                 }),
+                PropertyPaneToggle('syncPageTitle', {
+                  label: 'Sync browser tab title from report',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                }),
                 PropertyPaneToggle('showLoadingIndicator', {
                   label: 'Show loading indicator',
                   onText: 'On',
@@ -713,6 +721,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const { effectiveProps, tenantConfig } = await this.getEffectiveProperties(pageUrl);
     this.lastEffectiveProps = effectiveProps;
     this.lastTenantConfig = tenantConfig;
+    if (effectiveProps.syncPageTitle !== true) {
+      this.restoreOriginalDocumentTitle();
+    }
 
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
     const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
@@ -925,6 +936,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       }
     }
 
+    this.syncPageTitleFromHtml(inlineHtml, effectiveProps);
     this.currentBaseUrl = initialContentUrl;
     this.renderIframe(
       iframeUrl,
@@ -1057,6 +1069,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           this.getInlineContentOptions(props, bypassInlineContentCache),
         );
         this.lastInlineContentLoadError = '';
+        this.syncPageTitleFromHtml(blobHtml, props);
         iframe.removeAttribute('srcdoc');
         iframe.src = this.createInlineBlobUrl(blobHtml);
         return true;
@@ -1072,6 +1085,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         this.getInlineContentOptions(props, bypassInlineContentCache),
       );
       this.lastInlineContentLoadError = '';
+      this.syncPageTitleFromHtml(inlineHtml, props);
       iframe.srcdoc = inlineHtml;
       return true;
     } catch (error) {
@@ -1107,6 +1121,32 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       URL.revokeObjectURL(previousBlobUrl);
     }
     return nextBlobUrl;
+  }
+  private syncPageTitleFromHtml(
+    html: string | undefined,
+    props: IUniversalHtmlViewerWebPartProps,
+  ): void {
+    if (props.syncPageTitle !== true || typeof document === 'undefined') {
+      return;
+    }
+
+    const reportTitle = extractTitleFromHtml(html);
+    if (!reportTitle) {
+      return;
+    }
+
+    if (this.originalDocumentTitle === undefined) {
+      this.originalDocumentTitle = document.title || '';
+    }
+    document.title = reportTitle;
+  }
+  private restoreOriginalDocumentTitle(): void {
+    if (this.originalDocumentTitle === undefined || typeof document === 'undefined') {
+      return;
+    }
+
+    document.title = this.originalDocumentTitle;
+    this.originalDocumentTitle = undefined;
   }
   private revokeActiveInlineBlobUrl(): void {
     if (!this.activeInlineBlobUrl) {
@@ -1731,6 +1771,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.clearInitialDeepLinkScrollLock('dispose');
     this.clearNestedIframeHydration();
     this.revokeActiveInlineBlobUrl();
+    this.restoreOriginalDocumentTitle();
     super.onDispose();
   }
 }

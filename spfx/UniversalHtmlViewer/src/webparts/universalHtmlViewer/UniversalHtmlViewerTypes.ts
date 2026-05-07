@@ -75,6 +75,7 @@ export interface IUniversalHtmlViewerWebPartProps {
   showRefreshButton?: boolean;
   showStatus?: boolean;
   showLastUpdated?: boolean;
+  syncPageTitle?: boolean;
   chromeDensity?: ChromeDensity;
   showLoadingIndicator?: boolean;
   showConfigActions?: boolean;
@@ -134,6 +135,7 @@ export interface ITenantConfig {
   showRefreshButton?: boolean;
   showStatus?: boolean;
   showLastUpdated?: boolean;
+  syncPageTitle?: boolean;
   chromeDensity?: ChromeDensity;
   showLoadingIndicator?: boolean;
   showConfigActions?: boolean;

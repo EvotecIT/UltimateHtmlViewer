@@ -1,4 +1,6 @@
 import { appendAdditionalCspHostSources } from './InlineCspSourceHelper';
+import { rewriteInlineNavigationAnchorHrefs } from './InlineAnchorRewriteHelper';
+import { INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE } from './InlineNavigationAttributes';
 
 export interface IPrepareInlineHtmlForSrcDocOptions {
   enforceStrictInlineCsp?: boolean;
@@ -46,8 +48,13 @@ function prepareInlineHtmlForFrameDocument(
   const enforceStrictInlineCsp = options?.enforceStrictInlineCsp === true;
   const pageScriptNonce = tryGetCurrentPageScriptNonce();
   const htmlWithNeutralizedNestedFrames = neutralizeNestedIframeSources(html);
-  const htmlWithNonceStampedScripts = applyPageScriptNonceToInlineScripts(
+  const htmlWithHostDeepLinkedAnchors = rewriteInlineNavigationAnchorHrefs(
     htmlWithNeutralizedNestedFrames,
+    baseUrlForRelativeLinks,
+    pageUrl,
+  );
+  const htmlWithNonceStampedScripts = applyPageScriptNonceToInlineScripts(
+    htmlWithHostDeepLinkedAnchors,
     pageScriptNonce,
   );
   const shouldInjectCompatibilityShim = !/data-uhv-history-compat=/i.test(
@@ -560,6 +567,8 @@ function getInlineNavigationBridgeScript(): string {
     '      return null;',
     '    };',
     '    var getAnchorHref = function(anchor) {',
+    `      var inlineOriginalHref = String((anchor && anchor.getAttribute && anchor.getAttribute('${INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE}')) || '').trim();`,
+    '      if (inlineOriginalHref) { return inlineOriginalHref; }',
     "      var hrefAttr = String((anchor && anchor.getAttribute && anchor.getAttribute('href')) || '').trim();",
     '      if (hrefAttr) { return hrefAttr; }',
     '      try {',
