@@ -74,6 +74,7 @@
         "showRefreshButton": true,
         "showStatus": true,
         "showLastUpdated": true,
+        "syncPageTitle": false,
         "chromeDensity": "Comfortable",
         "showLoadingIndicator": true,
         "showConfigActions": false,

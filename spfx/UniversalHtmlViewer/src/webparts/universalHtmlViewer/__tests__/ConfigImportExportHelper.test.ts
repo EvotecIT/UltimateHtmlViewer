@@ -17,6 +17,7 @@ describe('applyImportedConfigToProps', () => {
       refreshIntervalMinutes: 10,
       inlineContentCacheTtlSeconds: 20,
       showChrome: 'true',
+      syncPageTitle: 'true',
       iframeLoading: 'LAZY',
       chromeDensity: 'compact',
       allowQueryStringPageOverride: 'false',
@@ -43,6 +44,7 @@ describe('applyImportedConfigToProps', () => {
     expect(propsRecord.refreshIntervalMinutes).toBe(10);
     expect(propsRecord.inlineContentCacheTtlSeconds).toBe(20);
     expect(propsRecord.showChrome).toBe(true);
+    expect(propsRecord.syncPageTitle).toBe(true);
     expect(propsRecord.iframeLoading).toBe('lazy');
     expect(propsRecord.chromeDensity).toBe('Compact');
     expect(propsRecord.allowQueryStringPageOverride).toBe(false);
@@ -104,6 +106,7 @@ describe('buildConfigExport', () => {
     expect(exported.inlineCspImageAllowedHosts).toBe('');
     expect(exported.contentDeliveryMode).toBe('SharePointFileContent');
     expect(exported.showReportBrowser).toBe(false);
+    expect(exported.syncPageTitle).toBe(false);
     expect(exported.reportBrowserDefaultView).toBe('Folders');
     expect(exported.reportBrowserMaxItems).toBe(300);
   });

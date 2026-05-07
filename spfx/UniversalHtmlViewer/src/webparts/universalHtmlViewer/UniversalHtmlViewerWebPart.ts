@@ -40,6 +40,7 @@ import {
   loadSharePointFileContentForBlobUrl,
   loadSharePointFileContentForInline,
 } from './SharePointInlineContentHelper';
+import { extractTitleFromHtml } from './PageTitleHelper';
 import {
   buildPageUrlWithoutInlineDeepLink,
   buildPageUrlWithInlineDeepLink,
@@ -66,6 +67,22 @@ interface IInlineDeepLinkFrameMetrics {
   pendingNestedFrames: number;
 }
 
+interface IPageTitleSyncEntry {
+  ownerId: string;
+  syncedTitle: string;
+}
+
+interface IPageTitleSyncState {
+  originalTitle: string;
+  entries: IPageTitleSyncEntry[];
+}
+
+interface IWindowWithPageTitleSync extends Window {
+  __uhvPageTitleSync?: IPageTitleSyncState;
+}
+
+let nextPageTitleSyncOwnerId = 1;
+
 export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPartUiBase {
   private nestedIframeHydrationCleanup: (() => void) | undefined;
   private initialDeepLinkScrollLockCleanup:
@@ -77,6 +94,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   private previousInlineDeepLinkScrollRestoration: 'auto' | 'manual' | undefined;
   private hasLoggedAnyHttpsWarning: boolean = false;
   private activeInlineBlobUrl: string | undefined;
+  private readonly pageTitleSyncOwnerId: string = `uhv-title-${nextPageTitleSyncOwnerId++}`;
   private readonly onInlineDeepLinkPopState = (): void => {
     this.render();
   };
@@ -85,6 +103,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.renderAsync().catch((error) => {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
+      this.restoreOriginalDocumentTitle();
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: Failed to render content.',
         this.buildDiagnosticsHtml({
@@ -447,6 +466,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   offText: 'Off',
                   disabled: !showChrome || isPresetLocked,
                 }),
+                PropertyPaneToggle('syncPageTitle', {
+                  label: 'Sync browser tab title from report',
+                  onText: 'On',
+                  offText: 'Off',
+                  disabled: !isInlineContentMode || isPresetLocked,
+                }),
                 PropertyPaneToggle('showLoadingIndicator', {
                   label: 'Show loading indicator',
                   onText: 'On',
@@ -713,11 +738,13 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const { effectiveProps, tenantConfig } = await this.getEffectiveProperties(pageUrl);
     this.lastEffectiveProps = effectiveProps;
     this.lastTenantConfig = tenantConfig;
-
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
     const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
       effectiveProps,
     );
+    if (!this.shouldSyncPageTitle(effectiveProps, contentDeliveryMode)) {
+      this.restoreOriginalDocumentTitle();
+    }
     this.configureInlineDeepLinkPopState(isInlineContentDeliveryMode(contentDeliveryMode));
     const currentDashboardId: string | undefined = this.getEffectiveDashboardId(
       effectiveProps,
@@ -740,6 +767,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     if (!finalUrl) {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
+      this.restoreOriginalDocumentTitle();
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: No URL configured. Please update the web part settings.',
         this.buildDiagnosticsHtml(
@@ -794,6 +822,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
       this.clearInitialDeepLinkScrollLock();
+      this.restoreOriginalDocumentTitle();
       const resetToDefaultHtml = this.buildResetToDefaultDashboardHtml(pageUrl);
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: The requested deep link is invalid or not allowed.',
@@ -823,6 +852,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
       this.clearInitialDeepLinkScrollLock();
+      this.restoreOriginalDocumentTitle();
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: The target URL is invalid or not allowed.',
         this.buildDiagnosticsHtml(
@@ -898,6 +928,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             ? 'Access was denied. Use "Request access" on the opened SharePoint page.'
             : 'If access is denied, use "Request access" on the opened SharePoint page.'
         }</div>`;
+        this.restoreOriginalDocumentTitle();
         this.domElement.innerHTML = buildMessageHtml(
           isAccessDenied
             ? 'UniversalHtmlViewer: You do not have access to this report page.'
@@ -925,6 +956,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       }
     }
 
+    this.syncPageTitleFromHtml(inlineHtml, effectiveProps);
     this.currentBaseUrl = initialContentUrl;
     this.renderIframe(
       iframeUrl,
@@ -1057,6 +1089,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           this.getInlineContentOptions(props, bypassInlineContentCache),
         );
         this.lastInlineContentLoadError = '';
+        this.syncPageTitleFromHtml(blobHtml, props);
         iframe.removeAttribute('srcdoc');
         iframe.src = this.createInlineBlobUrl(blobHtml);
         return true;
@@ -1072,6 +1105,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         this.getInlineContentOptions(props, bypassInlineContentCache),
       );
       this.lastInlineContentLoadError = '';
+      this.syncPageTitleFromHtml(inlineHtml, props);
       iframe.srcdoc = inlineHtml;
       return true;
     } catch (error) {
@@ -1095,7 +1129,34 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       inlineCspScriptAllowedHosts: this.parseHosts(props.inlineCspScriptAllowedHosts),
       inlineCspStyleAllowedHosts: this.parseHosts(props.inlineCspStyleAllowedHosts),
       inlineCspImageAllowedHosts: this.parseHosts(props.inlineCspImageAllowedHosts),
+      rewriteInlineAnchorHrefs: this.shouldRewriteInlineAnchorHrefs(props),
+      rewriteInlineAnchorAllowedFileExtensions: this.parseFileExtensions(
+        props.allowedFileExtensions,
+      ),
+      rewriteInlineAnchorPreservedHostQueryParamNames:
+        this.getInlineAnchorPreservedHostQueryParamNames(props),
     };
+  }
+  private getInlineAnchorPreservedHostQueryParamNames(
+    props: IUniversalHtmlViewerWebPartProps,
+  ): string[] {
+    if ((props.htmlSourceMode || 'FullUrl') !== 'BasePathAndDashboardId') {
+      return [];
+    }
+
+    return [(props.queryStringParamName || '').trim() || 'dashboard'];
+  }
+  private shouldRewriteInlineAnchorHrefs(props: IUniversalHtmlViewerWebPartProps): boolean {
+    return (
+      props.allowQueryStringPageOverride === true &&
+      !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')
+    );
+  }
+  private shouldSyncPageTitle(
+    props: IUniversalHtmlViewerWebPartProps,
+    contentDeliveryMode: ContentDeliveryMode,
+  ): boolean {
+    return props.syncPageTitle === true && isInlineContentDeliveryMode(contentDeliveryMode);
   }
 
   private createInlineBlobUrl(html: string): string {
@@ -1107,6 +1168,78 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       URL.revokeObjectURL(previousBlobUrl);
     }
     return nextBlobUrl;
+  }
+  private syncPageTitleFromHtml(
+    html: string | undefined,
+    props: IUniversalHtmlViewerWebPartProps,
+  ): void {
+    if (
+      props.syncPageTitle !== true ||
+      typeof window === 'undefined' ||
+      typeof document === 'undefined'
+    ) {
+      return;
+    }
+
+    const reportTitle = extractTitleFromHtml(html);
+    if (!reportTitle) {
+      this.restoreOriginalDocumentTitle();
+      return;
+    }
+
+    const syncWindow = window as IWindowWithPageTitleSync;
+    const existingSyncState = syncWindow.__uhvPageTitleSync;
+    const existingEntries = existingSyncState?.entries || [];
+    const originalTitle = existingSyncState?.originalTitle ?? document.title ?? '';
+    const nextEntries = existingEntries.filter(
+      (entry) => entry.ownerId !== this.pageTitleSyncOwnerId,
+    );
+    nextEntries.push({
+      ownerId: this.pageTitleSyncOwnerId,
+      syncedTitle: reportTitle,
+    });
+    syncWindow.__uhvPageTitleSync = {
+      originalTitle,
+      entries: nextEntries,
+    };
+    document.title = reportTitle;
+  }
+  private restoreOriginalDocumentTitle(): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    const syncWindow = window as IWindowWithPageTitleSync;
+    const syncState = syncWindow.__uhvPageTitleSync;
+    if (!syncState) {
+      return;
+    }
+
+    const currentEntry = syncState.entries
+      .slice()
+      .reverse()
+      .find((entry) => entry.ownerId === this.pageTitleSyncOwnerId);
+    if (!currentEntry) {
+      return;
+    }
+
+    const nextEntries = syncState.entries.filter(
+      (entry) => entry.ownerId !== this.pageTitleSyncOwnerId,
+    );
+    const nextActiveEntry =
+      nextEntries.length > 0 ? nextEntries[nextEntries.length - 1] : undefined;
+    if (document.title === currentEntry.syncedTitle) {
+      document.title = nextActiveEntry?.syncedTitle || syncState.originalTitle;
+    }
+
+    if (nextEntries.length > 0) {
+      syncWindow.__uhvPageTitleSync = {
+        originalTitle: syncState.originalTitle,
+        entries: nextEntries,
+      };
+      return;
+    }
+    delete syncWindow.__uhvPageTitleSync;
   }
   private revokeActiveInlineBlobUrl(): void {
     if (!this.activeInlineBlobUrl) {
@@ -1731,6 +1864,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.clearInitialDeepLinkScrollLock('dispose');
     this.clearNestedIframeHydration();
     this.revokeActiveInlineBlobUrl();
+    this.restoreOriginalDocumentTitle();
     super.onDispose();
   }
 }

@@ -183,7 +183,7 @@ function toAbsoluteUrl(value: string, pageUrl: string): string {
   }
 }
 
-const MAX_DEEP_LINK_QUERY_VALUE_LENGTH = 2048;
+export const MAX_DEEP_LINK_QUERY_VALUE_LENGTH = 2048;
 
 function sanitizeRequestedDeepLinkValue(rawValue?: string): string | undefined {
   const trimmed = (rawValue || '').trim();

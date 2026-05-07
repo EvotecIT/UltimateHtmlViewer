@@ -1,10 +1,18 @@
 import { appendAdditionalCspHostSources } from './InlineCspSourceHelper';
+import { rewriteInlineNavigationAnchorHrefs } from './InlineAnchorRewriteHelper';
+import {
+  INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE,
+  INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE,
+} from './InlineNavigationAttributes';
 
 export interface IPrepareInlineHtmlForSrcDocOptions {
   enforceStrictInlineCsp?: boolean;
   additionalScriptSrcHosts?: string[];
   additionalStyleSrcHosts?: string[];
   additionalImageSrcHosts?: string[];
+  rewriteInlineAnchorHrefs?: boolean;
+  rewriteInlineAnchorAllowedFileExtensions?: string[];
+  rewriteInlineAnchorPreservedHostQueryParamNames?: string[];
 }
 
 export function prepareInlineHtmlForSrcDoc(
@@ -26,12 +34,18 @@ export function prepareInlineHtmlForBlobUrl(
   html: string,
   baseUrlForRelativeLinks: string,
   pageUrl: string,
+  options?: Pick<
+    IPrepareInlineHtmlForSrcDocOptions,
+    | 'rewriteInlineAnchorHrefs'
+    | 'rewriteInlineAnchorAllowedFileExtensions'
+    | 'rewriteInlineAnchorPreservedHostQueryParamNames'
+  >,
 ): string {
   return prepareInlineHtmlForFrameDocument(
     html,
     baseUrlForRelativeLinks,
     pageUrl,
-    undefined,
+    options,
     false,
   );
 }
@@ -46,8 +60,21 @@ function prepareInlineHtmlForFrameDocument(
   const enforceStrictInlineCsp = options?.enforceStrictInlineCsp === true;
   const pageScriptNonce = tryGetCurrentPageScriptNonce();
   const htmlWithNeutralizedNestedFrames = neutralizeNestedIframeSources(html);
+  const htmlWithHostDeepLinkedAnchors =
+    options?.rewriteInlineAnchorHrefs === true
+      ? rewriteInlineNavigationAnchorHrefs(
+          htmlWithNeutralizedNestedFrames,
+          baseUrlForRelativeLinks,
+          pageUrl,
+          {
+            allowedFileExtensions: options?.rewriteInlineAnchorAllowedFileExtensions,
+            preservedHostQueryParamNames:
+              options?.rewriteInlineAnchorPreservedHostQueryParamNames,
+          },
+        )
+      : htmlWithNeutralizedNestedFrames;
   const htmlWithNonceStampedScripts = applyPageScriptNonceToInlineScripts(
-    htmlWithNeutralizedNestedFrames,
+    htmlWithHostDeepLinkedAnchors,
     pageScriptNonce,
   );
   const shouldInjectCompatibilityShim = !/data-uhv-history-compat=/i.test(
@@ -560,6 +587,9 @@ function getInlineNavigationBridgeScript(): string {
     '      return null;',
     '    };',
     '    var getAnchorHref = function(anchor) {',
+    `      var wasRewritten = String((anchor && anchor.getAttribute && anchor.getAttribute('${INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE}')) || '').trim() === '1';`,
+    `      var inlineOriginalHref = String((anchor && anchor.getAttribute && anchor.getAttribute('${INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE}')) || '').trim();`,
+    '      if (wasRewritten && inlineOriginalHref) { return inlineOriginalHref; }',
     "      var hrefAttr = String((anchor && anchor.getAttribute && anchor.getAttribute('href')) || '').trim();",
     '      if (hrefAttr) { return hrefAttr; }',
     '      try {',

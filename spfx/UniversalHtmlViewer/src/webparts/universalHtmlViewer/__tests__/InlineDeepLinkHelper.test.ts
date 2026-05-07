@@ -29,6 +29,27 @@ describe('InlineDeepLinkHelper', () => {
     );
   });
 
+  it('resolves uhvPage from SharePoint Teams handoff URLs with encoded library paths', () => {
+    const result = resolveInlineDeepLinkTarget({
+      pageUrl:
+        'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?isSPOFile=1&OR=Teams-HL&uhvPage=%2Fsites%2FTheDashboardPage%2FShared%2520Documents%2FActiveDirectoryOverall_Computers.html&linkOpenTime=1778142854127',
+      fallbackUrl:
+        'https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/ActiveDirectoryOverall.html',
+      validationOptions: {
+        securityMode: 'StrictTenant',
+        currentPageUrl:
+          'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx',
+        allowHttp: false,
+        allowedPathPrefixes: ['/sites/TheDashboardPage/Shared Documents/'],
+        allowedFileExtensions: ['.html', '.htm', '.aspx'],
+      },
+    });
+
+    expect(result).toBe(
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/ActiveDirectoryOverall_Computers.html',
+    );
+  });
+
   it('ignores deep links outside allowed prefixes', () => {
     const result = resolveInlineDeepLinkTarget({
       pageUrl:
