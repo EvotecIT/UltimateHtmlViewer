@@ -94,6 +94,20 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     expect((window as any).__uhvPageTitleSync).toBeUndefined();
   });
 
+  it('restores the original browser tab title when a synced report has no title', () => {
+    const webPart = createWebPart();
+
+    webPart.syncPageTitleFromHtml('<title>Users</title>', {
+      syncPageTitle: true,
+    });
+    webPart.syncPageTitleFromHtml('<html><body>No title</body></html>', {
+      syncPageTitle: true,
+    });
+
+    expect(document.title).toBe('TheDashboardPage');
+    expect((window as any).__uhvPageTitleSync).toBeUndefined();
+  });
+
   it('does not restore a title owned by another active viewer instance', () => {
     const firstWebPart = createWebPart('first');
     const secondWebPart = createWebPart('second');

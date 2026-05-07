@@ -920,6 +920,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             ? 'Access was denied. Use "Request access" on the opened SharePoint page.'
             : 'If access is denied, use "Request access" on the opened SharePoint page.'
         }</div>`;
+        this.restoreOriginalDocumentTitle();
         this.domElement.innerHTML = buildMessageHtml(
           isAccessDenied
             ? 'UniversalHtmlViewer: You do not have access to this report page.'
@@ -1121,6 +1122,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       inlineCspStyleAllowedHosts: this.parseHosts(props.inlineCspStyleAllowedHosts),
       inlineCspImageAllowedHosts: this.parseHosts(props.inlineCspImageAllowedHosts),
       rewriteInlineAnchorHrefs: this.shouldRewriteInlineAnchorHrefs(props),
+      rewriteInlineAnchorAllowedFileExtensions: this.parseFileExtensions(
+        props.allowedFileExtensions,
+      ),
     };
   }
   private shouldRewriteInlineAnchorHrefs(props: IUniversalHtmlViewerWebPartProps): boolean {
@@ -1160,6 +1164,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
     const reportTitle = extractTitleFromHtml(html);
     if (!reportTitle) {
+      this.restoreOriginalDocumentTitle();
       return;
     }
 

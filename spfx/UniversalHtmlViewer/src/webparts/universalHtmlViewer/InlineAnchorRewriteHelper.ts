@@ -1,10 +1,18 @@
-import { buildPageUrlWithInlineDeepLink } from './InlineDeepLinkHelper';
+import {
+  buildPageUrlWithInlineDeepLink,
+  MAX_DEEP_LINK_QUERY_VALUE_LENGTH,
+} from './InlineDeepLinkHelper';
 import { INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE } from './InlineNavigationAttributes';
+
+export interface IRewriteInlineNavigationAnchorHrefsOptions {
+  allowedFileExtensions?: string[];
+}
 
 export function rewriteInlineNavigationAnchorHrefs(
   html: string,
   baseUrlForRelativeLinks: string,
   pageUrl: string,
+  options?: IRewriteInlineNavigationAnchorHrefsOptions,
 ): string {
   if (!html || !/<a[\s\S]+href\s*=/i.test(html)) {
     return html;
@@ -33,8 +41,17 @@ export function rewriteInlineNavigationAnchorHrefs(
       }
 
       const rawHref = (anchor.getAttribute('href') || '').trim();
-      const targetUrl = resolveInlineAnchorTargetUrl(rawHref, baseUrl, page);
+      const targetUrl = resolveInlineAnchorTargetUrl(
+        rawHref,
+        baseUrl,
+        page,
+        options?.allowedFileExtensions,
+      );
       if (!targetUrl) {
+        return;
+      }
+
+      if (getDeepLinkQueryValueLength(targetUrl, page) > MAX_DEEP_LINK_QUERY_VALUE_LENGTH) {
         return;
       }
 
@@ -85,6 +102,7 @@ function resolveInlineAnchorTargetUrl(
   rawHref: string,
   baseUrl: string,
   pageUrl: URL,
+  allowedFileExtensions?: string[],
 ): string | undefined {
   const normalizedHref = (rawHref || '').trim();
   if (!normalizedHref || normalizedHref.startsWith('#')) {
@@ -122,11 +140,41 @@ function resolveInlineAnchorTargetUrl(
   }
 
   const extension = getPathExtension(target.pathname);
-  if (extension !== '.html' && extension !== '.htm' && extension !== '.aspx') {
+  if (!isExtensionAllowed(extension, allowedFileExtensions)) {
     return undefined;
   }
 
   return target.toString();
+}
+
+function getDeepLinkQueryValueLength(targetUrl: string, pageUrl: URL): number {
+  try {
+    const target = new URL(targetUrl);
+    if (target.host.toLowerCase() === pageUrl.host.toLowerCase()) {
+      return `${target.pathname}${target.search}${target.hash}`.length;
+    }
+
+    return target.toString().length;
+  } catch {
+    return targetUrl.length;
+  }
+}
+
+function isExtensionAllowed(extension: string, allowedFileExtensions?: string[]): boolean {
+  if (!extension) {
+    return false;
+  }
+
+  const normalizedAllowed = (allowedFileExtensions || [])
+    .map((entry) => (entry || '').trim().toLowerCase())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => (entry.startsWith('.') ? entry : `.${entry}`));
+
+  if (normalizedAllowed.length > 0) {
+    return normalizedAllowed.includes(extension);
+  }
+
+  return extension === '.html' || extension === '.htm' || extension === '.aspx';
 }
 
 function isInsideBaseDirectory(target: URL, baseUrl: string): boolean {

@@ -60,4 +60,35 @@ describe('InlineAnchorRewriteHelper', () => {
     expect(result).toContain('href="/sites/TheDashboardPage/SitePages/Other.aspx"');
     expect(result).not.toContain('data-uhv-inline-href=');
   });
+
+  it('does not rewrite anchors whose deep-link query value would exceed the limit', () => {
+    const longName = `${'a'.repeat(2100)}.html`;
+    const inputHtml = `<html><body><a href="${longName}">Long report</a></body></html>`;
+    const result = rewriteInlineNavigationAnchorHrefs(
+      inputHtml,
+      '/sites/TheDashboardPage/Shared Documents/',
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx',
+    );
+
+    expect(result).toContain(`href="${longName}"`);
+    expect(result).not.toContain('data-uhv-inline-href=');
+  });
+
+  it('uses configured allowed extensions when deciding whether anchors can be rewritten', () => {
+    const inputHtml =
+      '<html><body><a href="Report.aspx">Aspx</a><a href="Report.html">Html</a></body></html>';
+    const result = rewriteInlineNavigationAnchorHrefs(
+      inputHtml,
+      '/sites/TheDashboardPage/Shared Documents/',
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx',
+      {
+        allowedFileExtensions: ['.html'],
+      },
+    );
+
+    expect(result).toContain('href="Report.aspx"');
+    expect(result).toContain(
+      'data-uhv-inline-href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/Report.html"',
+    );
+  });
 });

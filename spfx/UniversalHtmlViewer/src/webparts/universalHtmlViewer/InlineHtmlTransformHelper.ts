@@ -8,6 +8,7 @@ export interface IPrepareInlineHtmlForSrcDocOptions {
   additionalStyleSrcHosts?: string[];
   additionalImageSrcHosts?: string[];
   rewriteInlineAnchorHrefs?: boolean;
+  rewriteInlineAnchorAllowedFileExtensions?: string[];
 }
 
 export function prepareInlineHtmlForSrcDoc(
@@ -29,7 +30,10 @@ export function prepareInlineHtmlForBlobUrl(
   html: string,
   baseUrlForRelativeLinks: string,
   pageUrl: string,
-  options?: Pick<IPrepareInlineHtmlForSrcDocOptions, 'rewriteInlineAnchorHrefs'>,
+  options?: Pick<
+    IPrepareInlineHtmlForSrcDocOptions,
+    'rewriteInlineAnchorHrefs' | 'rewriteInlineAnchorAllowedFileExtensions'
+  >,
 ): string {
   return prepareInlineHtmlForFrameDocument(
     html,
@@ -56,6 +60,9 @@ function prepareInlineHtmlForFrameDocument(
           htmlWithNeutralizedNestedFrames,
           baseUrlForRelativeLinks,
           pageUrl,
+          {
+            allowedFileExtensions: options?.rewriteInlineAnchorAllowedFileExtensions,
+          },
         )
       : htmlWithNeutralizedNestedFrames;
   const htmlWithNonceStampedScripts = applyPageScriptNonceToInlineScripts(
