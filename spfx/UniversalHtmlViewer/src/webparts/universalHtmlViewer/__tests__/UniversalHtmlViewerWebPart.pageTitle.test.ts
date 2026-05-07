@@ -62,9 +62,13 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
 
     expect(document.title).toBe('Active Directory Overall - Computers');
     expect((window as any).__uhvPageTitleSync).toMatchObject({
-      ownerId: 'test-owner',
       originalTitle: 'TheDashboardPage',
-      syncedTitle: 'Active Directory Overall - Computers',
+      entries: [
+        {
+          ownerId: 'test-owner',
+          syncedTitle: 'Active Directory Overall - Computers',
+        },
+      ],
     });
   });
 
@@ -122,9 +126,37 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
 
     expect(document.title).toBe('Computers');
     expect((window as any).__uhvPageTitleSync).toMatchObject({
-      ownerId: 'second',
       originalTitle: 'TheDashboardPage',
-      syncedTitle: 'Computers',
+      entries: [
+        {
+          ownerId: 'second',
+          syncedTitle: 'Computers',
+        },
+      ],
+    });
+  });
+
+  it('restores the previous active synced title when the latest viewer is cleaned up', () => {
+    const firstWebPart = createWebPart('first');
+    const secondWebPart = createWebPart('second');
+
+    firstWebPart.syncPageTitleFromHtml('<title>Users</title>', {
+      syncPageTitle: true,
+    });
+    secondWebPart.syncPageTitleFromHtml('<title>Computers</title>', {
+      syncPageTitle: true,
+    });
+    secondWebPart.restoreOriginalDocumentTitle();
+
+    expect(document.title).toBe('Users');
+    expect((window as any).__uhvPageTitleSync).toMatchObject({
+      originalTitle: 'TheDashboardPage',
+      entries: [
+        {
+          ownerId: 'first',
+          syncedTitle: 'Users',
+        },
+      ],
     });
   });
 

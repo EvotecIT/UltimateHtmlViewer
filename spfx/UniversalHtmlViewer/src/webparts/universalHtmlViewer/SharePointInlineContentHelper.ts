@@ -30,6 +30,7 @@ export interface ILoadSharePointInlineContentOptions {
   inlineCspImageAllowedHosts?: string[];
   rewriteInlineAnchorHrefs?: boolean;
   rewriteInlineAnchorAllowedFileExtensions?: string[];
+  rewriteInlineAnchorPreservedHostQueryParamNames?: string[];
 }
 
 const DEFAULT_INLINE_HTML_CACHE_TTL_MS = 15000;
@@ -114,6 +115,7 @@ async function loadSharePointFileContent(
     options?.inlineCspImageAllowedHosts || [],
     options?.rewriteInlineAnchorHrefs === true,
     options?.rewriteInlineAnchorAllowedFileExtensions || [],
+    options?.rewriteInlineAnchorPreservedHostQueryParamNames || [],
   );
   const bypassCache = options?.bypassCache === true;
   const cacheTtlMs = normalizeCacheTtlMs(options?.cacheTtlMs);
@@ -214,6 +216,8 @@ async function loadSharePointInlineHtmlFromApi(
       rewriteInlineAnchorHrefs: options?.rewriteInlineAnchorHrefs === true,
       rewriteInlineAnchorAllowedFileExtensions:
         options?.rewriteInlineAnchorAllowedFileExtensions,
+      rewriteInlineAnchorPreservedHostQueryParamNames:
+        options?.rewriteInlineAnchorPreservedHostQueryParamNames,
     });
   }
 
@@ -225,6 +229,8 @@ async function loadSharePointInlineHtmlFromApi(
     rewriteInlineAnchorHrefs: options?.rewriteInlineAnchorHrefs === true,
     rewriteInlineAnchorAllowedFileExtensions:
       options?.rewriteInlineAnchorAllowedFileExtensions,
+    rewriteInlineAnchorPreservedHostQueryParamNames:
+      options?.rewriteInlineAnchorPreservedHostQueryParamNames,
   });
 }
 
@@ -309,6 +315,7 @@ function buildInlineHtmlCacheKey(
   inlineCspImageAllowedHosts: string[],
   rewriteInlineAnchorHrefs: boolean,
   rewriteInlineAnchorAllowedFileExtensions: string[],
+  rewriteInlineAnchorPreservedHostQueryParamNames: string[],
 ): string {
   const normalizedSourceUrl = (sourceUrl || '').trim();
   const normalizedBaseUrl = (baseUrlForRelativeLinks || '').trim();
@@ -326,6 +333,8 @@ function buildInlineHtmlCacheKey(
   const normalizedAnchorRewriteMode = rewriteInlineAnchorHrefs
     ? `rewrite-anchor-hrefs:${normalizeExtensionsForCache(
         rewriteInlineAnchorAllowedFileExtensions,
+      ).join(',')}:${normalizeQueryParamNamesForCache(
+        rewriteInlineAnchorPreservedHostQueryParamNames,
       ).join(',')}`
     : 'raw-anchor-hrefs';
   return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedRenderMode}|${normalizedStrictMode}|${normalizedExternalScriptMode}|${normalizedInlineCspSources}|${normalizedAnchorRewriteMode}`;
@@ -338,6 +347,16 @@ function normalizeExtensionsForCache(extensions: string[]): string[] {
         .map((extension) => (extension || '').trim().toLowerCase())
         .filter((extension) => extension.length > 0)
         .map((extension) => (extension.startsWith('.') ? extension : `.${extension}`)),
+    ),
+  ).sort();
+}
+
+function normalizeQueryParamNamesForCache(paramNames: string[]): string[] {
+  return Array.from(
+    new Set(
+      (paramNames || [])
+        .map((paramName) => (paramName || '').trim())
+        .filter((paramName) => paramName.length > 0),
     ),
   ).sort();
 }

@@ -2,10 +2,14 @@ import {
   buildPageUrlWithInlineDeepLink,
   MAX_DEEP_LINK_QUERY_VALUE_LENGTH,
 } from './InlineDeepLinkHelper';
-import { INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE } from './InlineNavigationAttributes';
+import {
+  INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE,
+  INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE,
+} from './InlineNavigationAttributes';
 
 export interface IRewriteInlineNavigationAnchorHrefsOptions {
   allowedFileExtensions?: string[];
+  preservedHostQueryParamNames?: string[];
 }
 
 export function rewriteInlineNavigationAnchorHrefs(
@@ -33,11 +37,18 @@ export function rewriteInlineNavigationAnchorHrefs(
     const page = new URL(pageUrl);
     const fallbackBaseUrl = getAbsoluteUrlWithoutQuery(baseUrlForRelativeLinks, pageUrl);
     const baseUrl = getDocumentBaseUrl(parsed, fallbackBaseUrl);
-    const hostPageUrl = getCanonicalHostPageUrl(page);
+    const hostPageUrl = getCanonicalHostPageUrl(
+      page,
+      options?.preservedHostQueryParamNames,
+    );
     const anchors = parsed.querySelectorAll('a[href]');
     anchors.forEach((anchor) => {
-      if (anchor.hasAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE)) {
+      if (anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) === '1') {
         return;
+      }
+
+      if (anchor.hasAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE)) {
+        anchor.removeAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE);
       }
 
       const rawHref = (anchor.getAttribute('href') || '').trim();
@@ -64,6 +75,7 @@ export function rewriteInlineNavigationAnchorHrefs(
       }
 
       anchor.setAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE, targetUrl);
+      anchor.setAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE, '1');
       anchor.setAttribute('href', hostDeepLinkUrl);
     });
 
@@ -91,9 +103,28 @@ function getDocumentBaseUrl(parsed: Document, fallbackBaseUrl: string): string {
   }
 }
 
-function getCanonicalHostPageUrl(pageUrl: URL): string {
+function getCanonicalHostPageUrl(
+  pageUrl: URL,
+  preservedQueryParamNames?: string[],
+): string {
   const canonical = new URL(pageUrl.toString());
+  const preservedValues = new Map<string, string[]>();
+  (preservedQueryParamNames || [])
+    .map((entry) => (entry || '').trim())
+    .filter((entry) => entry.length > 0)
+    .forEach((paramName) => {
+      const values = pageUrl.searchParams.getAll(paramName);
+      if (values.length > 0) {
+        preservedValues.set(paramName, values);
+      }
+    });
+
   canonical.search = '';
+  preservedValues.forEach((values, paramName) => {
+    values.forEach((value) => {
+      canonical.searchParams.append(paramName, value);
+    });
+  });
   canonical.hash = '';
   return canonical.toString();
 }

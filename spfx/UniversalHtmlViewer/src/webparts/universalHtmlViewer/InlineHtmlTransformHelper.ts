@@ -1,6 +1,9 @@
 import { appendAdditionalCspHostSources } from './InlineCspSourceHelper';
 import { rewriteInlineNavigationAnchorHrefs } from './InlineAnchorRewriteHelper';
-import { INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE } from './InlineNavigationAttributes';
+import {
+  INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE,
+  INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE,
+} from './InlineNavigationAttributes';
 
 export interface IPrepareInlineHtmlForSrcDocOptions {
   enforceStrictInlineCsp?: boolean;
@@ -9,6 +12,7 @@ export interface IPrepareInlineHtmlForSrcDocOptions {
   additionalImageSrcHosts?: string[];
   rewriteInlineAnchorHrefs?: boolean;
   rewriteInlineAnchorAllowedFileExtensions?: string[];
+  rewriteInlineAnchorPreservedHostQueryParamNames?: string[];
 }
 
 export function prepareInlineHtmlForSrcDoc(
@@ -32,7 +36,9 @@ export function prepareInlineHtmlForBlobUrl(
   pageUrl: string,
   options?: Pick<
     IPrepareInlineHtmlForSrcDocOptions,
-    'rewriteInlineAnchorHrefs' | 'rewriteInlineAnchorAllowedFileExtensions'
+    | 'rewriteInlineAnchorHrefs'
+    | 'rewriteInlineAnchorAllowedFileExtensions'
+    | 'rewriteInlineAnchorPreservedHostQueryParamNames'
   >,
 ): string {
   return prepareInlineHtmlForFrameDocument(
@@ -62,6 +68,8 @@ function prepareInlineHtmlForFrameDocument(
           pageUrl,
           {
             allowedFileExtensions: options?.rewriteInlineAnchorAllowedFileExtensions,
+            preservedHostQueryParamNames:
+              options?.rewriteInlineAnchorPreservedHostQueryParamNames,
           },
         )
       : htmlWithNeutralizedNestedFrames;
@@ -579,8 +587,9 @@ function getInlineNavigationBridgeScript(): string {
     '      return null;',
     '    };',
     '    var getAnchorHref = function(anchor) {',
+    `      var wasRewritten = String((anchor && anchor.getAttribute && anchor.getAttribute('${INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE}')) || '').trim() === '1';`,
     `      var inlineOriginalHref = String((anchor && anchor.getAttribute && anchor.getAttribute('${INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE}')) || '').trim();`,
-    '      if (inlineOriginalHref) { return inlineOriginalHref; }',
+    '      if (wasRewritten && inlineOriginalHref) { return inlineOriginalHref; }',
     "      var hrefAttr = String((anchor && anchor.getAttribute && anchor.getAttribute('href')) || '').trim();",
     '      if (hrefAttr) { return hrefAttr; }',
     '      try {',

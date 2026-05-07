@@ -1,5 +1,8 @@
 import { isUrlAllowed, UrlValidationOptions } from './UrlHelper';
-import { INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE } from './InlineNavigationAttributes';
+import {
+  INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE,
+  INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE,
+} from './InlineNavigationAttributes';
 
 export interface IInlineNavigationOptions {
   iframe: HTMLIFrameElement;
@@ -455,6 +458,10 @@ function readXLinkHref(anchor: Element): string {
 }
 
 function getInlineOriginalHref(anchor: Element): string {
+  if (anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) !== '1') {
+    return '';
+  }
+
   return (anchor.getAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE) || '').trim();
 }
 

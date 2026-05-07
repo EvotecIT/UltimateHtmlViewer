@@ -13,6 +13,7 @@ describe('InlineAnchorRewriteHelper', () => {
     expect(result).toContain(
       'data-uhv-inline-href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/ActiveDirectoryOverall_Computers.html"',
     );
+    expect(result).toContain('data-uhv-inline-rewritten="1"');
     expect(result).toContain(
       'href="https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?uhvPage=%2Fsites%2FTheDashboardPage%2FShared%2520Documents%2FActiveDirectoryOverall_Computers.html"',
     );
@@ -90,5 +91,37 @@ describe('InlineAnchorRewriteHelper', () => {
     expect(result).toContain(
       'data-uhv-inline-href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/Report.html"',
     );
+  });
+
+  it('preserves configured host query parameters for dashboard-scoped deep links', () => {
+    const inputHtml = '<html><body><a href="Computers.html">Computers</a></body></html>';
+    const result = rewriteInlineNavigationAnchorHrefs(
+      inputHtml,
+      '/sites/TheDashboardPage/Shared Documents/Dashboards/ops/',
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?dashboard=ops&OR=Teams-HL&uhvPage=%2Fold',
+      {
+        preservedHostQueryParamNames: ['dashboard'],
+      },
+    );
+
+    expect(result).toContain(
+      'href="https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?dashboard=ops&amp;uhvPage=%2Fsites%2FTheDashboardPage%2FShared%2520Documents%2FDashboards%2Fops%2FComputers.html"',
+    );
+    expect(result).not.toContain('OR=Teams-HL');
+  });
+
+  it('removes untrusted original href data before rewriting authored anchors', () => {
+    const inputHtml =
+      '<html><body><a data-uhv-inline-href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/Hidden.html" href="Visible.html">Visible</a></body></html>';
+    const result = rewriteInlineNavigationAnchorHrefs(
+      inputHtml,
+      '/sites/TheDashboardPage/Shared Documents/',
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx',
+    );
+
+    expect(result).toContain(
+      'data-uhv-inline-href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/Visible.html"',
+    );
+    expect(result).not.toContain('Hidden.html');
   });
 });

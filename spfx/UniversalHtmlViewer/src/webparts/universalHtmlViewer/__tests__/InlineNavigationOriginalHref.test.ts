@@ -22,6 +22,7 @@ describe('InlineNavigationHelper original href data', () => {
       'data-uhv-inline-href',
       'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Computers.html',
     );
+    anchor.setAttribute('data-uhv-inline-rewritten', '1');
     const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
     Object.defineProperty(clickEvent, 'target', {
       value: anchor,
@@ -36,6 +37,34 @@ describe('InlineNavigationHelper original href data', () => {
 
     expect(result).toBe(
       'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Computers.html',
+    );
+  });
+
+  it('ignores authored original href data that was not stamped by UHV rewriting', () => {
+    const anchor = document.createElement('a');
+    anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Visible.html';
+    anchor.setAttribute(
+      'href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Visible.html',
+    );
+    anchor.setAttribute(
+      'data-uhv-inline-href',
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Hidden.html',
+    );
+    const clickEvent = new MouseEvent('click', { bubbles: true, button: 0 });
+    Object.defineProperty(clickEvent, 'target', {
+      value: anchor,
+      configurable: true,
+    });
+
+    const result = resolveInlineNavigationTarget(clickEvent, {
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+    });
+
+    expect(result).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Visible.html',
     );
   });
 });

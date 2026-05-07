@@ -67,10 +67,14 @@ interface IInlineDeepLinkFrameMetrics {
   pendingNestedFrames: number;
 }
 
-interface IPageTitleSyncState {
+interface IPageTitleSyncEntry {
   ownerId: string;
-  originalTitle: string;
   syncedTitle: string;
+}
+
+interface IPageTitleSyncState {
+  originalTitle: string;
+  entries: IPageTitleSyncEntry[];
 }
 
 interface IWindowWithPageTitleSync extends Window {
@@ -99,6 +103,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.renderAsync().catch((error) => {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
+      this.restoreOriginalDocumentTitle();
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: Failed to render content.',
         this.buildDiagnosticsHtml({
@@ -762,6 +767,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     if (!finalUrl) {
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
+      this.restoreOriginalDocumentTitle();
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: No URL configured. Please update the web part settings.',
         this.buildDiagnosticsHtml(
@@ -816,6 +822,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
       this.clearInitialDeepLinkScrollLock();
+      this.restoreOriginalDocumentTitle();
       const resetToDefaultHtml = this.buildResetToDefaultDashboardHtml(pageUrl);
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: The requested deep link is invalid or not allowed.',
@@ -845,6 +852,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
       this.clearInitialDeepLinkScrollLock();
+      this.restoreOriginalDocumentTitle();
       this.domElement.innerHTML = buildMessageHtml(
         'UniversalHtmlViewer: The target URL is invalid or not allowed.',
         this.buildDiagnosticsHtml(
@@ -1125,7 +1133,18 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       rewriteInlineAnchorAllowedFileExtensions: this.parseFileExtensions(
         props.allowedFileExtensions,
       ),
+      rewriteInlineAnchorPreservedHostQueryParamNames:
+        this.getInlineAnchorPreservedHostQueryParamNames(props),
     };
+  }
+  private getInlineAnchorPreservedHostQueryParamNames(
+    props: IUniversalHtmlViewerWebPartProps,
+  ): string[] {
+    if ((props.htmlSourceMode || 'FullUrl') !== 'BasePathAndDashboardId') {
+      return [];
+    }
+
+    return [(props.queryStringParamName || '').trim() || 'dashboard'];
   }
   private shouldRewriteInlineAnchorHrefs(props: IUniversalHtmlViewerWebPartProps): boolean {
     return (
@@ -1170,11 +1189,18 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
     const syncWindow = window as IWindowWithPageTitleSync;
     const existingSyncState = syncWindow.__uhvPageTitleSync;
+    const existingEntries = existingSyncState?.entries || [];
     const originalTitle = existingSyncState?.originalTitle ?? document.title ?? '';
-    syncWindow.__uhvPageTitleSync = {
+    const nextEntries = existingEntries.filter(
+      (entry) => entry.ownerId !== this.pageTitleSyncOwnerId,
+    );
+    nextEntries.push({
       ownerId: this.pageTitleSyncOwnerId,
-      originalTitle,
       syncedTitle: reportTitle,
+    });
+    syncWindow.__uhvPageTitleSync = {
+      originalTitle,
+      entries: nextEntries,
     };
     document.title = reportTitle;
   }
@@ -1185,12 +1211,33 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
     const syncWindow = window as IWindowWithPageTitleSync;
     const syncState = syncWindow.__uhvPageTitleSync;
-    if (!syncState || syncState.ownerId !== this.pageTitleSyncOwnerId) {
+    if (!syncState) {
       return;
     }
 
-    if (document.title === syncState.syncedTitle) {
-      document.title = syncState.originalTitle;
+    const currentEntry = syncState.entries
+      .slice()
+      .reverse()
+      .find((entry) => entry.ownerId === this.pageTitleSyncOwnerId);
+    if (!currentEntry) {
+      return;
+    }
+
+    const nextEntries = syncState.entries.filter(
+      (entry) => entry.ownerId !== this.pageTitleSyncOwnerId,
+    );
+    const nextActiveEntry =
+      nextEntries.length > 0 ? nextEntries[nextEntries.length - 1] : undefined;
+    if (document.title === currentEntry.syncedTitle) {
+      document.title = nextActiveEntry?.syncedTitle || syncState.originalTitle;
+    }
+
+    if (nextEntries.length > 0) {
+      syncWindow.__uhvPageTitleSync = {
+        originalTitle: syncState.originalTitle,
+        entries: nextEntries,
+      };
+      return;
     }
     delete syncWindow.__uhvPageTitleSync;
   }
