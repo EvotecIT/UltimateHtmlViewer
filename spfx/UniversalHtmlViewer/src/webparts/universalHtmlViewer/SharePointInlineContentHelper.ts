@@ -28,6 +28,7 @@ export interface ILoadSharePointInlineContentOptions {
   inlineCspScriptAllowedHosts?: string[];
   inlineCspStyleAllowedHosts?: string[];
   inlineCspImageAllowedHosts?: string[];
+  rewriteInlineAnchorHrefs?: boolean;
 }
 
 const DEFAULT_INLINE_HTML_CACHE_TTL_MS = 15000;
@@ -110,6 +111,7 @@ async function loadSharePointFileContent(
     options?.inlineCspScriptAllowedHosts || [],
     options?.inlineCspStyleAllowedHosts || [],
     options?.inlineCspImageAllowedHosts || [],
+    options?.rewriteInlineAnchorHrefs === true,
   );
   const bypassCache = options?.bypassCache === true;
   const cacheTtlMs = normalizeCacheTtlMs(options?.cacheTtlMs);
@@ -206,7 +208,9 @@ async function loadSharePointInlineHtmlFromApi(
   );
 
   if (renderMode === 'BlobUrl') {
-    return prepareInlineHtmlForBlobUrl(htmlWithInlinedScripts, baseUrlForRelativeLinks, pageUrl);
+    return prepareInlineHtmlForBlobUrl(htmlWithInlinedScripts, baseUrlForRelativeLinks, pageUrl, {
+      rewriteInlineAnchorHrefs: options?.rewriteInlineAnchorHrefs === true,
+    });
   }
 
   return prepareInlineHtmlForSrcDoc(htmlWithInlinedScripts, baseUrlForRelativeLinks, pageUrl, {
@@ -214,6 +218,7 @@ async function loadSharePointInlineHtmlFromApi(
     additionalScriptSrcHosts: options?.inlineCspScriptAllowedHosts,
     additionalStyleSrcHosts: options?.inlineCspStyleAllowedHosts,
     additionalImageSrcHosts: options?.inlineCspImageAllowedHosts,
+    rewriteInlineAnchorHrefs: options?.rewriteInlineAnchorHrefs === true,
   });
 }
 
@@ -296,6 +301,7 @@ function buildInlineHtmlCacheKey(
   inlineCspScriptAllowedHosts: string[],
   inlineCspStyleAllowedHosts: string[],
   inlineCspImageAllowedHosts: string[],
+  rewriteInlineAnchorHrefs: boolean,
 ): string {
   const normalizedSourceUrl = (sourceUrl || '').trim();
   const normalizedBaseUrl = (baseUrlForRelativeLinks || '').trim();
@@ -310,7 +316,10 @@ function buildInlineHtmlCacheKey(
     `style:${normalizeHostsForCache(inlineCspStyleAllowedHosts).join(',')}`,
     `img:${normalizeHostsForCache(inlineCspImageAllowedHosts).join(',')}`,
   ].join('|');
-  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedRenderMode}|${normalizedStrictMode}|${normalizedExternalScriptMode}|${normalizedInlineCspSources}`;
+  const normalizedAnchorRewriteMode = rewriteInlineAnchorHrefs
+    ? 'rewrite-anchor-hrefs'
+    : 'raw-anchor-hrefs';
+  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedRenderMode}|${normalizedStrictMode}|${normalizedExternalScriptMode}|${normalizedInlineCspSources}|${normalizedAnchorRewriteMode}`;
 }
 
 function normalizeHostsForCache(hosts: string[]): string[] {

@@ -7,6 +7,7 @@ export interface IPrepareInlineHtmlForSrcDocOptions {
   additionalScriptSrcHosts?: string[];
   additionalStyleSrcHosts?: string[];
   additionalImageSrcHosts?: string[];
+  rewriteInlineAnchorHrefs?: boolean;
 }
 
 export function prepareInlineHtmlForSrcDoc(
@@ -28,12 +29,13 @@ export function prepareInlineHtmlForBlobUrl(
   html: string,
   baseUrlForRelativeLinks: string,
   pageUrl: string,
+  options?: Pick<IPrepareInlineHtmlForSrcDocOptions, 'rewriteInlineAnchorHrefs'>,
 ): string {
   return prepareInlineHtmlForFrameDocument(
     html,
     baseUrlForRelativeLinks,
     pageUrl,
-    undefined,
+    options,
     false,
   );
 }
@@ -48,11 +50,14 @@ function prepareInlineHtmlForFrameDocument(
   const enforceStrictInlineCsp = options?.enforceStrictInlineCsp === true;
   const pageScriptNonce = tryGetCurrentPageScriptNonce();
   const htmlWithNeutralizedNestedFrames = neutralizeNestedIframeSources(html);
-  const htmlWithHostDeepLinkedAnchors = rewriteInlineNavigationAnchorHrefs(
-    htmlWithNeutralizedNestedFrames,
-    baseUrlForRelativeLinks,
-    pageUrl,
-  );
+  const htmlWithHostDeepLinkedAnchors =
+    options?.rewriteInlineAnchorHrefs === true
+      ? rewriteInlineNavigationAnchorHrefs(
+          htmlWithNeutralizedNestedFrames,
+          baseUrlForRelativeLinks,
+          pageUrl,
+        )
+      : htmlWithNeutralizedNestedFrames;
   const htmlWithNonceStampedScripts = applyPageScriptNonceToInlineScripts(
     htmlWithHostDeepLinkedAnchors,
     pageScriptNonce,

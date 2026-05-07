@@ -14,7 +14,24 @@ describe('InlineAnchorRewriteHelper', () => {
       'data-uhv-inline-href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/ActiveDirectoryOverall_Computers.html"',
     );
     expect(result).toContain(
-      'href="https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?isSPOFile=1&amp;uhvPage=%2Fsites%2FTheDashboardPage%2FShared%2520Documents%2FActiveDirectoryOverall_Computers.html"',
+      'href="https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?uhvPage=%2Fsites%2FTheDashboardPage%2FShared%2520Documents%2FActiveDirectoryOverall_Computers.html"',
+    );
+  });
+
+  it('respects document base href when storing the original inline navigation target', () => {
+    const inputHtml =
+      '<html><head><base href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/Nested/"></head><body><a href="Computers.html">Computers</a></body></html>';
+    const result = rewriteInlineNavigationAnchorHrefs(
+      inputHtml,
+      '/sites/TheDashboardPage/Shared Documents/',
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx',
+    );
+
+    expect(result).toContain(
+      'data-uhv-inline-href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/Nested/Computers.html"',
+    );
+    expect(result).toContain(
+      'uhvPage=%2Fsites%2FTheDashboardPage%2FShared%2520Documents%2FNested%2FComputers.html',
     );
   });
 

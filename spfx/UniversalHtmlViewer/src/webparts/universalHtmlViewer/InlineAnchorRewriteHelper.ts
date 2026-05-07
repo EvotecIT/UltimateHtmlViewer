@@ -23,7 +23,9 @@ export function rewriteInlineNavigationAnchorHrefs(
     }
 
     const page = new URL(pageUrl);
-    const baseUrl = getAbsoluteUrlWithoutQuery(baseUrlForRelativeLinks, pageUrl);
+    const fallbackBaseUrl = getAbsoluteUrlWithoutQuery(baseUrlForRelativeLinks, pageUrl);
+    const baseUrl = getDocumentBaseUrl(parsed, fallbackBaseUrl);
+    const hostPageUrl = getCanonicalHostPageUrl(page);
     const anchors = parsed.querySelectorAll('a[href]');
     anchors.forEach((anchor) => {
       if (anchor.hasAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE)) {
@@ -37,7 +39,7 @@ export function rewriteInlineNavigationAnchorHrefs(
       }
 
       const hostDeepLinkUrl = buildPageUrlWithInlineDeepLink({
-        pageUrl,
+        pageUrl: hostPageUrl,
         targetUrl,
       });
       if (!hostDeepLinkUrl || hostDeepLinkUrl === rawHref) {
@@ -57,6 +59,26 @@ export function rewriteInlineNavigationAnchorHrefs(
   } catch {
     return html;
   }
+}
+
+function getDocumentBaseUrl(parsed: Document, fallbackBaseUrl: string): string {
+  const rawBaseHref = (parsed.querySelector('base[href]')?.getAttribute('href') || '').trim();
+  if (!rawBaseHref) {
+    return fallbackBaseUrl;
+  }
+
+  try {
+    return new URL(rawBaseHref, fallbackBaseUrl).toString();
+  } catch {
+    return fallbackBaseUrl;
+  }
+}
+
+function getCanonicalHostPageUrl(pageUrl: URL): string {
+  const canonical = new URL(pageUrl.toString());
+  canonical.search = '';
+  canonical.hash = '';
+  return canonical.toString();
 }
 
 function resolveInlineAnchorTargetUrl(

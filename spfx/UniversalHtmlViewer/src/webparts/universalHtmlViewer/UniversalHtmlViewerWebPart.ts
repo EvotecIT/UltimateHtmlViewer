@@ -67,6 +67,18 @@ interface IInlineDeepLinkFrameMetrics {
   pendingNestedFrames: number;
 }
 
+interface IPageTitleSyncState {
+  ownerId: string;
+  originalTitle: string;
+  syncedTitle: string;
+}
+
+interface IWindowWithPageTitleSync extends Window {
+  __uhvPageTitleSync?: IPageTitleSyncState;
+}
+
+let nextPageTitleSyncOwnerId = 1;
+
 export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPartUiBase {
   private nestedIframeHydrationCleanup: (() => void) | undefined;
   private initialDeepLinkScrollLockCleanup:
@@ -78,7 +90,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   private previousInlineDeepLinkScrollRestoration: 'auto' | 'manual' | undefined;
   private hasLoggedAnyHttpsWarning: boolean = false;
   private activeInlineBlobUrl: string | undefined;
-  private originalDocumentTitle: string | undefined;
+  private readonly pageTitleSyncOwnerId: string = `uhv-title-${nextPageTitleSyncOwnerId++}`;
   private readonly onInlineDeepLinkPopState = (): void => {
     this.render();
   };
@@ -721,14 +733,13 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const { effectiveProps, tenantConfig } = await this.getEffectiveProperties(pageUrl);
     this.lastEffectiveProps = effectiveProps;
     this.lastTenantConfig = tenantConfig;
-    if (effectiveProps.syncPageTitle !== true) {
-      this.restoreOriginalDocumentTitle();
-    }
-
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
     const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(
       effectiveProps,
     );
+    if (!this.shouldSyncPageTitle(effectiveProps, contentDeliveryMode)) {
+      this.restoreOriginalDocumentTitle();
+    }
     this.configureInlineDeepLinkPopState(isInlineContentDeliveryMode(contentDeliveryMode));
     const currentDashboardId: string | undefined = this.getEffectiveDashboardId(
       effectiveProps,
@@ -1109,7 +1120,20 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       inlineCspScriptAllowedHosts: this.parseHosts(props.inlineCspScriptAllowedHosts),
       inlineCspStyleAllowedHosts: this.parseHosts(props.inlineCspStyleAllowedHosts),
       inlineCspImageAllowedHosts: this.parseHosts(props.inlineCspImageAllowedHosts),
+      rewriteInlineAnchorHrefs: this.shouldRewriteInlineAnchorHrefs(props),
     };
+  }
+  private shouldRewriteInlineAnchorHrefs(props: IUniversalHtmlViewerWebPartProps): boolean {
+    return (
+      props.allowQueryStringPageOverride === true &&
+      !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')
+    );
+  }
+  private shouldSyncPageTitle(
+    props: IUniversalHtmlViewerWebPartProps,
+    contentDeliveryMode: ContentDeliveryMode,
+  ): boolean {
+    return props.syncPageTitle === true && isInlineContentDeliveryMode(contentDeliveryMode);
   }
 
   private createInlineBlobUrl(html: string): string {
@@ -1126,7 +1150,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     html: string | undefined,
     props: IUniversalHtmlViewerWebPartProps,
   ): void {
-    if (props.syncPageTitle !== true || typeof document === 'undefined') {
+    if (
+      props.syncPageTitle !== true ||
+      typeof window === 'undefined' ||
+      typeof document === 'undefined'
+    ) {
       return;
     }
 
@@ -1135,18 +1163,31 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return;
     }
 
-    if (this.originalDocumentTitle === undefined) {
-      this.originalDocumentTitle = document.title || '';
-    }
+    const syncWindow = window as IWindowWithPageTitleSync;
+    const existingSyncState = syncWindow.__uhvPageTitleSync;
+    const originalTitle = existingSyncState?.originalTitle ?? document.title ?? '';
+    syncWindow.__uhvPageTitleSync = {
+      ownerId: this.pageTitleSyncOwnerId,
+      originalTitle,
+      syncedTitle: reportTitle,
+    };
     document.title = reportTitle;
   }
   private restoreOriginalDocumentTitle(): void {
-    if (this.originalDocumentTitle === undefined || typeof document === 'undefined') {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
       return;
     }
 
-    document.title = this.originalDocumentTitle;
-    this.originalDocumentTitle = undefined;
+    const syncWindow = window as IWindowWithPageTitleSync;
+    const syncState = syncWindow.__uhvPageTitleSync;
+    if (!syncState || syncState.ownerId !== this.pageTitleSyncOwnerId) {
+      return;
+    }
+
+    if (document.title === syncState.syncedTitle) {
+      document.title = syncState.originalTitle;
+    }
+    delete syncWindow.__uhvPageTitleSync;
   }
   private revokeActiveInlineBlobUrl(): void {
     if (!this.activeInlineBlobUrl) {
