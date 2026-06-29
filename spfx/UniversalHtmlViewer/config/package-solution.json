@@ -9,10 +9,10 @@
     "skipFeatureDeployment": false,
     "isDomainIsolated": false,
     "developer": {
-      "name": "Evotec IT",
+      "name": "Evotec Services sp. z o.o.",
       "websiteUrl": "https://github.com/EvotecIT/UltimateHtmlViewer",
-      "privacyUrl": "https://github.com/EvotecIT/UltimateHtmlViewer",
-      "termsOfUseUrl": "https://github.com/EvotecIT/UltimateHtmlViewer",
+      "privacyUrl": "https://github.com/EvotecIT/UltimateHtmlViewer/blob/master/docs/Privacy.md",
+      "termsOfUseUrl": "https://github.com/EvotecIT/UltimateHtmlViewer/blob/master/docs/Terms-of-Use.md",
       "mpnId": ""
     },
     "metadata": {
