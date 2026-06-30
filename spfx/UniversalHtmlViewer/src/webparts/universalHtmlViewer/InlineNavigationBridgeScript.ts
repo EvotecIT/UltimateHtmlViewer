@@ -226,6 +226,7 @@ export function getInlineNavigationBridgeScript(): string {
     '      var rawHref = getAnchorHref(anchor);',
     '      if (!rawHref) { return; }',
     '      if (navigateToSamePageHash(rawHref, event)) { return; }',
+    '      if (isSamePageHashHref(rawHref)) { return; }',
     '      if (hasBlockedProtocol(rawHref)) { return; }',
     '      var absoluteTargetUrl = toAbsoluteUrl(rawHref);',
     "      if (!absoluteTargetUrl || absoluteTargetUrl.charAt(0) === '#') { return; }",

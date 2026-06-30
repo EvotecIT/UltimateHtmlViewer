@@ -6,6 +6,7 @@ describe('InlineNavigationBridgeScript', () => {
     const hashHandlerIndex = script.indexOf(
       'if (navigateToSamePageHash(rawHref, event)) { return; }',
     );
+    const unresolvedHashIndex = script.indexOf('if (isSamePageHashHref(rawHref)) { return; }');
     const blockedProtocolIndex = script.indexOf('if (hasBlockedProtocol(rawHref)) { return; }');
     const emitIndex = script.indexOf('emit(absoluteTargetUrl, event);');
 
@@ -16,7 +17,8 @@ describe('InlineNavigationBridgeScript', () => {
     expect(script).toContain('window.location.hash = hashHref;');
     expect(script).toContain('target.scrollIntoView();');
     expect(hashHandlerIndex).toBeGreaterThan(-1);
-    expect(blockedProtocolIndex).toBeGreaterThan(hashHandlerIndex);
+    expect(unresolvedHashIndex).toBeGreaterThan(hashHandlerIndex);
+    expect(blockedProtocolIndex).toBeGreaterThan(unresolvedHashIndex);
     expect(emitIndex).toBeGreaterThan(blockedProtocolIndex);
   });
 });

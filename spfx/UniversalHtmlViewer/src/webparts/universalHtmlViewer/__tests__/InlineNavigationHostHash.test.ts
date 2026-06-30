@@ -204,6 +204,52 @@ describe('wireInlineIframeNavigation host page hash', () => {
     cleanup();
   });
 
+  it('cancels stale host hash retry scrolls before an in-frame hash jump', () => {
+    jest.useFakeTimers();
+    window.history.replaceState(null, document.title, '#security');
+
+    const iframeDocument = document.implementation.createHTMLDocument('iframe-in-frame-hash');
+    iframeDocument.body.innerHTML =
+      '<a id="overview-link" href="#overview">Overview</a>' +
+      '<section id="security">Security</section><section id="overview">Overview</section>';
+    const onNavigate = jest.fn();
+    const iframeStub = createIframeStub(iframeDocument, 180);
+
+    const securitySection = iframeDocument.getElementById('security') as HTMLElement;
+    const overviewSection = iframeDocument.getElementById('overview') as HTMLElement;
+    const overviewLink = iframeDocument.getElementById('overview-link') as HTMLElement;
+    securitySection.scrollIntoView = jest.fn();
+    overviewSection.scrollIntoView = jest.fn();
+    securitySection.getBoundingClientRect = () => createRect(1200, 100);
+    overviewSection.getBoundingClientRect = () => createRect(1600, 100);
+    jest.spyOn(window, 'scrollTo').mockImplementation(() => {
+      return;
+    });
+
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate,
+    });
+
+    overviewLink.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+      }),
+    );
+    jest.runOnlyPendingTimers();
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(securitySection.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(overviewSection.scrollIntoView).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
+
   it('scrolls the nearest host scroll container when SharePoint does not scroll window', () => {
     const iframeDocument = document.implementation.createHTMLDocument('iframe-scroll-container');
     iframeDocument.body.innerHTML = '<section id="security">Security</section>';

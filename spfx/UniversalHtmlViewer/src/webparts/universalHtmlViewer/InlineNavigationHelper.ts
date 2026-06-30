@@ -117,6 +117,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
       }
 
       if (tryHandleSamePageHashNavigation(event as MouseEvent)) {
+        clearPendingHostHashScrollTimeouts();
         suppressInterceptedNavigationEvent(event);
         handledEvents.add(event);
         return;

@@ -19,6 +19,15 @@ export function navigateToSamePageHash(
   const targetWindow = ownerDocument.defaultView || undefined;
   if (targetWindow?.location) {
     try {
+      if (
+        (targetWindow.location.hash || '').trim() === hashHref &&
+        targetElement &&
+        typeof targetElement.scrollIntoView === 'function'
+      ) {
+        targetElement.scrollIntoView();
+        return true;
+      }
+
       targetWindow.location.hash = hashHref;
       return true;
     } catch {
