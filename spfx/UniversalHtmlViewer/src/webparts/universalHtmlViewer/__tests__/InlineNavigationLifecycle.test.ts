@@ -240,6 +240,112 @@ describe('wireInlineIframeNavigation lifecycle', () => {
     addDocumentListenerSpy.mockRestore();
   });
 
+  it('leaves scripted placeholder hash anchors to the iframe page', () => {
+    const iframeDocument = document.implementation.createHTMLDocument('iframe-script-control');
+    iframeDocument.body.innerHTML = '<a id="toggle" href="#">Toggle</a>';
+    const addLoadListener = jest.fn();
+    const removeLoadListener = jest.fn();
+    const addDocumentListenerSpy = jest.spyOn(iframeDocument, 'addEventListener');
+    const onNavigate = jest.fn();
+    const iframeStub = {
+      contentDocument: iframeDocument,
+      ownerDocument: document,
+      addEventListener: addLoadListener,
+      removeEventListener: removeLoadListener,
+    } as unknown as HTMLIFrameElement;
+
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate,
+    });
+
+    const clickRegistration = addDocumentListenerSpy.mock.calls.find(
+      (call) => call[0] === 'click',
+    );
+    const clickHandler = clickRegistration?.[1] as (event: Event) => void;
+    const anchor = iframeDocument.getElementById('toggle') as HTMLAnchorElement;
+    const syntheticEvent = {
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      target: anchor,
+      preventDefault: jest.fn(),
+      stopPropagation: jest.fn(),
+      stopImmediatePropagation: jest.fn(),
+      cancelBubble: false,
+      returnValue: true,
+    } as unknown as Event;
+
+    clickHandler(syntheticEvent);
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(syntheticEvent.preventDefault).not.toHaveBeenCalled();
+    expect(syntheticEvent.stopPropagation).not.toHaveBeenCalled();
+    expect(syntheticEvent.stopImmediatePropagation).not.toHaveBeenCalled();
+    expect((syntheticEvent as Event & { cancelBubble?: boolean }).cancelBubble).toBe(false);
+    expect((syntheticEvent as Event & { returnValue?: boolean }).returnValue).toBe(true);
+
+    cleanup();
+    addDocumentListenerSpy.mockRestore();
+  });
+
+  it('leaves missing fragment hash anchors to the iframe page', () => {
+    const iframeDocument = document.implementation.createHTMLDocument('iframe-missing-fragment');
+    iframeDocument.body.innerHTML = '<a id="missing-link" href="#missing">Missing</a>';
+    const addLoadListener = jest.fn();
+    const removeLoadListener = jest.fn();
+    const addDocumentListenerSpy = jest.spyOn(iframeDocument, 'addEventListener');
+    const onNavigate = jest.fn();
+    const iframeStub = {
+      contentDocument: iframeDocument,
+      ownerDocument: document,
+      addEventListener: addLoadListener,
+      removeEventListener: removeLoadListener,
+    } as unknown as HTMLIFrameElement;
+
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate,
+    });
+
+    const clickRegistration = addDocumentListenerSpy.mock.calls.find(
+      (call) => call[0] === 'click',
+    );
+    const clickHandler = clickRegistration?.[1] as (event: Event) => void;
+    const anchor = iframeDocument.getElementById('missing-link') as HTMLAnchorElement;
+    const syntheticEvent = {
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      target: anchor,
+      preventDefault: jest.fn(),
+      stopPropagation: jest.fn(),
+      stopImmediatePropagation: jest.fn(),
+      cancelBubble: false,
+      returnValue: true,
+    } as unknown as Event;
+
+    clickHandler(syntheticEvent);
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(syntheticEvent.preventDefault).not.toHaveBeenCalled();
+    expect(syntheticEvent.stopPropagation).not.toHaveBeenCalled();
+    expect(syntheticEvent.stopImmediatePropagation).not.toHaveBeenCalled();
+
+    cleanup();
+    addDocumentListenerSpy.mockRestore();
+  });
+
   it('navigates from inline bridge postMessage events emitted inside iframe srcdoc', () => {
     const iframeDocument = document.implementation.createHTMLDocument('iframe-message');
     const addLoadListener = jest.fn();

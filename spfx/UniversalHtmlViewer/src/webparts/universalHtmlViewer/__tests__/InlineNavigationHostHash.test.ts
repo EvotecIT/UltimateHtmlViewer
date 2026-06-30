@@ -16,6 +16,7 @@ describe('wireInlineIframeNavigation host page hash', () => {
     if (window.location.hash) {
       window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
     }
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -89,6 +90,45 @@ describe('wireInlineIframeNavigation host page hash', () => {
     cleanup();
   });
 
+  it('resets handled hash marker when a later host hash is not found', () => {
+    window.history.replaceState(null, document.title, '#security');
+
+    const iframeDocument = document.implementation.createHTMLDocument('iframe-marker-reset');
+    iframeDocument.body.innerHTML = '<section id="security">Security</section>';
+    const onNavigate = jest.fn();
+    const iframeStub = createIframeStub(iframeDocument, 180);
+
+    const targetSection = iframeDocument.getElementById('security') as HTMLElement;
+    targetSection.scrollIntoView = jest.fn();
+    targetSection.getBoundingClientRect = () => createRect(1200, 100);
+    jest.spyOn(window, 'scrollTo').mockImplementation(() => {
+      return;
+    });
+
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate,
+    });
+
+    expect(iframeDocument.documentElement?.getAttribute('data-uhv-host-hash')).toBe('#security');
+
+    window.history.replaceState(null, document.title, '#missing');
+    window.dispatchEvent(new Event('hashchange'));
+
+    expect(iframeDocument.documentElement?.getAttribute('data-uhv-host-hash')).toBeNull();
+
+    window.history.replaceState(null, document.title, '#security');
+    window.dispatchEvent(new Event('hashchange'));
+
+    expect(targetSection.scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(iframeDocument.documentElement?.getAttribute('data-uhv-host-hash')).toBe('#security');
+
+    cleanup();
+  });
+
   it('applies host page hash changes to matching iframe targets', () => {
     const iframeDocument = document.implementation.createHTMLDocument('iframe-hash-change');
     iframeDocument.body.innerHTML = '<section id="security">Security</section>';
@@ -121,6 +161,45 @@ describe('wireInlineIframeNavigation host page hash', () => {
       behavior: 'auto',
     });
     expect(iframeDocument.documentElement?.getAttribute('data-uhv-host-hash')).toBe('#security');
+
+    cleanup();
+  });
+
+  it('cancels stale host hash retry scrolls when the hash changes again', () => {
+    jest.useFakeTimers();
+
+    const iframeDocument = document.implementation.createHTMLDocument('iframe-stale-retry');
+    iframeDocument.body.innerHTML =
+      '<section id="security">Security</section><section id="overview">Overview</section>';
+    const onNavigate = jest.fn();
+    const iframeStub = createIframeStub(iframeDocument, 180);
+
+    const securitySection = iframeDocument.getElementById('security') as HTMLElement;
+    const overviewSection = iframeDocument.getElementById('overview') as HTMLElement;
+    securitySection.scrollIntoView = jest.fn();
+    overviewSection.scrollIntoView = jest.fn();
+    securitySection.getBoundingClientRect = () => createRect(1200, 100);
+    overviewSection.getBoundingClientRect = () => createRect(1600, 100);
+    jest.spyOn(window, 'scrollTo').mockImplementation(() => {
+      return;
+    });
+
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate,
+    });
+
+    window.history.replaceState(null, document.title, '#security');
+    window.dispatchEvent(new Event('hashchange'));
+    window.history.replaceState(null, document.title, '#overview');
+    window.dispatchEvent(new Event('hashchange'));
+    jest.runOnlyPendingTimers();
+
+    expect(securitySection.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(overviewSection.scrollIntoView).toHaveBeenCalled();
 
     cleanup();
   });

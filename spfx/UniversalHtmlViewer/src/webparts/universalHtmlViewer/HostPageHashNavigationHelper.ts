@@ -16,13 +16,14 @@ export function tryApplyHostPageHashNavigation(
   }
 
   const hashHref = (window.location.hash || '').trim();
-  if (!isSamePageHashHref(hashHref)) {
-    return false;
-  }
-
   const iframeDocument = tryGetIframeDocument(iframe);
   const rootElement = iframeDocument?.documentElement || undefined;
   if (!iframeDocument || !rootElement) {
+    return false;
+  }
+
+  if (!isSamePageHashHref(hashHref)) {
+    clearHostPageHashNavigationMarker(rootElement);
     return false;
   }
 
@@ -34,6 +35,8 @@ export function tryApplyHostPageHashNavigation(
   if (handled) {
     rootElement.setAttribute(HOST_HASH_MARKER_ATTRIBUTE, hashHref);
     onHandled?.(iframeDocument, hashHref);
+  } else {
+    clearHostPageHashNavigationMarker(rootElement);
   }
 
   return handled;

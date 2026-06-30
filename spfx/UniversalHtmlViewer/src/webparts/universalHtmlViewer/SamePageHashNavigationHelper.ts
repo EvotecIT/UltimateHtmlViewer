@@ -45,7 +45,7 @@ export function navigateToSamePageHash(
 
 export function findSamePageHashTarget(ownerDocument: Document, hashHref: string): HTMLElement | undefined {
   if (hashHref === '#') {
-    return ownerDocument.documentElement || ownerDocument.body || undefined;
+    return undefined;
   }
 
   const fragment = decodeHashFragment(hashHref.substring(1));

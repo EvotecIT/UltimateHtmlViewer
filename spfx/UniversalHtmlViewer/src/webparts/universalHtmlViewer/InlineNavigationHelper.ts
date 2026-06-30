@@ -68,6 +68,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
     iframeDocument: Document,
     hashHref: string,
   ): void => {
+    clearPendingHostHashScrollTimeouts();
     scrollHostPageToIframeHashTarget(options.iframe, iframeDocument, hashHref);
 
     if (typeof window === 'undefined') {
@@ -76,6 +77,10 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
 
     HOST_HASH_SCROLL_RETRY_DELAYS_MS.forEach((delayMs) => {
       const timeoutId = window.setTimeout(() => {
+        if ((window.location.hash || '').trim() !== hashHref) {
+          return;
+        }
+
         scrollHostPageToIframeHashTarget(options.iframe, iframeDocument, hashHref);
       }, delayMs);
       pendingHostHashScrollTimeouts.push(timeoutId);
@@ -125,6 +130,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
         return;
       }
 
+      clearPendingHostHashScrollTimeouts();
       emitNavigation(targetUrl, event);
     };
     registerClickHandler(iframeDocument, onClick);
@@ -182,11 +188,8 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
     if (typeof window !== 'undefined') {
       window.removeEventListener('message', onInlineNavigationBridgeMessage);
       window.removeEventListener('hashchange', applyHostPageHash);
-      pendingHostHashScrollTimeouts.forEach((timeoutId) => {
-        window.clearTimeout(timeoutId);
-      });
+      clearPendingHostHashScrollTimeouts();
     }
-    pendingHostHashScrollTimeouts.length = 0;
     clickHandlers.forEach((handler, eventTarget) => {
       interceptedEventNames.forEach((eventName) => {
         eventTarget.removeEventListener(eventName, handler, true);
@@ -201,6 +204,15 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
     });
     clickHandlers.clear();
   };
+
+  function clearPendingHostHashScrollTimeouts(): void {
+    if (typeof window !== 'undefined') {
+      pendingHostHashScrollTimeouts.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+    }
+    pendingHostHashScrollTimeouts.length = 0;
+  }
 }
 
 export function resolveInlineNavigationTarget(
@@ -305,8 +317,7 @@ function tryHandleSamePageHashNavigation(event: MouseEvent): boolean {
     return false;
   }
 
-  navigateToSamePageHash(anchor.ownerDocument, rawHref, false);
-  return true;
+  return navigateToSamePageHash(anchor.ownerDocument, rawHref, true);
 }
 
 function isPrimaryClick(event: MouseEvent): boolean {

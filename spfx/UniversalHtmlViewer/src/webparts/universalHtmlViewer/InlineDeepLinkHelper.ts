@@ -137,6 +137,7 @@ export function buildPageUrlWithInlineDeepLink(
         : target.toString();
 
     current.searchParams.set(paramName, encodedTarget);
+    current.hash = '';
     return current.toString();
   } catch {
     return undefined;

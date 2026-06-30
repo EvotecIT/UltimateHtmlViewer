@@ -10,6 +10,9 @@ describe('InlineNavigationBridgeScript', () => {
     const emitIndex = script.indexOf('emit(absoluteTargetUrl, event);');
 
     expect(script).toContain('var navigateToSamePageHash = function(rawHref, event)');
+    expect(script).toContain("if (hashHref === '#') { return null; }");
+    expect(script).toContain('var target = findSamePageHashTarget(hashHref);');
+    expect(script).toContain('if (!target) { return false; }');
     expect(script).toContain('window.location.hash = hashHref;');
     expect(script).toContain('target.scrollIntoView();');
     expect(hashHandlerIndex).toBeGreaterThan(-1);
