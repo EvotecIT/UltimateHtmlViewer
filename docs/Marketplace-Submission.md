@@ -12,7 +12,7 @@ Use this file as the source checklist for preparing Universal HTML Viewer for Mi
 - Package: `spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg`.
 - App/package version prepared for submission: `1.0.32.24`.
 - Web part manifest version: `1.0.34`.
-- Tenant-wide deployment: not enabled in the package (`skipFeatureDeployment=false`). Tenant or site admins should add the app to target sites after app catalog installation.
+- Tenant-wide deployment: not enabled in the current package (`skipFeatureDeployment=false`). Microsoft Store/AppSource certification expects the solution to support global deployment to all sites, so treat the current package as blocked for store submission until a tenant-wide/store package is built and tested.
 
 Choose the offer type carefully in Partner Center. Microsoft does not allow changing the offer type after the offer is created.
 
@@ -52,7 +52,7 @@ UHV does not provide an external hosted service. It runs in the customer's Micro
 
 ## Screenshot Set
 
-Recommended screenshots from `assets/`:
+Recommended screenshots from `assets/`. These images are anonymized examples: they must not show a real user's name, profile photo, tenant URL, or customer content when uploaded to Partner Center.
 
 | File | Suggested caption |
 | --- | --- |
@@ -90,9 +90,11 @@ Suggested tester flow:
 - [ ] Privacy and terms URLs are public and reviewed.
 - [ ] Support URL is public and monitored.
 - [ ] Screenshots are uploaded with clear captions and use the 1280 x 720 PNG files from `assets/marketplace/`.
+- [ ] Screenshots have been reviewed for example personas, placeholder tenant URLs, and no private/customer data.
 - [ ] Test credentials and test site instructions are entered in Partner Center only.
 - [ ] `.sppkg` was built with `gulp bundle --ship` and `gulp package-solution --ship`.
 - [ ] UHV was smoke-tested on a SharePoint test site.
+- [ ] Global deployment is confirmed with a store-safe package. The current `skipFeatureDeployment=false` package is not enough for SharePoint Store/AppSource certification.
 - [ ] Store-safe script behavior is confirmed. If Microsoft certification rejects script-capable HTML rendering, submit a marketplace package/configuration that disables script execution instead of using the current relaxed sandbox defaults.
 - [ ] Legal/compliance owner approved privacy and terms text before submission.
 
@@ -111,6 +113,6 @@ npx -y -p node@22.14.0 -c "cd spfx/UniversalHtmlViewer && npm run build"
 
 - Privacy and terms text should be reviewed before using it as the final public legal/compliance language.
 - If Partner Center requires company-hosted legal URLs instead of GitHub-hosted Markdown pages, publish `docs/Privacy.md` and `docs/Terms-of-Use.md` to an Evotec-owned website and update `package-solution.json`.
-- Because `skipFeatureDeployment=false`, tenant-wide deployment should not be presented as the default install model.
+- Because `skipFeatureDeployment=false`, the current package should not be presented as store-ready for global deployment. Build and validate a tenant-wide/store package before submission, or keep this listed as a certification blocker.
 - Microsoft may reject SharePoint Store submissions that allow end users to embed arbitrary scripts. Treat script-capable HTML rendering as a certification blocker until a store-safe mode/package is confirmed.
 - Switching to a paid listing later should be treated as a separate product decision because it would require license/entitlement behavior, billing terms, and no-license UX that UHV does not currently implement.

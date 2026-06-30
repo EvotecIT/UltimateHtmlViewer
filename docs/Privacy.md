@@ -15,7 +15,7 @@ UHV does not include an Evotec Services-hosted service and does not send tenant 
 
 ## Storage
 
-UHV stores its web part configuration in SharePoint page/web part properties, using the normal Microsoft 365 storage model. Runtime HTML caching is in-memory in the browser and is used only to reduce repeat SharePoint reads during the current page session.
+UHV stores its web part configuration in SharePoint page/web part properties, using the normal Microsoft 365 storage model. Runtime HTML caching is in-memory in the browser and is used to reduce repeat SharePoint reads during the current page session. When external script inlining is enabled, UHV may also fetch allowed external script URLs and keep the fetched script text in an in-memory browser cache for the current page runtime.
 
 ## Network Requests
 
@@ -39,4 +39,4 @@ For product questions or issue reports, use the public GitHub repository:
 
 https://github.com/EvotecIT/UltimateHtmlViewer/issues
 
-Last updated: 2026-06-29
+Last updated: 2026-06-30
