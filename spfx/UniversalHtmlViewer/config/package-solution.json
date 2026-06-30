@@ -11,8 +11,8 @@
     "developer": {
       "name": "Evotec Services sp. z o.o.",
       "websiteUrl": "https://github.com/EvotecIT/UltimateHtmlViewer",
-      "privacyUrl": "https://github.com/EvotecIT/UltimateHtmlViewer/blob/master/docs/Privacy.md",
-      "termsOfUseUrl": "https://github.com/EvotecIT/UltimateHtmlViewer/blob/master/docs/Terms-of-Use.md",
+      "privacyUrl": "https://github.com/EvotecIT/UltimateHtmlViewer/blob/HEAD/docs/Privacy.md",
+      "termsOfUseUrl": "https://github.com/EvotecIT/UltimateHtmlViewer/blob/HEAD/docs/Terms-of-Use.md",
       "mpnId": ""
     },
     "metadata": {
@@ -24,8 +24,7 @@
       },
       "categories": [
         "Productivity",
-        "Content management",
-        "Data + analytics"
+        "Content management"
       ]
     }
   },

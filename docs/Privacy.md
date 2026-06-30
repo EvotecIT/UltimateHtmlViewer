@@ -19,7 +19,7 @@ UHV stores its web part configuration in SharePoint page/web part properties, us
 
 ## Network Requests
 
-By default, UHV reads configured HTML content through SharePoint APIs in the same tenant context. Site owners can enable more permissive modes, such as external HTTPS URLs or external script inlining, only through UHV security settings and allowed-host configuration.
+By default, UHV reads configured HTML content through SharePoint APIs in the same tenant context. Site owners can enable more permissive modes through UHV security settings. Allowlist-based modes use configured hosts, path prefixes, and file extensions. The expert `AnyHttps` mode is broader: it can allow HTTPS URLs on any host, with only the configured path and extension restrictions applied when those restrictions are present.
 
 Any third-party HTML, scripts, images, styles, or embedded content rendered through UHV are controlled by the tenant/site owner who configured that content. Those third-party resources may have their own privacy behavior.
 
@@ -29,6 +29,7 @@ Tenant and site administrators are responsible for:
 
 - Choosing trusted HTML sources.
 - Configuring allowed hosts, path prefixes, and file extensions.
+- Avoiding `AnyHttps` unless the site owner intentionally accepts broader HTTPS egress.
 - Reviewing any third-party resources included by the hosted HTML content.
 - Applying Microsoft 365, SharePoint, and organizational data-governance policies.
 

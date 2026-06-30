@@ -6,7 +6,7 @@ Universal HTML Viewer (UHV) is provided as an open-source SharePoint Framework w
 
 UHV is licensed under the MIT License:
 
-https://github.com/EvotecIT/UltimateHtmlViewer/blob/master/LICENSE
+https://github.com/EvotecIT/UltimateHtmlViewer/blob/HEAD/LICENSE
 
 The MIT License governs use, copying, modification, distribution, and warranty terms for the software.
 

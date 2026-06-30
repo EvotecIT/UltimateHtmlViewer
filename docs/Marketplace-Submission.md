@@ -28,14 +28,14 @@ The Partner Center listing should match the SPFx package metadata where Microsof
 | Short description | Render trusted HTML reports and dashboards inside SharePoint pages. |
 | Long description | Universal HTML Viewer lets site owners embed and navigate trusted HTML reports and supporting assets in SharePoint pages while keeping navigation inside the host experience. |
 | Website URL | `https://github.com/EvotecIT/UltimateHtmlViewer` |
-| Privacy URL | `https://github.com/EvotecIT/UltimateHtmlViewer/blob/master/docs/Privacy.md` |
-| Terms URL | `https://github.com/EvotecIT/UltimateHtmlViewer/blob/master/docs/Terms-of-Use.md` |
+| Privacy URL | `https://github.com/EvotecIT/UltimateHtmlViewer/blob/HEAD/docs/Privacy.md` |
+| Terms URL | `https://github.com/EvotecIT/UltimateHtmlViewer/blob/HEAD/docs/Terms-of-Use.md` |
 | Support URL | `https://github.com/EvotecIT/UltimateHtmlViewer/issues` |
-| Categories | Productivity; Content management; Data + analytics |
+| Categories | Productivity; Content management |
 
 ## Suggested Marketplace Description
 
-Universal HTML Viewer is a SharePoint Framework web part for rendering trusted static HTML reports, dashboards, and small HTML applications inside modern SharePoint pages.
+Universal HTML Viewer is a SharePoint Framework web part for rendering trusted static HTML reports and dashboards inside modern SharePoint pages.
 
 Use it when teams publish generated HTML reports or documentation bundles to SharePoint and need a stable host page, predictable iframe behavior, SharePoint-file rendering, report navigation, and security controls around allowed paths, hosts, and file extensions.
 
@@ -56,21 +56,16 @@ Recommended screenshots from `assets/`:
 
 | File | Suggested caption |
 | --- | --- |
-| `assets/uhv-site-contents-app-tile.png` | Confirm UHV is installed in SharePoint site contents. |
-| `assets/uhv-showcase-runtime-page.png` | Render an HTML report inside a modern SharePoint page. |
-| `assets/uhv-showcase-editor-quick-setup.png` | Configure the SharePoint HTML file source and delivery mode. |
-| `assets/uhv-source-mode-selector.png` | Choose between single page, report browser, and URL-builder source modes. |
-| `assets/uhv-source-mode-report-browser.png` | Let users browse permitted report files from a SharePoint folder. |
-| `assets/uhv-showcase-deeplink-security-ops.png` | Show deep links, security controls, and operational guidance. |
+| `assets/marketplace/site-contents.png` | Confirm UHV is installed in SharePoint site contents. |
+| `assets/marketplace/runtime-page.png` | Render an HTML report inside a modern SharePoint page. |
+| `assets/marketplace/editor-quick-setup.png` | Configure the SharePoint HTML file source and delivery mode. |
+| `assets/marketplace/source-mode-selector.png` | Choose between single page, report browser, and URL-builder source modes. |
 
 Asset dimensions checked during preparation:
 
 | Asset family | Dimensions |
 | --- | --- |
-| `UHV-Small.png`, `UHV-Smaller.png` | 960 x 640 |
-| `UHV-Big.png` | 1536 x 1024 |
-| Runtime/source screenshots | about 1905 x 1900 |
-| Site contents screenshot | 1905 x 933 |
+| `assets/marketplace/*.png` | 1280 x 720 |
 
 ## Microsoft Test Instructions
 
@@ -94,10 +89,11 @@ Suggested tester flow:
 - [ ] Package solution name, descriptions, and URLs match Partner Center listing text.
 - [ ] Privacy and terms URLs are public and reviewed.
 - [ ] Support URL is public and monitored.
-- [ ] Screenshots are uploaded with clear captions.
+- [ ] Screenshots are uploaded with clear captions and use the 1280 x 720 PNG files from `assets/marketplace/`.
 - [ ] Test credentials and test site instructions are entered in Partner Center only.
 - [ ] `.sppkg` was built with `gulp bundle --ship` and `gulp package-solution --ship`.
 - [ ] UHV was smoke-tested on a SharePoint test site.
+- [ ] Store-safe script behavior is confirmed. If Microsoft certification rejects script-capable HTML rendering, submit a marketplace package/configuration that disables script execution instead of using the current relaxed sandbox defaults.
 - [ ] Legal/compliance owner approved privacy and terms text before submission.
 
 ## Validation Commands
@@ -116,4 +112,5 @@ npx -y -p node@22.14.0 -c "cd spfx/UniversalHtmlViewer && npm run build"
 - Privacy and terms text should be reviewed before using it as the final public legal/compliance language.
 - If Partner Center requires company-hosted legal URLs instead of GitHub-hosted Markdown pages, publish `docs/Privacy.md` and `docs/Terms-of-Use.md` to an Evotec-owned website and update `package-solution.json`.
 - Because `skipFeatureDeployment=false`, tenant-wide deployment should not be presented as the default install model.
+- Microsoft may reject SharePoint Store submissions that allow end users to embed arbitrary scripts. Treat script-capable HTML rendering as a certification blocker until a store-safe mode/package is confirmed.
 - Switching to a paid listing later should be treated as a separate product decision because it would require license/entitlement behavior, billing terms, and no-license UX that UHV does not currently implement.
