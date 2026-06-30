@@ -11,6 +11,12 @@ describe('wireInlineIframeNavigation lifecycle', () => {
     allowedFileExtensions: ['.html', '.htm', '.aspx'],
   };
 
+  afterEach(() => {
+    if (window.location.hash) {
+      window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
+    }
+  });
+
   it('returns cleanup that unwires iframe/document listeners and marker attribute', () => {
     const iframeDocument = document.implementation.createHTMLDocument('iframe');
     const addLoadListener = jest.fn();
@@ -161,6 +167,180 @@ describe('wireInlineIframeNavigation lifecycle', () => {
     expect(syntheticEvent.stopImmediatePropagation).toHaveBeenCalledTimes(1);
     expect((syntheticEvent as Event & { cancelBubble?: boolean }).cancelBubble).toBe(true);
     expect((syntheticEvent as Event & { returnValue?: boolean }).returnValue).toBe(false);
+
+    cleanup();
+    addDocumentListenerSpy.mockRestore();
+  });
+
+  it('keeps fragment-only anchors inside the iframe document', () => {
+    const iframeDocument = document.implementation.createHTMLDocument('iframe-fragment');
+    iframeDocument.body.innerHTML =
+      '<a id="section-link" href="#what">What it does</a><section id="what">Details</section>';
+    const addLoadListener = jest.fn();
+    const removeLoadListener = jest.fn();
+    const addDocumentListenerSpy = jest.spyOn(iframeDocument, 'addEventListener');
+    const onNavigate = jest.fn();
+    const iframeStub = {
+      contentDocument: iframeDocument,
+      ownerDocument: document,
+      getBoundingClientRect: () =>
+        ({
+          top: 240,
+          left: 0,
+          bottom: 1040,
+          right: 800,
+          width: 800,
+          height: 800,
+        }) as DOMRect,
+      addEventListener: addLoadListener,
+      removeEventListener: removeLoadListener,
+    } as unknown as HTMLIFrameElement;
+
+    const targetSection = iframeDocument.getElementById('what') as HTMLElement;
+    targetSection.scrollIntoView = jest.fn();
+
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate,
+    });
+
+    const clickRegistration = addDocumentListenerSpy.mock.calls.find(
+      (call) => call[0] === 'click',
+    );
+    const clickHandler = clickRegistration?.[1] as (event: Event) => void;
+    const anchor = iframeDocument.getElementById('section-link') as HTMLAnchorElement;
+    const syntheticEvent = {
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      target: anchor,
+      preventDefault: jest.fn(),
+      stopPropagation: jest.fn(),
+      stopImmediatePropagation: jest.fn(),
+      cancelBubble: false,
+      returnValue: true,
+    } as unknown as Event;
+
+    clickHandler(syntheticEvent);
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(syntheticEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(syntheticEvent.stopPropagation).toHaveBeenCalledTimes(1);
+    expect(syntheticEvent.stopImmediatePropagation).toHaveBeenCalledTimes(1);
+    expect(targetSection.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect((syntheticEvent as Event & { cancelBubble?: boolean }).cancelBubble).toBe(true);
+    expect((syntheticEvent as Event & { returnValue?: boolean }).returnValue).toBe(false);
+
+    cleanup();
+    addDocumentListenerSpy.mockRestore();
+  });
+
+  it('leaves scripted placeholder hash anchors to the iframe page', () => {
+    const iframeDocument = document.implementation.createHTMLDocument('iframe-script-control');
+    iframeDocument.body.innerHTML = '<a id="toggle" href="#">Toggle</a>';
+    const addLoadListener = jest.fn();
+    const removeLoadListener = jest.fn();
+    const addDocumentListenerSpy = jest.spyOn(iframeDocument, 'addEventListener');
+    const onNavigate = jest.fn();
+    const iframeStub = {
+      contentDocument: iframeDocument,
+      ownerDocument: document,
+      addEventListener: addLoadListener,
+      removeEventListener: removeLoadListener,
+    } as unknown as HTMLIFrameElement;
+
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate,
+    });
+
+    const clickRegistration = addDocumentListenerSpy.mock.calls.find(
+      (call) => call[0] === 'click',
+    );
+    const clickHandler = clickRegistration?.[1] as (event: Event) => void;
+    const anchor = iframeDocument.getElementById('toggle') as HTMLAnchorElement;
+    const syntheticEvent = {
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      target: anchor,
+      preventDefault: jest.fn(),
+      stopPropagation: jest.fn(),
+      stopImmediatePropagation: jest.fn(),
+      cancelBubble: false,
+      returnValue: true,
+    } as unknown as Event;
+
+    clickHandler(syntheticEvent);
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(syntheticEvent.preventDefault).not.toHaveBeenCalled();
+    expect(syntheticEvent.stopPropagation).not.toHaveBeenCalled();
+    expect(syntheticEvent.stopImmediatePropagation).not.toHaveBeenCalled();
+    expect((syntheticEvent as Event & { cancelBubble?: boolean }).cancelBubble).toBe(false);
+    expect((syntheticEvent as Event & { returnValue?: boolean }).returnValue).toBe(true);
+
+    cleanup();
+    addDocumentListenerSpy.mockRestore();
+  });
+
+  it('leaves missing fragment hash anchors to the iframe page', () => {
+    const iframeDocument = document.implementation.createHTMLDocument('iframe-missing-fragment');
+    iframeDocument.body.innerHTML = '<a id="missing-link" href="#missing">Missing</a>';
+    const addLoadListener = jest.fn();
+    const removeLoadListener = jest.fn();
+    const addDocumentListenerSpy = jest.spyOn(iframeDocument, 'addEventListener');
+    const onNavigate = jest.fn();
+    const iframeStub = {
+      contentDocument: iframeDocument,
+      ownerDocument: document,
+      addEventListener: addLoadListener,
+      removeEventListener: removeLoadListener,
+    } as unknown as HTMLIFrameElement;
+
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate,
+    });
+
+    const clickRegistration = addDocumentListenerSpy.mock.calls.find(
+      (call) => call[0] === 'click',
+    );
+    const clickHandler = clickRegistration?.[1] as (event: Event) => void;
+    const anchor = iframeDocument.getElementById('missing-link') as HTMLAnchorElement;
+    const syntheticEvent = {
+      button: 0,
+      metaKey: false,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      target: anchor,
+      preventDefault: jest.fn(),
+      stopPropagation: jest.fn(),
+      stopImmediatePropagation: jest.fn(),
+      cancelBubble: false,
+      returnValue: true,
+    } as unknown as Event;
+
+    clickHandler(syntheticEvent);
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(syntheticEvent.preventDefault).not.toHaveBeenCalled();
+    expect(syntheticEvent.stopPropagation).not.toHaveBeenCalled();
+    expect(syntheticEvent.stopImmediatePropagation).not.toHaveBeenCalled();
 
     cleanup();
     addDocumentListenerSpy.mockRestore();

@@ -109,6 +109,19 @@ describe('InlineDeepLinkHelper', () => {
     );
   });
 
+  it('clears stale host page hashes when writing a new inline deep link', () => {
+    const result = buildPageUrlWithInlineDeepLink({
+      pageUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops#security',
+      targetUrl:
+        'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Next.html',
+    });
+
+    expect(result).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx?dashboard=ops&uhvPage=%2Fsites%2FTestSite1%2FSiteAssets%2FReports%2FNext.html',
+    );
+  });
+
   it('returns undefined when deep-link target URL is empty', () => {
     const result = buildPageUrlWithInlineDeepLink({
       pageUrl: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
