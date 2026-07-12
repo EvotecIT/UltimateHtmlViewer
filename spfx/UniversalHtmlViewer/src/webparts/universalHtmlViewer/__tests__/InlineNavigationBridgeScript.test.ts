@@ -69,7 +69,7 @@ describe('InlineNavigationBridgeScript', () => {
       '/sites/Test/SiteAssets/Reports/start.html',
       ['.html'],
       ['/sites/Test/SiteAssets/Reports/'],
-      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&OR=Teams',
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&OR=Teams&viewerTwoPage=%2Fsites%2FTest%2FSiteAssets%2FReports%2FSecond.html',
       'reportPage',
       ['dashboard'],
     );
@@ -106,7 +106,7 @@ describe('InlineNavigationBridgeScript', () => {
         '/sites/Test/SiteAssets/Reports/start.html',
         ['.html'],
         ['/sites/Test/SiteAssets/Reports/'],
-        'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&OR=Teams',
+        'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&OR=Teams&viewerTwoPage=%2Fsites%2FTest%2FSiteAssets%2FReports%2FSecond.html',
         'uhvPage',
         ['dashboard'],
       ),
@@ -125,9 +125,11 @@ describe('InlineNavigationBridgeScript', () => {
       'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/next.html',
     );
     expect(anchor.href).toContain(
-      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&uhvPage=',
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&',
     );
+    expect(anchor.href).toContain('uhvPage=');
     expect(anchor.href).not.toContain('OR=Teams');
+    expect(anchor.href).toContain('viewerTwoPage=');
     frame.remove();
   });
 

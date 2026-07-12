@@ -14,6 +14,16 @@ export interface IRewriteInlineNavigationAnchorHrefsOptions {
   deepLinkQueryParamName?: string;
 }
 
+export const SHAREPOINT_TRANSIENT_HOST_QUERY_PARAM_NAMES: string[] = [
+  'ct',
+  'e',
+  'isspofile',
+  'or',
+  'wdlor',
+  'wdorigin',
+  'web',
+];
+
 export function rewriteInlineNavigationAnchorHrefs(
   html: string,
   baseUrlForRelativeLinks: string,
@@ -127,6 +137,40 @@ export function rewriteInlineNavigationAnchorElement(
   return true;
 }
 
+export function isInlineNavigationAnchorRewriteCurrent(
+  anchor: Element,
+  baseUrlForRelativeLinks: string,
+  pageUrl: string,
+  options?: IRewriteInlineNavigationAnchorHrefsOptions,
+): boolean {
+  const originalHref = (
+    anchor.getAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE) || ''
+  ).trim();
+  if (
+    anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) !== '1' ||
+    !originalHref
+  ) {
+    return false;
+  }
+
+  const expectedAnchor = anchor.cloneNode(false) as Element;
+  expectedAnchor.removeAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE);
+  expectedAnchor.removeAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE);
+  expectedAnchor.setAttribute('href', originalHref);
+  if (
+    !rewriteInlineNavigationAnchorElement(
+      expectedAnchor,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      options,
+    )
+  ) {
+    return false;
+  }
+
+  return expectedAnchor.getAttribute('href') === anchor.getAttribute('href');
+}
+
 function getDocumentBaseUrl(parsed: Document, fallbackBaseUrl: string): string {
   const rawBaseHref = (parsed.querySelector('base[href]')?.getAttribute('href') || '').trim();
   if (!rawBaseHref) {
@@ -147,22 +191,22 @@ export function getCanonicalHostPageUrl(
   const sourcePageUrl =
     typeof pageUrl === 'string' ? new URL(pageUrl) : pageUrl;
   const canonical = new URL(sourcePageUrl.toString());
-  const preservedValues = new Map<string, string[]>();
-  (preservedQueryParamNames || [])
+  const explicitlyPreservedNames = new Set(
+    (preservedQueryParamNames || [])
     .map((entry) => (entry || '').trim())
     .filter((entry) => entry.length > 0)
-    .forEach((paramName) => {
-      const values = sourcePageUrl.searchParams.getAll(paramName);
-      if (values.length > 0) {
-        preservedValues.set(paramName, values);
-      }
-    });
+    .map((entry) => entry.toLowerCase()),
+  );
 
   canonical.search = '';
-  preservedValues.forEach((values, paramName) => {
-    values.forEach((value) => {
+  sourcePageUrl.searchParams.forEach((value, paramName) => {
+    const normalizedName = paramName.toLowerCase();
+    if (
+      explicitlyPreservedNames.has(normalizedName) ||
+      !SHAREPOINT_TRANSIENT_HOST_QUERY_PARAM_NAMES.includes(normalizedName)
+    ) {
       canonical.searchParams.append(paramName, value);
-    });
+    }
   });
   canonical.hash = '';
   return canonical.toString();

@@ -156,8 +156,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     const showOpenInNewTab: boolean =
       props.showOpenInNewTab !== false &&
       (!isInlineContentDeliveryMode(contentDeliveryMode) ||
-        (props.allowQueryStringPageOverride === true &&
-          !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')));
+        !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps'));
     const showRefreshButton: boolean = props.showRefreshButton !== false;
     const showStatus: boolean = props.showStatus !== false;
     const showConfigActions: boolean = props.showConfigActions === true;

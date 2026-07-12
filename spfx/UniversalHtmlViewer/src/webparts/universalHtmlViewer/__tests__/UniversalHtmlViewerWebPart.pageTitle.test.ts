@@ -237,7 +237,7 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     );
   });
 
-  it('enables host deep-link anchor rewrites only when query overrides are active', () => {
+  it('enables validated host deep links for query overrides or the new-tab action', () => {
     const webPart = createWebPart();
 
     expect(webPart.shouldRewriteInlineAnchorHrefs({})).toBe(false);
@@ -246,11 +246,44 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     );
     expect(
       webPart.shouldRewriteInlineAnchorHrefs({
+        allowQueryStringPageOverride: false,
+        showOpenInNewTab: true,
+      }),
+    ).toBe(true);
+    expect(
+      webPart.shouldRewriteInlineAnchorHrefs({
         allowQueryStringPageOverride: true,
+        showOpenInNewTab: true,
         enableExpertSecurityModes: true,
         securityMode: 'AnyHttps',
       }),
     ).toBe(false);
+  });
+
+  it('renders the inline open-in-new-tab action when its toggle is enabled', () => {
+    const webPart = createWebPart();
+    webPart.getCurrentPageUrl = jest
+      .fn()
+      .mockReturnValue('https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx');
+
+    const chromeHtml = webPart.buildChromeHtml(
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/Current.html',
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/Current.html',
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx',
+      { securityMode: 'StrictTenant' },
+      'None',
+      {
+        contentDeliveryMode: 'SharePointFileContent',
+        showChrome: true,
+        showOpenInNewTab: true,
+        allowQueryStringPageOverride: false,
+        showRefreshButton: false,
+        showStatus: false,
+      },
+    );
+
+    expect(chromeHtml).toContain('data-uhv-action="open-in-new-tab"');
+    expect(chromeHtml).toContain('uhvPage=');
   });
 });
 

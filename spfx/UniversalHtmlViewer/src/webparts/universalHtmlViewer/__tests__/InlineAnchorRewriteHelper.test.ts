@@ -130,16 +130,19 @@ describe('InlineAnchorRewriteHelper', () => {
     const result = rewriteInlineNavigationAnchorHrefs(
       inputHtml,
       '/sites/TheDashboardPage/Shared Documents/Dashboards/ops/',
-      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?dashboard=ops&OR=Teams-HL&uhvPage=%2Fold',
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?dashboard=ops&OR=Teams-HL&uhvPage=%2Fold&viewerTwoPage=%2Fsites%2FTheDashboardPage%2FShared%20Documents%2FSecond.html',
       {
         preservedHostQueryParamNames: ['dashboard'],
       },
     );
 
     expect(result).toContain(
-      'href="https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?dashboard=ops&amp;uhvPage=%2Fsites%2FTheDashboardPage%2FShared%2520Documents%2FDashboards%2Fops%2FComputers.html"',
+      'href="https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?dashboard=ops&amp;uhvPage=%2Fsites%2FTheDashboardPage%2FShared%2520Documents%2FDashboards%2Fops%2FComputers.html',
     );
     expect(result).not.toContain('OR=Teams-HL');
+    expect(result).toContain(
+      'viewerTwoPage=%2Fsites%2FTheDashboardPage%2FShared+Documents%2FSecond.html',
+    );
   });
 
   it('uses a viewer-specific deep-link query parameter', () => {

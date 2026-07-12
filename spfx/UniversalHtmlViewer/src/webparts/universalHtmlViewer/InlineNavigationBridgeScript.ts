@@ -1,4 +1,7 @@
 import {
+  SHAREPOINT_TRANSIENT_HOST_QUERY_PARAM_NAMES,
+} from './InlineAnchorRewriteHelper';
+import {
   INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE,
   INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE,
 } from './InlineNavigationAttributes';
@@ -34,6 +37,9 @@ export function getInlineNavigationBridgeScript(
       .map((paramName) => paramName.trim())
       .filter((paramName) => paramName.length > 0),
   );
+  const serializedTransientHostQueryParamNames = JSON.stringify(
+    SHAREPOINT_TRANSIENT_HOST_QUERY_PARAM_NAMES,
+  );
   return [
     '(function(){',
     '  try {',
@@ -47,6 +53,7 @@ export function getInlineNavigationBridgeScript(
     `    var configuredHostPageUrl = ${serializedHostPageUrl};`,
     `    var deepLinkQueryParamName = ${serializedDeepLinkQueryParamName};`,
     `    var preservedHostQueryParamNames = ${serializedPreservedHostQueryParamNames};`,
+    `    var transientHostQueryParamNames = ${serializedTransientHostQueryParamNames};`,
     `    var maxDeepLinkQueryValueLength = ${MAX_DEEP_LINK_QUERY_VALUE_LENGTH};`,
     '    var lastTargetUrl = "";',
     '    var lastTargetAt = 0;',
@@ -283,17 +290,20 @@ export function getInlineNavigationBridgeScript(
     "        var fallbackBase = String(document.baseURI || (window.location && window.location.href) || '').trim();",
     '        var hostPage = new URL(rawHostPageUrl, fallbackBase || undefined);',
     '        var target = new URL(targetUrl, getAbsoluteConfiguredBaseUrl() || undefined);',
-    '        var preservedValues = [];',
-    '        for (var paramIndex = 0; paramIndex < preservedHostQueryParamNames.length; paramIndex += 1) {',
-    '          var paramName = preservedHostQueryParamNames[paramIndex];',
-    '          var values = hostPage.searchParams.getAll(paramName);',
-    '          if (values.length > 0) { preservedValues.push({ name: paramName, values: values }); }',
-    '        }',
-    '        hostPage.search = "";',
-    '        for (var preservedIndex = 0; preservedIndex < preservedValues.length; preservedIndex += 1) {',
-    '          var preserved = preservedValues[preservedIndex];',
-    '          for (var valueIndex = 0; valueIndex < preserved.values.length; valueIndex += 1) {',
-    '            hostPage.searchParams.append(preserved.name, preserved.values[valueIndex]);',
+    '        for (var transientIndex = 0; transientIndex < transientHostQueryParamNames.length; transientIndex += 1) {',
+    '          var transientName = transientHostQueryParamNames[transientIndex];',
+    '          var isExplicitlyPreserved = false;',
+    '          for (var preservedIndex = 0; preservedIndex < preservedHostQueryParamNames.length; preservedIndex += 1) {',
+    '            if (preservedHostQueryParamNames[preservedIndex].toLowerCase() === transientName) { isExplicitlyPreserved = true; break; }',
+    '          }',
+    '          if (!isExplicitlyPreserved) {',
+    '            var currentParamNames = [];',
+    '            hostPage.searchParams.forEach(function(_value, currentName) {',
+    '              if (currentName.toLowerCase() === transientName) { currentParamNames.push(currentName); }',
+    '            });',
+    '            for (var currentIndex = 0; currentIndex < currentParamNames.length; currentIndex += 1) {',
+    '              hostPage.searchParams.delete(currentParamNames[currentIndex]);',
+    '            }',
     '          }',
     '        }',
     '        hostPage.hash = "";',

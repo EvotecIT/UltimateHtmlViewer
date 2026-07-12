@@ -1,7 +1,12 @@
 import {
   IRewriteInlineNavigationAnchorHrefsOptions,
+  isInlineNavigationAnchorRewriteCurrent,
   rewriteInlineNavigationAnchorElement,
 } from './InlineAnchorRewriteHelper';
+import {
+  INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE,
+  INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE,
+} from './InlineNavigationAttributes';
 
 export interface IInlineAnchorRuntimeRewriteOptions
   extends IRewriteInlineNavigationAnchorHrefsOptions {
@@ -84,11 +89,45 @@ export function wireInlineAnchorRuntimeRewrite(
     }
 
     observer = new Observer((mutations) => {
-      if (mutations.some((mutation) => mutation.type === 'childList')) {
+      let shouldScan = mutations.some((mutation) => mutation.type === 'childList');
+      mutations
+        .filter((mutation) => mutation.type === 'attributes')
+        .forEach((mutation) => {
+          const anchor = mutation.target as Element;
+          if (!anchor || anchor.tagName.toLowerCase() !== 'a') {
+            return;
+          }
+
+          shouldScan = true;
+          if (mutation.attributeName !== 'href') {
+            return;
+          }
+
+          const baseUrl = frameDocument.baseURI || options.fallbackBaseUrl;
+          const hostPageUrl =
+            options.fallbackHostPageUrl ||
+            options.iframe.ownerDocument?.defaultView?.location?.href ||
+            '';
+          if (
+            anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) === '1' &&
+            !isInlineNavigationAnchorRewriteCurrent(
+              anchor,
+              getRuntimeAnchorBaseUrl(anchor, frameDocument, baseUrl),
+              hostPageUrl,
+              options,
+            )
+          ) {
+            anchor.removeAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE);
+            anchor.removeAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE);
+          }
+        });
+      if (shouldScan) {
         scheduleScan();
       }
     });
     observer.observe(frameDocument.documentElement, {
+      attributeFilter: ['download', 'href', 'target'],
+      attributes: true,
       childList: true,
       subtree: true,
     });

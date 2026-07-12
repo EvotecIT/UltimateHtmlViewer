@@ -96,4 +96,38 @@ describe('InlineAnchorRuntimeRewriteHelper', () => {
     cleanup();
     iframe.remove();
   });
+
+  it('replaces stale UHV metadata when a calendar reuses an anchor for another report', async () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const frameDocument = iframe.contentDocument as Document;
+    frameDocument.head.innerHTML =
+      '<base href="https://contoso.sharepoint.com/sites/Test/SiteAssets/">';
+    frameDocument.body.innerHTML = '<a id="event" href="First.html">First</a>';
+
+    const cleanup = wireInlineAnchorRuntimeRewrite({
+      iframe,
+      fallbackBaseUrl:
+        'https://contoso.sharepoint.com/sites/Test/SiteAssets/Index.html',
+      fallbackHostPageUrl:
+        'https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx',
+      allowedFileExtensions: ['.html'],
+      allowedPathPrefixes: ['/sites/Test/SiteAssets/'],
+    });
+
+    const event = frameDocument.getElementById('event') as HTMLAnchorElement;
+    expect(event.getAttribute('data-uhv-inline-href')).toContain('/First.html');
+
+    event.setAttribute('href', 'Second.html');
+    await new Promise((resolve) => window.setTimeout(resolve, 10));
+
+    expect(event.getAttribute('data-uhv-inline-href')).toBe(
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Second.html',
+    );
+    expect(event.getAttribute('href')).toContain('Second.html');
+    expect(event.getAttribute('href')).not.toContain('First.html');
+
+    cleanup();
+    iframe.remove();
+  });
 });

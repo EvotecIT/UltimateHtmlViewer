@@ -774,9 +774,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     }
     this.configureInlineDeepLinkPopState(
       isInlineContentDeliveryMode(contentDeliveryMode) &&
-        effectiveProps.allowQueryStringPageOverride === true &&
-        !(effectiveProps.enableExpertSecurityModes === true &&
-          effectiveProps.securityMode === 'AnyHttps'),
+        this.shouldEnableInlineDeepLinks(effectiveProps),
     );
     const currentDashboardId: string | undefined = this.getEffectiveDashboardId(
       effectiveProps,
@@ -828,7 +826,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       fallbackUrl: finalUrl,
       queryParamName: this.getInlineDeepLinkParamName(effectiveProps),
       validationOptions,
-      allowDeepLinkOverride: effectiveProps.allowQueryStringPageOverride === true,
+      allowDeepLinkOverride: this.shouldEnableInlineDeepLinks(effectiveProps),
     });
     const requestedDeepLinkValue: string = resolvedContentTarget.requestedDeepLinkValue;
     const hasRequestedDeepLink: boolean = resolvedContentTarget.hasRequestedDeepLink;
@@ -1237,8 +1235,14 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     return [(props.queryStringParamName || '').trim() || 'dashboard'];
   }
   private shouldRewriteInlineAnchorHrefs(props: IUniversalHtmlViewerWebPartProps): boolean {
+    return this.shouldEnableInlineDeepLinks(props);
+  }
+  private shouldEnableInlineDeepLinks(
+    props: IUniversalHtmlViewerWebPartProps,
+  ): boolean {
     return (
-      props.allowQueryStringPageOverride === true &&
+      (props.allowQueryStringPageOverride === true ||
+        props.showOpenInNewTab === true) &&
       !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')
     );
   }
@@ -1383,9 +1387,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return;
     }
     if (
-      effectiveProps.allowQueryStringPageOverride !== true ||
-      (effectiveProps.enableExpertSecurityModes === true &&
-        effectiveProps.securityMode === 'AnyHttps')
+      !this.shouldEnableInlineDeepLinks(effectiveProps)
     ) {
       return;
     }
