@@ -141,6 +141,64 @@ describe('InlineAnchorRuntimeRewriteHelper', () => {
     iframe.remove();
   });
 
+  it('removes download when a report adds it after an anchor was rewritten', async () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const frameDocument = iframe.contentDocument as Document;
+    frameDocument.head.innerHTML =
+      '<base href="https://contoso.sharepoint.com/sites/Test/SiteAssets/">';
+    frameDocument.body.innerHTML = '<a id="report" href="Report.html">Report</a>';
+
+    const cleanup = wireInlineAnchorRuntimeRewrite({
+      iframe,
+      fallbackBaseUrl:
+        'https://contoso.sharepoint.com/sites/Test/SiteAssets/Index.html',
+      fallbackHostPageUrl:
+        'https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx',
+      allowedFileExtensions: ['.html'],
+      allowedPathPrefixes: ['/sites/Test/SiteAssets/'],
+    });
+
+    const report = frameDocument.getElementById('report') as HTMLAnchorElement;
+    report.setAttribute('download', 'Report.html');
+    await waitForAttribute(report, 'download', undefined);
+
+    expect(report.hasAttribute('download')).toBe(false);
+    expect(report.getAttribute('data-uhv-inline-rewritten')).toBe('1');
+
+    cleanup();
+    iframe.remove();
+  });
+
+  it('keeps unrelated bare links relative to the top-level report', () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const frameDocument = iframe.contentDocument as Document;
+    frameDocument.head.innerHTML =
+      '<base href="https://contoso.sharepoint.com/sites/Test/SiteAssets/">';
+    frameDocument.body.innerHTML =
+      '<iframe src="about:blank" data-uhv-inline-src="Archive/Summary.html"></iframe>' +
+      '<a id="summary" href="Summary.html">Summary</a>';
+
+    const cleanup = wireInlineAnchorRuntimeRewrite({
+      iframe,
+      fallbackBaseUrl:
+        'https://contoso.sharepoint.com/sites/Test/SiteAssets/Index.html',
+      fallbackHostPageUrl:
+        'https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx',
+      allowedFileExtensions: ['.html'],
+      allowedPathPrefixes: ['/sites/Test/SiteAssets/'],
+    });
+
+    const summary = frameDocument.getElementById('summary') as HTMLAnchorElement;
+    expect(summary.getAttribute('data-uhv-inline-href')).toBe(
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Summary.html',
+    );
+
+    cleanup();
+    iframe.remove();
+  });
+
   it('uses live sibling viewer state for anchors generated after host navigation', async () => {
     const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     window.history.replaceState(
@@ -191,16 +249,16 @@ describe('InlineAnchorRuntimeRewriteHelper', () => {
 function waitForAttribute(
   element: Element,
   attributeName: string,
-  expectedValue: string,
+  expectedValue: string | undefined,
 ): Promise<void> {
-  if (element.getAttribute(attributeName) === expectedValue) {
+  if ((element.getAttribute(attributeName) || undefined) === expectedValue) {
     return Promise.resolve();
   }
 
   return new Promise((resolve, reject) => {
     let timeoutId = 0;
     const observer = new MutationObserver(() => {
-      if (element.getAttribute(attributeName) !== expectedValue) {
+      if ((element.getAttribute(attributeName) || undefined) !== expectedValue) {
         return;
       }
 

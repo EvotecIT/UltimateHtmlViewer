@@ -17,6 +17,7 @@ export function getInlineNavigationBridgeScript(
   hostPageUrl: string = '',
   deepLinkQueryParamName: string = DEFAULT_INLINE_DEEP_LINK_PARAM,
   preservedHostQueryParamNames: string[] = [],
+  enableHostDeepLinkUrls: boolean = true,
 ): string {
   const serializedBaseUrl = JSON.stringify(baseUrlForRelativeLinks || '');
   const serializedAllowedExtensions = JSON.stringify(
@@ -40,6 +41,7 @@ export function getInlineNavigationBridgeScript(
   const serializedTransientHostQueryParamNames = JSON.stringify(
     SHAREPOINT_TRANSIENT_HOST_QUERY_PARAM_NAMES,
   );
+  const serializedEnableHostDeepLinkUrls = JSON.stringify(enableHostDeepLinkUrls);
   return [
     '(function(){',
     '  try {',
@@ -54,6 +56,7 @@ export function getInlineNavigationBridgeScript(
     `    var deepLinkQueryParamName = ${serializedDeepLinkQueryParamName};`,
     `    var preservedHostQueryParamNames = ${serializedPreservedHostQueryParamNames};`,
     `    var transientHostQueryParamNames = ${serializedTransientHostQueryParamNames};`,
+    `    var enableHostDeepLinkUrls = ${serializedEnableHostDeepLinkUrls};`,
     `    var maxDeepLinkQueryValueLength = ${MAX_DEEP_LINK_QUERY_VALUE_LENGTH};`,
     '    var lastTargetUrl = "";',
     '    var lastTargetAt = 0;',
@@ -284,6 +287,7 @@ export function getInlineNavigationBridgeScript(
     "      return !!target && target !== '_self' || nonPrimaryButton || modifiedClick;",
     '    };',
     '    var buildHostDeepLinkUrl = function(targetUrl) {',
+    '      if (!enableHostDeepLinkUrls) { return ""; }',
     '      try {',
     "        var rawHostPageUrl = String(configuredHostPageUrl || '').trim();",
     '        if (!rawHostPageUrl) { return ""; }',

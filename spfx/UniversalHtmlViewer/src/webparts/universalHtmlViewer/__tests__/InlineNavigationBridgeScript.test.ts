@@ -85,6 +85,21 @@ describe('InlineNavigationBridgeScript', () => {
     expect(script).toContain('rewriteNativeTargetAnchor(anchor, absoluteTargetUrl);');
   });
 
+  it('does not emit native host deep links when inbound deep links are disabled', () => {
+    const script = getInlineNavigationBridgeScript(
+      '/sites/Test/SiteAssets/Reports/start.html',
+      ['.html'],
+      ['/sites/Test/SiteAssets/Reports/'],
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx',
+      'uhvPage',
+      [],
+      false,
+    );
+
+    expect(script).toContain('var enableHostDeepLinkUrls = false;');
+    expect(script).toContain('if (!enableHostDeepLinkUrls) { return ""; }');
+  });
+
   it('rewrites a generated new-tab anchor before native navigation can download it', () => {
     const frame = document.createElement('iframe');
     document.body.appendChild(frame);

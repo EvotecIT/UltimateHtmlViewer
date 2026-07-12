@@ -269,7 +269,7 @@ function isInsideAllowedPath(
 ): boolean {
   const normalizedPrefixes = (allowedPathPrefixes || [])
     .map((prefix) => normalizePath(prefix).replace(/\/?$/, '/'))
-    .filter((prefix) => prefix.length > 1);
+    .filter((prefix) => prefix.length > 0);
   if (normalizedPrefixes.length === 0) {
     return isInsideBaseDirectory(target, baseUrl);
   }

@@ -186,6 +186,23 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     }
 
     if (
+      propertyPath === 'showOpenInNewTab' &&
+      newValue === true &&
+      isInlineContentDeliveryMode(this.getContentDeliveryMode(this.properties))
+    ) {
+      this.properties.allowQueryStringPageOverride = true;
+      this.context.propertyPane.refresh();
+    }
+    if (
+      propertyPath === 'allowQueryStringPageOverride' &&
+      newValue === false &&
+      isInlineContentDeliveryMode(this.getContentDeliveryMode(this.properties))
+    ) {
+      this.properties.showOpenInNewTab = false;
+      this.context.propertyPane.refresh();
+    }
+
+    if (
       propertyPath === 'htmlSourceMode' ||
       propertyPath === 'contentDeliveryMode' ||
       propertyPath === 'securityMode' ||
@@ -751,6 +768,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   }
 
   private async renderAsync(renderRequestId: number): Promise<void> {
+    this.normalizeInlineDeepLinkConfiguration(this.properties);
     this.invalidateRefreshRequests();
     this.clearInitialDeepLinkScrollLock();
     this.resetDeepLinkScrollLockDiagnostics();
@@ -1241,8 +1259,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     props: IUniversalHtmlViewerWebPartProps,
   ): boolean {
     return (
-      (props.allowQueryStringPageOverride === true ||
-        props.showOpenInNewTab === true) &&
+      props.allowQueryStringPageOverride === true &&
       !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')
     );
   }

@@ -81,6 +81,21 @@ describe('InlineAnchorRewriteHelper', () => {
     expect(result).not.toContain('data-uhv-inline-href=');
   });
 
+  it('keeps the root path prefix as an explicit same-host allow rule', () => {
+    const result = rewriteInlineNavigationAnchorHrefs(
+      '<html><body><a href="/sites/Other/Reports/Allowed.html">Allowed</a></body></html>',
+      '/sites/TheDashboardPage/Shared Documents/',
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx',
+      {
+        allowedPathPrefixes: ['/'],
+      },
+    );
+
+    expect(result).toContain(
+      'data-uhv-inline-href="https://knauf.sharepoint.com/sites/Other/Reports/Allowed.html"',
+    );
+  });
+
   it('keeps same-site anchors outside the report base directory unchanged', () => {
     const inputHtml =
       '<html><body><a href="/sites/TheDashboardPage/SitePages/Other.aspx">Other page</a></body></html>';

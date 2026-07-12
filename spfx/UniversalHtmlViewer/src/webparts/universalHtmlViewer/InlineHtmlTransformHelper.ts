@@ -133,6 +133,7 @@ function prepareInlineHtmlForFrameDocument(
         ),
         options?.rewriteInlineAnchorDeepLinkQueryParamName,
         options?.rewriteInlineAnchorPreservedHostQueryParamNames,
+        options?.rewriteInlineAnchorHrefs === true,
       )}</script>`
     : '';
   const headInjectedMarkup = `${srcDocCspTag}${compatibilityShimTag}${inlineNavigationBridgeTag}${baseTag}`;

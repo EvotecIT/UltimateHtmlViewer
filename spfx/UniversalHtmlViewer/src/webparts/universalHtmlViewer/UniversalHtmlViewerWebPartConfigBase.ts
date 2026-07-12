@@ -36,7 +36,7 @@ const tenantMergeDefaultValues: Record<string, boolean | number> = {
   fitContentWidth: false,
   showConfigActions: false,
   showDashboardSelector: false,
-  allowQueryStringPageOverride: false,
+  allowQueryStringPageOverride: true,
   showReportBrowser: false,
   reportBrowserMaxItems: 300,
   showChrome: true,
@@ -304,7 +304,21 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       effectiveProps = this.mergeTenantConfig(effectiveProps, tenantConfig, mode);
     }
 
+    this.normalizeInlineDeepLinkConfiguration(effectiveProps);
+
     return { effectiveProps, tenantConfig };
+  }
+
+  protected normalizeInlineDeepLinkConfiguration(
+    props: IUniversalHtmlViewerWebPartProps,
+  ): void {
+    if (
+      isInlineContentDeliveryMode(this.resolveContentDeliveryMode(props)) &&
+      props.showOpenInNewTab === true &&
+      props.allowQueryStringPageOverride !== true
+    ) {
+      props.allowQueryStringPageOverride = true;
+    }
   }
 
   private mergeTenantConfig(
@@ -499,7 +513,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.showLoadingIndicator = true;
     props.showConfigActions = true;
     props.showDashboardSelector = false;
-    props.allowQueryStringPageOverride = false;
+    props.allowQueryStringPageOverride = true;
     props.inlineDeepLinkParamName = props.inlineDeepLinkParamName || 'uhvPage';
     props.fitContentWidth = false;
     props.chromeDensity = 'Comfortable';

@@ -8,6 +8,7 @@ describe('UniversalHtmlViewerWebPart manifest defaults', () => {
     expect(properties.configurationPreset).toBe('SharePointLibraryRelaxed');
     expect(properties.sandboxPreset).toBe('Relaxed');
     expect(properties.enforceStrictInlineCsp).toBe(false);
+    expect(properties.allowQueryStringPageOverride).toBe(true);
   });
 });
 

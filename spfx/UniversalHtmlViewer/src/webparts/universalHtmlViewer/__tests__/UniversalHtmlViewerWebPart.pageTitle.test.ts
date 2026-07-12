@@ -249,7 +249,7 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
         allowQueryStringPageOverride: false,
         showOpenInNewTab: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       webPart.shouldRewriteInlineAnchorHrefs({
         allowQueryStringPageOverride: true,
@@ -282,6 +282,21 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
         securityMode: 'AnyHttps',
       }),
     ).toBe(false);
+  });
+
+  it('keeps inline new-tab navigation and validated inbound deep links consistent', () => {
+    const webPart = createWebPart();
+    const props = {
+      contentDeliveryMode: 'SharePointFileContent',
+      showOpenInNewTab: true,
+      allowQueryStringPageOverride: false,
+    };
+
+    webPart.normalizeInlineDeepLinkConfiguration(props);
+
+    expect(props.allowQueryStringPageOverride).toBe(true);
+    expect(webPart.shouldRewriteInlineAnchorHrefs(props)).toBe(true);
+    expect(webPart.shouldAllowInlineDeepLinkOverride(props)).toBe(true);
   });
 
   it('explains when inline open-in-new-tab cannot honor a disabled query override', () => {

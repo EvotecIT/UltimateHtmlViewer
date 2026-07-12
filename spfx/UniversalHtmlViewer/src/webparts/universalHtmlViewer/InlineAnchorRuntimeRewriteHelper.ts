@@ -96,6 +96,13 @@ export function wireInlineAnchorRuntimeRewrite(
           }
 
           shouldScan = true;
+          if (
+            mutation.attributeName === 'download' &&
+            anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) === '1'
+          ) {
+            anchor.removeAttribute('download');
+            return;
+          }
           if (mutation.attributeName !== 'href') {
             return;
           }
@@ -144,6 +151,9 @@ function getRuntimeAnchorBaseUrl(
   defaultBaseUrl: string,
 ): string {
   const rawHref = (anchor.getAttribute('href') || '').trim();
+  if (!anchor.classList.contains('fc-event')) {
+    return defaultBaseUrl;
+  }
   if (
     !rawHref ||
     rawHref.startsWith('/') ||
