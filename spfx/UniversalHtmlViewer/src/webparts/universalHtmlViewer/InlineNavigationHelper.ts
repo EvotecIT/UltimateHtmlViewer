@@ -13,6 +13,7 @@ import {
   tryApplyHostPageHashNavigation,
 } from './HostPageHashNavigationHelper';
 import { wireInlineAnchorRuntimeRewrite } from './InlineAnchorRuntimeRewriteHelper';
+import { wireInlineHostPageUrlSync } from './InlineHostPageUrlSyncHelper';
 
 export interface IInlineNavigationOptions {
   iframe: HTMLIFrameElement;
@@ -36,6 +37,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
   const handledEvents = new WeakSet<Event>();
   let lastNavigationTargetUrl = '';
   let lastNavigationTimestamp = 0;
+  const hostPageUrlSyncCleanup = wireInlineHostPageUrlSync(options.iframe);
   const runtimeAnchorRewriteCleanup = options.rewriteAnchorHrefs === true
     ? wireInlineAnchorRuntimeRewrite({
         iframe: options.iframe,
@@ -106,7 +108,6 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
   const applyHostPageHash = (): void => {
     tryApplyHostPageHashNavigation(options.iframe, scheduleHostPageHashScroll);
   };
-
   const attachHandler = (): void => {
     const iframeDocument: Document | undefined = tryGetIframeDocument(options.iframe);
     if (!iframeDocument) {
@@ -202,6 +203,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
 
   return (): void => {
     runtimeAnchorRewriteCleanup();
+    hostPageUrlSyncCleanup();
     options.iframe.removeEventListener('load', attachHandler);
     if (typeof window !== 'undefined') {
       window.removeEventListener('message', onInlineNavigationBridgeMessage);

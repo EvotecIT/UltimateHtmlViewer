@@ -1,4 +1,7 @@
-import { wireInlineIframeNavigation } from '../InlineNavigationHelper';
+import {
+  wireInlineIframeNavigation,
+} from '../InlineNavigationHelper';
+import { INLINE_HOST_PAGE_URL_CHANGED_EVENT } from '../InlineHostPageUrlSyncHelper';
 import { UrlValidationOptions } from '../UrlHelper';
 
 describe('wireInlineIframeNavigation lifecycle', () => {
@@ -102,7 +105,7 @@ describe('wireInlineIframeNavigation lifecycle', () => {
       true,
     );
 
-    const loadHandler = addLoadListener.mock.calls[0][1] as () => void;
+    const loadHandler = addLoadListener.mock.calls[1][1] as () => void;
     activeDocument = reloadedDocument;
     loadHandler();
 
@@ -352,9 +355,11 @@ describe('wireInlineIframeNavigation lifecycle', () => {
     const removeLoadListener = jest.fn();
     const addWindowListener = jest.fn();
     const removeWindowListener = jest.fn();
+    const iframePostMessage = jest.fn();
     const iframeWindowStub = {
       addEventListener: addWindowListener,
       removeEventListener: removeWindowListener,
+      postMessage: iframePostMessage,
     } as unknown as Window;
     const onNavigate = jest.fn();
     const iframeStub = {
@@ -389,6 +394,26 @@ describe('wireInlineIframeNavigation lifecycle', () => {
       'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/next-message.html',
     );
 
+    expect(iframePostMessage).toHaveBeenCalledWith(
+      {
+        type: 'uhv-inline-host-page-url',
+        hostPageUrl: window.location.href,
+      },
+      '*',
+    );
+    iframePostMessage.mockClear();
+    window.dispatchEvent(new Event(INLINE_HOST_PAGE_URL_CHANGED_EVENT));
+    expect(iframePostMessage).toHaveBeenCalledWith(
+      {
+        type: 'uhv-inline-host-page-url',
+        hostPageUrl: window.location.href,
+      },
+      '*',
+    );
+
     cleanup();
+    iframePostMessage.mockClear();
+    window.dispatchEvent(new Event(INLINE_HOST_PAGE_URL_CHANGED_EVENT));
+    expect(iframePostMessage).not.toHaveBeenCalled();
   });
 });

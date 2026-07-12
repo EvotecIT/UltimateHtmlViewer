@@ -148,11 +148,121 @@ describe('InlineNavigationBridgeScript', () => {
     frame.remove();
   });
 
+  it('refreshes host query context before rewriting native report links', () => {
+    const frame = document.createElement('iframe');
+    document.body.appendChild(frame);
+    const frameWindow = frame.contentWindow;
+    const frameDocument = frame.contentDocument;
+    expect(frameWindow).not.toBeNull();
+    expect(frameDocument).not.toBeNull();
+    if (!frameWindow || !frameDocument) {
+      return;
+    }
+    const executableFrameWindow = frameWindow as Window & typeof globalThis;
+
+    frameDocument.head.innerHTML =
+      '<base href="https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/start.html">';
+    frameDocument.body.innerHTML = '<a id="generated" href="next.html" target="_blank">Next</a>';
+    executableFrameWindow.eval(
+      getInlineNavigationBridgeScript(
+        '/sites/Test/SiteAssets/Reports/start.html',
+        ['.html'],
+        ['/sites/Test/SiteAssets/Reports/'],
+        'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?viewerTwoPage=old',
+        'uhvPage',
+      ),
+    );
+
+    const hostUrlMessage = new executableFrameWindow.MessageEvent('message', {
+      data: {
+        type: 'uhv-inline-host-page-url',
+        hostPageUrl:
+          'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?viewerTwoPage=new',
+      },
+    });
+    Object.defineProperty(hostUrlMessage, 'source', {
+      value: window,
+      configurable: true,
+    });
+    executableFrameWindow.dispatchEvent(hostUrlMessage);
+
+    const anchor = frameDocument.getElementById('generated') as HTMLAnchorElement;
+    anchor.dispatchEvent(
+      new executableFrameWindow.MouseEvent('mousedown', { bubbles: true, button: 0 }),
+    );
+
+    expect(anchor.href).toContain('viewerTwoPage=new');
+    expect(anchor.href).not.toContain('viewerTwoPage=old');
+    expect(anchor.href).toContain('uhvPage=');
+    frame.remove();
+  });
+
   it('forwards validated navigation messages from nested frames', () => {
     const script = getInlineNavigationBridgeScript();
 
     expect(script).toContain('var onNestedNavigationMessage = function(event)');
     expect(script).toContain("window.addEventListener('message', onNestedNavigationMessage)");
     expect(script).toContain("payload.type !== 'uhv-inline-nav'");
+    expect(script).toContain('nestedFrames[frameIndex].contentWindow === event.source');
+  });
+
+  it('only forwards navigation messages from hydrated nested frames', () => {
+    const frame = document.createElement('iframe');
+    document.body.appendChild(frame);
+    const frameWindow = frame.contentWindow;
+    const frameDocument = frame.contentDocument;
+    expect(frameWindow).not.toBeNull();
+    expect(frameDocument).not.toBeNull();
+    if (!frameWindow || !frameDocument) {
+      return;
+    }
+    const executableFrameWindow = frameWindow as Window & typeof globalThis;
+    frameDocument.head.innerHTML =
+      '<base href="https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/start.html">';
+    frameDocument.body.innerHTML =
+      '<iframe id="known" data-uhv-nested-src="nested.html"></iframe>';
+    executableFrameWindow.eval(
+      getInlineNavigationBridgeScript(
+        '/sites/Test/SiteAssets/Reports/start.html',
+        ['.html'],
+        ['/sites/Test/SiteAssets/Reports/'],
+      ),
+    );
+
+    const parentPostMessageSpy = jest.spyOn(window, 'postMessage');
+    const dispatchNavigationMessage = (source: MessageEventSource): void => {
+      const navigationMessage = new executableFrameWindow.MessageEvent('message', {
+        data: {
+          type: 'uhv-inline-nav',
+          targetUrl:
+            'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/next.html',
+        },
+      });
+      Object.defineProperty(navigationMessage, 'source', {
+        value: source,
+        configurable: true,
+      });
+      executableFrameWindow.dispatchEvent(navigationMessage);
+    };
+
+    dispatchNavigationMessage(window);
+    expect(parentPostMessageSpy).not.toHaveBeenCalled();
+
+    const nestedFrame = frameDocument.getElementById('known') as HTMLIFrameElement;
+    expect(nestedFrame.contentWindow).not.toBeNull();
+    if (nestedFrame.contentWindow) {
+      dispatchNavigationMessage(nestedFrame.contentWindow);
+    }
+    expect(parentPostMessageSpy).toHaveBeenCalledWith(
+      {
+        type: 'uhv-inline-nav',
+        targetUrl:
+          'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/next.html',
+      },
+      '*',
+    );
+
+    parentPostMessageSpy.mockRestore();
+    frame.remove();
   });
 });

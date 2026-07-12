@@ -63,6 +63,7 @@ import {
   acquireManualHistoryScrollRestoration,
   releaseManualHistoryScrollRestoration,
 } from './HistoryScrollRestorationHelper';
+import { INLINE_HOST_PAGE_URL_CHANGED_EVENT } from './InlineHostPageUrlSyncHelper';
 
 interface IInlineDeepLinkFrameMetrics {
   frameClientHeight: number;
@@ -1435,6 +1436,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
 
     try {
       window.history.pushState(window.history.state, '', updatedPageUrl);
+      window.dispatchEvent(new Event(INLINE_HOST_PAGE_URL_CHANGED_EVENT));
     } catch {
       return;
     }

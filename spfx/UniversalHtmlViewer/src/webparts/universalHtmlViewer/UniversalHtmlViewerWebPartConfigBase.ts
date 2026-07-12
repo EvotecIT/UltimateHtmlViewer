@@ -129,7 +129,10 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const candidateUrls = new Set<string>();
 
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
-    if (htmlSourceMode === 'BasePathAndDashboardId') {
+    if (
+      htmlSourceMode === 'BasePathAndDashboardId' ||
+      htmlSourceMode === 'BasePathAndRelativePath'
+    ) {
       const configuredBasePath = (effectiveProps.basePath || '').trim();
       if (configuredBasePath) {
         candidateUrls.add(

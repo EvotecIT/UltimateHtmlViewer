@@ -116,6 +116,29 @@ describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () =>
     );
   });
 
+  it('infers the configured base path for relative-path navigation', () => {
+    const configBase = createConfigHarness();
+
+    const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
+      htmlSourceMode: 'BasePathAndRelativePath',
+      basePath: '/sites/TestSite2/SiteAssets/Reports',
+      relativePath: 'Current/Index.html',
+      contentDeliveryMode: 'SharePointFileBlobUrl',
+      securityMode: 'StrictTenant',
+      allowHttp: false,
+      allowedHosts: '',
+      allowedPathPrefixes: '',
+      allowedFileExtensions: '.html,.htm,.aspx',
+    });
+
+    expect(options.allowedPathPrefixes).toEqual([
+      '/sites/TestSite2/SiteAssets/Reports/',
+    ]);
+    expect(options.allowedPathPrefixes).not.toContain(
+      '/sites/TestSite2/SiteAssets/Reports/Current/',
+    );
+  });
+
   it('preserves spaces inside configured SharePoint path prefixes', () => {
     const configBase = createConfigHarness();
 
