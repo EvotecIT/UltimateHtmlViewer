@@ -260,6 +260,30 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     ).toBe(false);
   });
 
+  it('keeps inbound query overrides behind their explicit toggle', () => {
+    const webPart = createWebPart();
+
+    expect(
+      webPart.shouldAllowInlineDeepLinkOverride({
+        allowQueryStringPageOverride: false,
+        showOpenInNewTab: true,
+      }),
+    ).toBe(false);
+    expect(
+      webPart.shouldAllowInlineDeepLinkOverride({
+        allowQueryStringPageOverride: true,
+        showOpenInNewTab: false,
+      }),
+    ).toBe(true);
+    expect(
+      webPart.shouldAllowInlineDeepLinkOverride({
+        allowQueryStringPageOverride: true,
+        enableExpertSecurityModes: true,
+        securityMode: 'AnyHttps',
+      }),
+    ).toBe(false);
+  });
+
   it('renders the inline open-in-new-tab action when its toggle is enabled', () => {
     const webPart = createWebPart();
     webPart.getCurrentPageUrl = jest

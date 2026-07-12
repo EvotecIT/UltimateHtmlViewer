@@ -129,25 +129,34 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const candidateUrls = new Set<string>();
 
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
-    const builtUrl = buildFinalUrl({
-      htmlSourceMode,
-      fullUrl: effectiveProps.fullUrl,
-      basePath: effectiveProps.basePath,
-      reportBrowserRootPath: effectiveProps.reportBrowserRootPath,
-      webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
-      relativePath: effectiveProps.relativePath,
-      dashboardId: effectiveProps.dashboardId,
-      defaultFileName: effectiveProps.defaultFileName,
-      queryStringParamName: effectiveProps.queryStringParamName,
-      pageUrl: currentPageUrl,
-    });
-    if (builtUrl) {
-      candidateUrls.add(builtUrl);
-    }
+    if (htmlSourceMode === 'BasePathAndDashboardId') {
+      const configuredBasePath = (effectiveProps.basePath || '').trim();
+      if (configuredBasePath) {
+        candidateUrls.add(
+          configuredBasePath.endsWith('/') ? configuredBasePath : `${configuredBasePath}/`,
+        );
+      }
+    } else {
+      const builtUrl = buildFinalUrl({
+        htmlSourceMode,
+        fullUrl: effectiveProps.fullUrl,
+        basePath: effectiveProps.basePath,
+        reportBrowserRootPath: effectiveProps.reportBrowserRootPath,
+        webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
+        relativePath: effectiveProps.relativePath,
+        dashboardId: effectiveProps.dashboardId,
+        defaultFileName: effectiveProps.defaultFileName,
+        queryStringParamName: effectiveProps.queryStringParamName,
+        pageUrl: currentPageUrl,
+      });
+      if (builtUrl) {
+        candidateUrls.add(builtUrl);
+      }
 
-    const fullUrl = (effectiveProps.fullUrl || '').trim();
-    if (fullUrl) {
-      candidateUrls.add(fullUrl);
+      const fullUrl = (effectiveProps.fullUrl || '').trim();
+      if (fullUrl) {
+        candidateUrls.add(fullUrl);
+      }
     }
 
     const inferredPrefixes = Array.from(candidateUrls.values())

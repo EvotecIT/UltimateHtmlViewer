@@ -826,7 +826,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       fallbackUrl: finalUrl,
       queryParamName: this.getInlineDeepLinkParamName(effectiveProps),
       validationOptions,
-      allowDeepLinkOverride: this.shouldEnableInlineDeepLinks(effectiveProps),
+      allowDeepLinkOverride: this.shouldAllowInlineDeepLinkOverride(effectiveProps),
     });
     const requestedDeepLinkValue: string = resolvedContentTarget.requestedDeepLinkValue;
     const hasRequestedDeepLink: boolean = resolvedContentTarget.hasRequestedDeepLink;
@@ -1243,6 +1243,14 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     return (
       (props.allowQueryStringPageOverride === true ||
         props.showOpenInNewTab === true) &&
+      !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')
+    );
+  }
+  private shouldAllowInlineDeepLinkOverride(
+    props: IUniversalHtmlViewerWebPartProps,
+  ): boolean {
+    return (
+      props.allowQueryStringPageOverride === true &&
       !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')
     );
   }
