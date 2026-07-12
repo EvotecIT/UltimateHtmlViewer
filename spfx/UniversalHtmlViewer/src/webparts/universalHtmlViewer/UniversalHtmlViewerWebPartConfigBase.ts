@@ -563,12 +563,14 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
         break;
       case 'AllowlistCDN':
         props.contentDeliveryMode = 'DirectUrl';
+        props.allowQueryStringPageOverride = false;
         props.securityMode = 'Allowlist';
         props.cacheBusterMode = 'Timestamp';
         props.sandboxPreset = 'Relaxed';
         break;
       case 'AnyHttps':
         props.contentDeliveryMode = 'DirectUrl';
+        props.allowQueryStringPageOverride = false;
         props.securityMode = 'AnyHttps';
         props.enableExpertSecurityModes = true;
         props.cacheBusterMode = 'Timestamp';

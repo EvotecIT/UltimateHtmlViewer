@@ -282,6 +282,35 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
         securityMode: 'AnyHttps',
       }),
     ).toBe(false);
+    expect(
+      webPart.shouldAllowInlineDeepLinkOverride({
+        contentDeliveryMode: 'DirectUrl',
+        allowQueryStringPageOverride: true,
+        securityMode: 'Allowlist',
+      }),
+    ).toBe(false);
+  });
+
+  it('disables inline-only query overrides for direct URL presets', () => {
+    const webPart = createWebPart();
+    const allowlistProps = {
+      allowQueryStringPageOverride: true,
+    };
+    const anyHttpsProps = {
+      allowQueryStringPageOverride: true,
+    };
+
+    webPart.applyPreset('AllowlistCDN', allowlistProps);
+    webPart.applyPreset('AnyHttps', anyHttpsProps);
+
+    expect(allowlistProps).toMatchObject({
+      contentDeliveryMode: 'DirectUrl',
+      allowQueryStringPageOverride: false,
+    });
+    expect(anyHttpsProps).toMatchObject({
+      contentDeliveryMode: 'DirectUrl',
+      allowQueryStringPageOverride: false,
+    });
   });
 
   it('keeps inline new-tab navigation and validated inbound deep links consistent', () => {

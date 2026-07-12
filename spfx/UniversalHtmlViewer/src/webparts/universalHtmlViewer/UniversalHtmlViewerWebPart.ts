@@ -1260,6 +1260,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     props: IUniversalHtmlViewerWebPartProps,
   ): boolean {
     return (
+      isInlineContentDeliveryMode(this.getContentDeliveryMode(props)) &&
       props.allowQueryStringPageOverride === true &&
       !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')
     );
@@ -1268,6 +1269,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     props: IUniversalHtmlViewerWebPartProps,
   ): boolean {
     return (
+      isInlineContentDeliveryMode(this.getContentDeliveryMode(props)) &&
       props.allowQueryStringPageOverride === true &&
       !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')
     );

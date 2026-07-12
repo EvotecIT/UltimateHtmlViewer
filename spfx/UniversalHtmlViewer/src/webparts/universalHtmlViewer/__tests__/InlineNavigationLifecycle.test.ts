@@ -394,6 +394,17 @@ describe('wireInlineIframeNavigation lifecycle', () => {
       'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/next-message.html',
     );
 
+    expect(iframePostMessage).not.toHaveBeenCalled();
+    const readyEvent = new MessageEvent('message', {
+      data: {
+        type: 'uhv-inline-ready',
+      },
+    });
+    Object.defineProperty(readyEvent, 'source', {
+      value: iframeWindowStub,
+      configurable: true,
+    });
+    window.dispatchEvent(readyEvent);
     expect(iframePostMessage).toHaveBeenCalledWith(
       {
         type: 'uhv-inline-host-page-url',
@@ -410,6 +421,12 @@ describe('wireInlineIframeNavigation lifecycle', () => {
       },
       '*',
     );
+
+    iframePostMessage.mockClear();
+    const hostSyncLoadHandler = addLoadListener.mock.calls[0][1] as () => void;
+    hostSyncLoadHandler();
+    window.dispatchEvent(new Event(INLINE_HOST_PAGE_URL_CHANGED_EVENT));
+    expect(iframePostMessage).not.toHaveBeenCalled();
 
     cleanup();
     iframePostMessage.mockClear();

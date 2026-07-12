@@ -93,7 +93,7 @@ function prepareInlineHtmlForFrameDocument(
       : undefined);
   const htmlWithNonceStampedScripts = applyPageScriptNonceToInlineScripts(
     htmlWithHostDeepLinkedAnchors,
-    inlineScriptNonce,
+    pageScriptNonce,
   );
   const srcDocCspTag =
     injectDefaultContentSecurityPolicy && !hasContentSecurityPolicyMetaTag(htmlWithNonceStampedScripts)
