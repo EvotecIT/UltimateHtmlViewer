@@ -39,6 +39,10 @@ interface ISharePointListResponse<T> {
   'odata.nextLink'?: string;
 }
 
+type SettledResult<T> =
+  | { status: 'fulfilled'; value: T }
+  | { status: 'rejected'; reason: unknown };
+
 const DEFAULT_MAX_ITEMS = 300;
 const DEFAULT_MAX_REQUESTS = 200;
 const MAX_SHAREPOINT_PAGE_SIZE = 5000;
@@ -51,9 +55,6 @@ export async function loadSharePointReportBrowserItems(
   options: ILoadSharePointReportBrowserItemsOptions,
 ): Promise<ISharePointReportBrowserItem[]> {
   const requestOptions: ILoadSharePointReportBrowserItemsOptions = { ...options };
-  requestBudgets.set(requestOptions, {
-    remaining: normalizeMaxRequests(options.maxRequests),
-  });
   const rootPath = normalizeSharePointReportBrowserRootPath(
     options.rootPath,
     options.webAbsoluteUrl,
@@ -61,6 +62,9 @@ export async function loadSharePointReportBrowserItems(
   if (!rootPath) {
     return [];
   }
+  requestBudgets.set(requestOptions, {
+    remaining: normalizeMaxRequests(options.maxRequests),
+  });
 
   const currentFolderPath =
     options.view === 'Folders'
@@ -88,10 +92,25 @@ export async function loadSharePointReportBrowserItems(
   }
 
   try {
-    const [folders, files] = await Promise.all([
-      loadFolderEntries(requestOptions, currentFolderPath, maxItems),
-      loadAllowedFileEntries(requestOptions, currentFolderPath, allowedExtensions, maxItems),
+    const [folderResult, fileResult] = await Promise.all([
+      settlePromise(loadFolderEntries(requestOptions, currentFolderPath, maxItems)),
+      settlePromise(
+        loadAllowedFileEntries(
+          requestOptions,
+          currentFolderPath,
+          allowedExtensions,
+          maxItems,
+        ),
+      ),
     ]);
+    if (folderResult.status === 'rejected') {
+      throw folderResult.reason;
+    }
+    if (fileResult.status === 'rejected') {
+      throw fileResult.reason;
+    }
+    const folders = folderResult.value;
+    const files = fileResult.value;
 
     const folderItems = folders
       .filter((folder) => !skippedFolderNames.has(String(folder.Name || '').toLowerCase()))
@@ -106,6 +125,20 @@ export async function loadSharePointReportBrowserItems(
     return mergeFolderViewItems(folderItems, fileItems, maxItems);
   } finally {
     requestBudgets.delete(requestOptions);
+  }
+}
+
+async function settlePromise<T>(promise: Promise<T>): Promise<SettledResult<T>> {
+  try {
+    return {
+      status: 'fulfilled',
+      value: await promise,
+    };
+  } catch (reason) {
+    return {
+      status: 'rejected',
+      reason,
+    };
   }
 }
 
