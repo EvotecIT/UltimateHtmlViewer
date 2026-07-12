@@ -44,10 +44,7 @@ export function wireInlineAnchorRuntimeRewrite(
     }
 
     const baseUrl = frameDocument.baseURI || options.fallbackBaseUrl;
-    const hostPageUrl =
-      options.fallbackHostPageUrl ||
-      options.iframe.ownerDocument?.defaultView?.location?.href ||
-      '';
+    const hostPageUrl = getCurrentHostPageUrl(options);
     frameDocument.querySelectorAll('a[href]').forEach((anchor) => {
       rewriteInlineNavigationAnchorElement(
         anchor,
@@ -104,10 +101,7 @@ export function wireInlineAnchorRuntimeRewrite(
           }
 
           const baseUrl = frameDocument.baseURI || options.fallbackBaseUrl;
-          const hostPageUrl =
-            options.fallbackHostPageUrl ||
-            options.iframe.ownerDocument?.defaultView?.location?.href ||
-            '';
+          const hostPageUrl = getCurrentHostPageUrl(options);
           if (
             anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) === '1' &&
             !isInlineNavigationAnchorRewriteCurrent(
@@ -212,5 +206,32 @@ function getFrameWindow(iframe: HTMLIFrameElement): Window | undefined {
     return iframe.contentWindow || iframe.ownerDocument?.defaultView || undefined;
   } catch {
     return iframe.ownerDocument?.defaultView || undefined;
+  }
+}
+
+function getCurrentHostPageUrl(options: IInlineAnchorRuntimeRewriteOptions): string {
+  const fallbackHostPageUrl = (options.fallbackHostPageUrl || '').trim();
+  let liveHostPageUrl = '';
+  try {
+    liveHostPageUrl = (
+      options.iframe.ownerDocument?.defaultView?.location?.href || ''
+    ).trim();
+  } catch {
+    return fallbackHostPageUrl;
+  }
+
+  if (!liveHostPageUrl) {
+    return fallbackHostPageUrl;
+  }
+  if (!fallbackHostPageUrl) {
+    return liveHostPageUrl;
+  }
+
+  try {
+    const live = new URL(liveHostPageUrl);
+    const fallback = new URL(fallbackHostPageUrl, live);
+    return live.origin === fallback.origin ? live.toString() : fallback.toString();
+  } catch {
+    return liveHostPageUrl;
   }
 }

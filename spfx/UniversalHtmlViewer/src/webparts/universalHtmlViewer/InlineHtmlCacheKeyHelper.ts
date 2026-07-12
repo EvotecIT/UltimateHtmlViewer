@@ -1,4 +1,5 @@
 import { getInlineExternalScriptAllowedHosts } from './ExternalScriptInliningHelper';
+import { getCanonicalHostPageUrl } from './InlineAnchorRewriteHelper';
 
 export type InlineHtmlRenderMode = 'SrcDoc' | 'BlobUrl';
 
@@ -22,7 +23,12 @@ export function buildInlineHtmlCacheKey(
 ): string {
   const normalizedSourceUrl = (sourceUrl || '').trim();
   const normalizedBaseUrl = (baseUrlForRelativeLinks || '').trim();
-  const normalizedPageUrl = normalizePageUrlForCache(pageUrl);
+  const normalizedPageUrl = normalizePageUrlForCache(
+    pageUrl,
+    rewriteInlineAnchorHrefs,
+    rewriteInlineAnchorDeepLinkQueryParamName,
+    rewriteInlineAnchorPreservedHostQueryParamNames,
+  );
   const normalizedRenderMode = renderMode === 'BlobUrl' ? 'blob-url' : 'srcdoc';
   const normalizedStrictMode = enforceStrictInlineCsp ? 'strict-csp' : 'default-csp';
   const normalizedExternalScriptMode = inlineExternalScripts
@@ -68,10 +74,24 @@ function normalizeList(values: string[], lowerCase: boolean): string[] {
   ).sort();
 }
 
-function normalizePageUrlForCache(pageUrl: string): string {
+function normalizePageUrlForCache(
+  pageUrl: string,
+  rewriteInlineAnchorHrefs: boolean,
+  deepLinkQueryParamName: string,
+  preservedHostQueryParamNames: string[],
+): string {
   try {
-    const parsed = new URL(pageUrl);
-    parsed.search = '';
+    const parsed = rewriteInlineAnchorHrefs
+      ? new URL(getCanonicalHostPageUrl(pageUrl, preservedHostQueryParamNames))
+      : new URL(pageUrl);
+    if (rewriteInlineAnchorHrefs) {
+      const deepLinkParamName = (deepLinkQueryParamName || '').trim();
+      if (deepLinkParamName) {
+        parsed.searchParams.delete(deepLinkParamName);
+      }
+    } else {
+      parsed.search = '';
+    }
     parsed.hash = '';
     return parsed.toString();
   } catch {

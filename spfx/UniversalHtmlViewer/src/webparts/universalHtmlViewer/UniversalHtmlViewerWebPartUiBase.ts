@@ -157,6 +157,9 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       props.showOpenInNewTab !== false &&
       (!isInlineContentDeliveryMode(contentDeliveryMode) ||
         !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps'));
+    const canOpenInlineContentInNewTab: boolean =
+      !isInlineContentDeliveryMode(contentDeliveryMode) ||
+      props.allowQueryStringPageOverride === true;
     const showRefreshButton: boolean = props.showRefreshButton !== false;
     const showStatus: boolean = props.showStatus !== false;
     const showConfigActions: boolean = props.showConfigActions === true;
@@ -177,11 +180,15 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       ? `<span class="${styles.status}" data-uhv-status role="status" aria-live="polite">${escape(statusLabel)}</span>`
       : '';
 
-    const openInNewTabHtml: string = showOpenInNewTab
+    const openInNewTabHtml: string = !showOpenInNewTab
+      ? ''
+      : canOpenInlineContentInNewTab
       ? `<a class="${styles.actionLink}" href="${escape(openInNewTabUrl)}" target="_blank" rel="noopener noreferrer" data-uhv-action="open-in-new-tab">
           Open in new tab
         </a>`
-      : '';
+      : `<span class="${styles.actionLink}" style="color:#6b6b6b;cursor:not-allowed;text-decoration:none;" aria-disabled="true" title="Enable page query override to open the current inline report in a new tab." data-uhv-action="open-in-new-tab-disabled">
+          Open in new tab
+        </span>`;
 
     const refreshHtml: string = showRefreshButton
       ? `<button class="${styles.actionButton}" type="button" data-uhv-action="refresh">Refresh</button>`

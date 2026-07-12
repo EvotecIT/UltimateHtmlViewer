@@ -130,4 +130,45 @@ describe('InlineAnchorRuntimeRewriteHelper', () => {
     cleanup();
     iframe.remove();
   });
+
+  it('uses live sibling viewer state for anchors generated after host navigation', async () => {
+    const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.history.replaceState(
+      null,
+      '',
+      '/sites/Test/SitePages/Dashboard.aspx?viewerTwoPage=old-report',
+    );
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const frameDocument = iframe.contentDocument as Document;
+    frameDocument.head.innerHTML =
+      `<base href="${window.location.origin}/sites/Test/SiteAssets/">`;
+
+    const cleanup = wireInlineAnchorRuntimeRewrite({
+      iframe,
+      fallbackBaseUrl: `${window.location.origin}/sites/Test/SiteAssets/Index.html`,
+      fallbackHostPageUrl: window.location.href,
+      allowedFileExtensions: ['.html'],
+      allowedPathPrefixes: ['/sites/Test/SiteAssets/'],
+    });
+
+    window.history.pushState(
+      null,
+      '',
+      '/sites/Test/SitePages/Dashboard.aspx?viewerTwoPage=current-report',
+    );
+    const calendarEvent = frameDocument.createElement('a');
+    calendarEvent.setAttribute('href', 'Generated.html');
+    frameDocument.body.appendChild(calendarEvent);
+
+    await new Promise((resolve) => window.setTimeout(resolve, 10));
+
+    const rewritten = new URL(calendarEvent.getAttribute('href') || '', window.location.href);
+    expect(rewritten.searchParams.get('viewerTwoPage')).toBe('current-report');
+    expect(rewritten.searchParams.get('viewerTwoPage')).not.toBe('old-report');
+
+    cleanup();
+    iframe.remove();
+    window.history.replaceState(null, '', originalUrl || '/');
+  });
 });
