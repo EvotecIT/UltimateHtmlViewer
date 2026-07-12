@@ -152,7 +152,12 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       (props.iframeTitle || '').trim() ||
       'Universal HTML Viewer';
     const subtitle: string = (props.chromeSubtitle || '').trim();
-    const showOpenInNewTab: boolean = props.showOpenInNewTab !== false;
+    const contentDeliveryMode = this.getContentDeliveryMode(props);
+    const showOpenInNewTab: boolean =
+      props.showOpenInNewTab !== false &&
+      (!isInlineContentDeliveryMode(contentDeliveryMode) ||
+        (props.allowQueryStringPageOverride === true &&
+          !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps')));
     const showRefreshButton: boolean = props.showRefreshButton !== false;
     const showStatus: boolean = props.showStatus !== false;
     const showConfigActions: boolean = props.showConfigActions === true;
@@ -170,7 +175,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       ? this.getStatusLabel(validationOptions, cacheBusterMode, props)
       : '';
     const statusHtml: string = statusLabel
-      ? `<span class="${styles.status}" data-uhv-status>${escape(statusLabel)}</span>`
+      ? `<span class="${styles.status}" data-uhv-status role="status" aria-live="polite">${escape(statusLabel)}</span>`
       : '';
 
     const openInNewTabHtml: string = showOpenInNewTab
@@ -197,7 +202,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       : '';
     const anyHttpsWarningHtml: string =
       validationOptions.securityMode === 'AnyHttps'
-        ? `<div class="${styles.anyHttpsWarning}">
+        ? `<div class="${styles.anyHttpsWarning}" role="alert">
             Warning: Any HTTPS mode is enabled. Restrict usage to trusted, controlled scenarios.
           </div>`
         : '';
@@ -243,6 +248,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       pageUrl,
       currentPageUrl: this.getCurrentPageUrl(),
       contentDeliveryMode,
+      queryParamName: props.inlineDeepLinkParamName,
     });
   }
   protected updateOpenInNewTabLink(
@@ -290,8 +296,8 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     return `
       <div class="${styles.dashboardBar}">
         <label class="${styles.dashboardLabel}">Dashboard</label>
-        <input class="${styles.dashboardInput}" type="search" placeholder="Filter dashboards" data-uhv-dashboard-filter />
-        <select class="${styles.dashboardSelect}" data-uhv-dashboard-select>
+        <input class="${styles.dashboardInput}" type="search" placeholder="Filter dashboards" aria-label="Filter dashboards" data-uhv-dashboard-filter />
+        <select class="${styles.dashboardSelect}" aria-label="Dashboard" data-uhv-dashboard-select>
           ${optionsHtml}
         </select>
       </div>`;
@@ -322,12 +328,12 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       <div class="${styles.reportBrowser}" data-uhv-report-browser>
         <div class="${styles.reportBrowserToolbar}">
           <div class="${styles.reportBrowserTitle}">Reports</div>
-          <button class="${folderButtonClass}" type="button" data-uhv-report-view="Folders">Folders</button>
-          <button class="${filesButtonClass}" type="button" data-uhv-report-view="Files">Files</button>
-          <input class="${styles.reportBrowserSearch}" type="search" placeholder="Filter reports" data-uhv-report-filter />
+          <button class="${folderButtonClass}" type="button" data-uhv-report-view="Folders" aria-pressed="${currentView === 'Folders'}">Folders</button>
+          <button class="${filesButtonClass}" type="button" data-uhv-report-view="Files" aria-pressed="${currentView === 'Files'}">Files</button>
+          <input class="${styles.reportBrowserSearch}" type="search" placeholder="Filter reports" aria-label="Filter reports" data-uhv-report-filter />
         </div>
-        <div class="${styles.reportBrowserStatus}" data-uhv-report-status>Loading reports...</div>
-        <div class="${styles.reportBrowserList}" data-uhv-report-list></div>
+        <div class="${styles.reportBrowserStatus}" data-uhv-report-status role="status" aria-live="polite">Loading reports...</div>
+        <div class="${styles.reportBrowserList}" data-uhv-report-list role="region" aria-label="Available reports"></div>
       </div>`;
   }
 
@@ -336,7 +342,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       return '';
     }
 
-    return `<div class="${styles.loading}" data-uhv-loading>Loading…</div>`;
+    return `<div class="${styles.loading}" data-uhv-loading role="status" aria-live="polite">Loading…</div>`;
   }
 
   private parseDashboardList(
@@ -407,7 +413,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
           cacheBusterParamName,
           activePageUrl,
           false,
-          false,
+          true,
           true,
         ).catch(() => {
           return undefined;
@@ -721,8 +727,10 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       );
       if (buttonView === view) {
         button.classList.add(styles.reportBrowserViewButtonActive);
+        button.setAttribute('aria-pressed', 'true');
       } else {
         button.classList.remove(styles.reportBrowserViewButtonActive);
+        button.setAttribute('aria-pressed', 'false');
       }
     });
   }

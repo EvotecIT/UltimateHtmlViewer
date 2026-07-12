@@ -153,4 +153,47 @@ describe('ExternalScriptInliningHelper', () => {
       'unpkg.com',
     ]);
   });
+
+  it('expires cached external scripts and honors explicit cache bypass', async () => {
+    let now = 1000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: jest.fn().mockResolvedValue('window.cachedScript = true;'),
+    });
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true,
+      value: mockFetch,
+    });
+    const html =
+      '<html><head><script src="https://cdn.jsdelivr.net/npm/example.js"></script></head><body></body></html>';
+
+    try {
+      await inlineAllowedExternalScripts(html, baseUrlForRelativeLinks, pageUrl, {
+        enabled: true,
+        cacheTtlMs: 10,
+      });
+      await inlineAllowedExternalScripts(html, baseUrlForRelativeLinks, pageUrl, {
+        enabled: true,
+        cacheTtlMs: 10,
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      now = 1011;
+      await inlineAllowedExternalScripts(html, baseUrlForRelativeLinks, pageUrl, {
+        enabled: true,
+        cacheTtlMs: 10,
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      await inlineAllowedExternalScripts(html, baseUrlForRelativeLinks, pageUrl, {
+        enabled: true,
+        cacheTtlMs: 10,
+        bypassCache: true,
+      });
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
 });

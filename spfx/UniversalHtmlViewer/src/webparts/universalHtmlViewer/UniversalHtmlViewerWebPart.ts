@@ -59,6 +59,10 @@ import {
   isInlineContentDeliveryMode,
   isReportBrowserSourceMode,
 } from './UniversalHtmlViewerTypes';
+import {
+  acquireManualHistoryScrollRestoration,
+  releaseManualHistoryScrollRestoration,
+} from './HistoryScrollRestorationHelper';
 
 interface IInlineDeepLinkFrameMetrics {
   frameClientHeight: number;
@@ -88,19 +92,26 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   private initialDeepLinkScrollLockCleanup:
     | ((reason?: DeepLinkScrollLockReleaseReason) => void)
     | undefined;
-  private readonly inlineDeepLinkParamName: string = DEFAULT_INLINE_DEEP_LINK_PARAM;
   private isInlineDeepLinkPopStateWired: boolean = false;
-  private isInlineDeepLinkScrollRestorationManaged: boolean = false;
-  private previousInlineDeepLinkScrollRestoration: 'auto' | 'manual' | undefined;
+  private readonly historyScrollRestorationOwnerId: string = `uhv-history-${nextPageTitleSyncOwnerId++}`;
   private hasLoggedAnyHttpsWarning: boolean = false;
   private activeInlineBlobUrl: string | undefined;
   private readonly pageTitleSyncOwnerId: string = `uhv-title-${nextPageTitleSyncOwnerId++}`;
+  private renderRequestId: number = 0;
+  private renderDisposed: boolean = false;
   private readonly onInlineDeepLinkPopState = (): void => {
     this.render();
   };
 
   public render(): void {
-    this.renderAsync().catch((error) => {
+    if (this.renderDisposed) {
+      return;
+    }
+    const renderRequestId = ++this.renderRequestId;
+    this.renderAsync(renderRequestId).catch((error) => {
+      if (!this.isRenderRequestCurrent(renderRequestId)) {
+        return;
+      }
       this.clearRefreshTimer();
       this.clearIframeLoadTimeout();
       this.restoreOriginalDocumentTitle();
@@ -517,10 +528,19 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   disabled: isPresetLocked,
                 }),
                 PropertyPaneToggle('allowQueryStringPageOverride', {
-                  label: 'Allow uhvPage query override (inline mode)',
+                  label: 'Allow page query override (inline mode)',
                   onText: 'On',
                   offText: 'Off',
                   disabled: !isInlineContentMode || isPresetLocked,
+                }),
+                PropertyPaneTextField('inlineDeepLinkParamName', {
+                  label: 'Page query parameter name',
+                  description:
+                    'Default: uhvPage. Use a unique name for each viewer when a page contains multiple viewer web parts.',
+                  disabled:
+                    !isInlineContentMode ||
+                    this.properties.allowQueryStringPageOverride !== true ||
+                    isPresetLocked,
                 }),
                 PropertyPaneToggle('enforceStrictInlineCsp', {
                   label: 'Enforce strict inline CSP (scripts)',
@@ -671,8 +691,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
                   label: 'Sandbox preset',
                   options: [
                     { key: 'None', text: 'None (no sandbox)' },
-                    { key: 'Relaxed', text: 'Relaxed' },
-                    { key: 'Strict', text: 'Strict' },
+                    {
+                      key: 'Relaxed',
+                      text: 'Relaxed (trusted content; same-origin access)',
+                    },
+                    { key: 'Strict', text: 'Strict (isolated origin)' },
                     { key: 'Custom', text: 'Custom (use tokens below)' },
                   ],
                   disabled: isPresetLocked,
@@ -727,7 +750,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     };
   }
 
-  private async renderAsync(): Promise<void> {
+  private async renderAsync(renderRequestId: number): Promise<void> {
+    this.invalidateRefreshRequests();
     this.clearInitialDeepLinkScrollLock();
     this.resetDeepLinkScrollLockDiagnostics();
     this.clearIframeLoadTimeout();
@@ -736,6 +760,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.resetNestedIframeDiagnostics();
     const pageUrl: string = this.getCurrentPageUrl();
     const { effectiveProps, tenantConfig } = await this.getEffectiveProperties(pageUrl);
+    if (!this.isRenderRequestCurrent(renderRequestId)) {
+      return;
+    }
     this.lastEffectiveProps = effectiveProps;
     this.lastTenantConfig = tenantConfig;
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
@@ -745,7 +772,12 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     if (!this.shouldSyncPageTitle(effectiveProps, contentDeliveryMode)) {
       this.restoreOriginalDocumentTitle();
     }
-    this.configureInlineDeepLinkPopState(isInlineContentDeliveryMode(contentDeliveryMode));
+    this.configureInlineDeepLinkPopState(
+      isInlineContentDeliveryMode(contentDeliveryMode) &&
+        effectiveProps.allowQueryStringPageOverride === true &&
+        !(effectiveProps.enableExpertSecurityModes === true &&
+          effectiveProps.securityMode === 'AnyHttps'),
+    );
     const currentDashboardId: string | undefined = this.getEffectiveDashboardId(
       effectiveProps,
       pageUrl,
@@ -794,7 +826,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     const resolvedContentTarget = resolveInlineContentTarget({
       pageUrl,
       fallbackUrl: finalUrl,
-      queryParamName: this.inlineDeepLinkParamName,
+      queryParamName: this.getInlineDeepLinkParamName(effectiveProps),
       validationOptions,
       allowDeepLinkOverride: effectiveProps.allowQueryStringPageOverride === true,
     });
@@ -885,6 +917,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       cacheBusterParamName,
       pageUrl,
     );
+    if (!this.isRenderRequestCurrent(renderRequestId)) {
+      return;
+    }
     let inlineHtml: string | undefined;
     let iframeUrl: string = resolvedUrl;
     if (isInlineContentDeliveryMode(contentDeliveryMode)) {
@@ -899,6 +934,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             SPHttpClient.configurations.v1,
             this.getInlineContentOptions(effectiveProps),
           );
+          if (!this.isRenderRequestCurrent(renderRequestId)) {
+            return;
+          }
           iframeUrl = this.createInlineBlobUrl(inlineHtml);
         } else {
           inlineHtml = await loadSharePointFileContentForInline(
@@ -910,8 +948,14 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             SPHttpClient.configurations.v1,
             this.getInlineContentOptions(effectiveProps),
           );
+          if (!this.isRenderRequestCurrent(renderRequestId)) {
+            return;
+          }
         }
       } catch (error) {
+        if (!this.isRenderRequestCurrent(renderRequestId)) {
+          return;
+        }
         this.clearRefreshTimer();
         this.clearIframeLoadTimeout();
         this.clearInitialDeepLinkScrollLock();
@@ -1006,6 +1050,10 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           ? effectiveProps.fixedHeightPx
           : 800,
       fitContentWidth: effectiveProps.fitContentWidth === true,
+      rewriteAnchorHrefs: this.shouldRewriteInlineAnchorHrefs(effectiveProps),
+      deepLinkQueryParamName: this.getInlineDeepLinkParamName(effectiveProps),
+      preservedHostQueryParamNames:
+        this.getInlineAnchorPreservedHostQueryParamNames(effectiveProps),
       onNavigate: (targetUrl: string, inlineCacheBusterMode: CacheBusterMode) => {
         this.currentBaseUrl = targetUrl;
         this.setLoadingVisible(true);
@@ -1013,9 +1061,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         const updatedPageUrl = this.getCurrentPageUrl();
         this.onNavigatedToUrl(targetUrl, updatedPageUrl);
         const navigatedPageUrl = this.getCurrentPageUrl();
-        if (isInlineContentDeliveryMode(contentDeliveryMode)) {
-          this.applyInitialDeepLinkScrollLock();
-        }
         this.setupAutoRefresh(
           targetUrl,
           inlineCacheBusterMode,
@@ -1034,7 +1079,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           cacheBusterParamName,
           navigatedPageUrl,
           true,
-          false,
+          true,
         ).catch(() => {
           return undefined;
         });
@@ -1071,6 +1116,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     pageUrl: string,
     props: IUniversalHtmlViewerWebPartProps,
     bypassInlineContentCache: boolean = false,
+    refreshRequestId?: number,
   ): Promise<boolean> {
     const contentDeliveryMode: ContentDeliveryMode = this.getContentDeliveryMode(props);
     if (!isInlineContentDeliveryMode(contentDeliveryMode)) {
@@ -1088,10 +1134,19 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           SPHttpClient.configurations.v1,
           this.getInlineContentOptions(props, bypassInlineContentCache),
         );
+        if (
+          refreshRequestId !== undefined &&
+          !this.isRefreshRequestCurrent(refreshRequestId)
+        ) {
+          return false;
+        }
         this.lastInlineContentLoadError = '';
         this.syncPageTitleFromHtml(blobHtml, props);
         iframe.removeAttribute('srcdoc');
-        iframe.src = this.createInlineBlobUrl(blobHtml);
+        this.replaceInlineBlobFrameLocation(
+          iframe,
+          this.createInlineBlobUrl(blobHtml),
+        );
         return true;
       }
 
@@ -1104,12 +1159,23 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         SPHttpClient.configurations.v1,
         this.getInlineContentOptions(props, bypassInlineContentCache),
       );
+      if (
+        refreshRequestId !== undefined &&
+        !this.isRefreshRequestCurrent(refreshRequestId)
+      ) {
+        return false;
+      }
       this.lastInlineContentLoadError = '';
       this.syncPageTitleFromHtml(inlineHtml, props);
       iframe.srcdoc = inlineHtml;
       return true;
     } catch (error) {
-      this.lastInlineContentLoadError = this.formatInlineContentLoadError(error);
+      if (
+        refreshRequestId === undefined ||
+        this.isRefreshRequestCurrent(refreshRequestId)
+      ) {
+        this.lastInlineContentLoadError = this.formatInlineContentLoadError(error);
+      }
       return false;
     }
   }
@@ -1133,6 +1199,10 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       rewriteInlineAnchorAllowedFileExtensions: this.parseFileExtensions(
         props.allowedFileExtensions,
       ),
+      rewriteInlineAnchorAllowedPathPrefixes: this.parsePathPrefixes(
+        props.allowedPathPrefixes,
+      ),
+      rewriteInlineAnchorDeepLinkQueryParamName: this.getInlineDeepLinkParamName(props),
       rewriteInlineAnchorPreservedHostQueryParamNames:
         this.getInlineAnchorPreservedHostQueryParamNames(props),
     };
@@ -1168,6 +1238,21 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       URL.revokeObjectURL(previousBlobUrl);
     }
     return nextBlobUrl;
+  }
+  private replaceInlineBlobFrameLocation(
+    iframe: HTMLIFrameElement,
+    blobUrl: string,
+  ): void {
+    try {
+      const iframeWindow = iframe.contentWindow;
+      if (iframeWindow && typeof iframeWindow.location?.replace === 'function') {
+        iframeWindow.location.replace(blobUrl);
+        return;
+      }
+    } catch {
+      // Fall back to src when the active sandbox does not expose frame navigation.
+    }
+    iframe.src = blobUrl;
   }
   private syncPageTitleFromHtml(
     html: string | undefined,
@@ -1277,12 +1362,19 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     if (!isInlineContentDeliveryMode(this.getContentDeliveryMode(effectiveProps))) {
       return;
     }
+    if (
+      effectiveProps.allowQueryStringPageOverride !== true ||
+      (effectiveProps.enableExpertSecurityModes === true &&
+        effectiveProps.securityMode === 'AnyHttps')
+    ) {
+      return;
+    }
 
     const currentPageUrl: string = (pageUrl || '').trim() || this.getCurrentPageUrl();
     const updatedPageUrl = buildPageUrlWithInlineDeepLink({
       pageUrl: currentPageUrl,
       targetUrl,
-      queryParamName: this.inlineDeepLinkParamName,
+      queryParamName: this.getInlineDeepLinkParamName(effectiveProps),
     });
     if (
       !updatedPageUrl ||
@@ -1301,9 +1393,10 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     }
   }
   private buildResetToDefaultDashboardHtml(pageUrl: string): string {
+    const effectiveProps = this.lastEffectiveProps || this.properties;
     const resetUrl = buildPageUrlWithoutInlineDeepLink({
       pageUrl,
-      queryParamName: this.inlineDeepLinkParamName,
+      queryParamName: this.getInlineDeepLinkParamName(effectiveProps),
     });
     if (!resetUrl || resetUrl === pageUrl) {
       return '';
@@ -1443,52 +1536,20 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     }
   }
   private configureInlineDeepLinkScrollRestoration(enabled: boolean): void {
-    if (typeof window === 'undefined' || !window.history) {
-      return;
-    }
-
-    const historyObject = window.history as History & {
-      scrollRestoration?: 'auto' | 'manual';
-    };
-
     if (enabled) {
-      if (this.isInlineDeepLinkScrollRestorationManaged) {
-        return;
-      }
-
-      const currentScrollRestoration =
-        typeof historyObject.scrollRestoration === 'string'
-          ? historyObject.scrollRestoration
-          : undefined;
-      this.previousInlineDeepLinkScrollRestoration = currentScrollRestoration;
-      try {
-        historyObject.scrollRestoration = 'manual';
-        this.isInlineDeepLinkScrollRestorationManaged = true;
-      } catch {
-        this.previousInlineDeepLinkScrollRestoration = undefined;
-      }
+      acquireManualHistoryScrollRestoration(window, this.historyScrollRestorationOwnerId);
       return;
     }
-
-    if (!this.isInlineDeepLinkScrollRestorationManaged) {
-      return;
-    }
-
-    try {
-      if (this.previousInlineDeepLinkScrollRestoration) {
-        historyObject.scrollRestoration = this.previousInlineDeepLinkScrollRestoration;
-      }
-    } catch {
-      // Ignore restoration failures in unsupported browser contexts.
-    }
-    this.isInlineDeepLinkScrollRestorationManaged = false;
-    this.previousInlineDeepLinkScrollRestoration = undefined;
+    releaseManualHistoryScrollRestoration(window, this.historyScrollRestorationOwnerId);
   }
   private clearNestedIframeHydration(): void {
     if (this.nestedIframeHydrationCleanup) {
       this.nestedIframeHydrationCleanup();
       this.nestedIframeHydrationCleanup = undefined;
     }
+  }
+  private getInlineDeepLinkParamName(props: IUniversalHtmlViewerWebPartProps): string {
+    return (props.inlineDeepLinkParamName || '').trim() || DEFAULT_INLINE_DEEP_LINK_PARAM;
   }
   private applyInitialDeepLinkScrollLock(): void {
     if (typeof window === 'undefined') {
@@ -1498,21 +1559,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.clearInitialDeepLinkScrollLock('replace');
     this.deepLinkScrollLockDiagnostics.starts += 1;
     this.deepLinkScrollLockDiagnostics.active = true;
-
-    const historyObject = window.history as History & {
-      scrollRestoration?: 'auto' | 'manual';
-    };
-    const previousScrollRestoration =
-      typeof historyObject.scrollRestoration === 'string'
-        ? historyObject.scrollRestoration
-        : undefined;
-    try {
-      if (previousScrollRestoration) {
-        historyObject.scrollRestoration = 'manual';
-      }
-    } catch {
-      // Continue even if scroll restoration cannot be toggled in this browser context.
-    }
 
     let released = false;
     let intervalId = 0;
@@ -1560,7 +1606,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     trace(
       'scroll-lock-start',
       {
-        previousScrollRestoration: previousScrollRestoration || '(none)',
         hostContainers: hostScrollContainers.map((container) =>
           this.describeScrollElement(container),
         ),
@@ -1732,13 +1777,6 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         hostScrollContainer.removeEventListener('scroll', onHostScroll, true);
       });
 
-      if (previousScrollRestoration) {
-        try {
-          historyObject.scrollRestoration = previousScrollRestoration;
-        } catch {
-          return;
-        }
-      }
       trace('scroll-lock-released', undefined, true);
     };
 
@@ -1860,11 +1898,17 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
     this.initialDeepLinkScrollLockCleanup = undefined;
   }
   protected onDispose(): void {
+    this.renderDisposed = true;
+    this.renderRequestId += 1;
     this.configureInlineDeepLinkPopState(false);
     this.clearInitialDeepLinkScrollLock('dispose');
     this.clearNestedIframeHydration();
     this.revokeActiveInlineBlobUrl();
     this.restoreOriginalDocumentTitle();
     super.onDispose();
+  }
+
+  private isRenderRequestCurrent(renderRequestId: number): boolean {
+    return !this.renderDisposed && renderRequestId === this.renderRequestId;
   }
 }

@@ -44,6 +44,58 @@ function createRuntimeHarness(domElement: HTMLElement): any {
 }
 
 describe('UniversalHtmlViewerWebPartRuntimeBase refreshIframe lifecycle', () => {
+  it('keeps the newest navigation when an older refresh resolves later', async () => {
+    const iframe = document.createElement('iframe');
+    const container = document.createElement('div');
+    container.appendChild(iframe);
+    const runtime = createRuntimeHarness(container);
+    let resolveFirst: ((value: string) => void) | undefined;
+    let resolveSecond: ((value: string) => void) | undefined;
+    runtime.resolveUrlWithCacheBuster = jest
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveSecond = resolve;
+          }),
+      );
+
+    const firstRefresh = (runtime as any).refreshIframe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/first.html',
+      'None',
+      'v',
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
+    );
+    const secondRefresh = (runtime as any).refreshIframe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/second.html',
+      'None',
+      'v',
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
+    );
+
+    resolveSecond?.(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/second.html',
+    );
+    await secondRefresh;
+    expect(iframe.src).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/second.html',
+    );
+
+    resolveFirst?.(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/first.html',
+    );
+    await firstRefresh;
+    expect(iframe.src).toBe(
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/second.html',
+    );
+  });
+
   it('clears previous host-scroll restore load listener before wiring a new one', async () => {
     const iframe = document.createElement('iframe');
     const addEventListenerSpy = jest.spyOn(iframe, 'addEventListener');

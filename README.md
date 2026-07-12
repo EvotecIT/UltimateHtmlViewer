@@ -255,12 +255,14 @@ sequenceDiagram
 | `allowedHosts` | host list | Explicit host allowlist for `Allowlist` mode. |
 | `allowedPathPrefixes` | path list | Optional path constraints for tighter scope. |
 | `allowQueryStringPageOverride` | `true` / `false` | Allows or disables `uhvPage` query-driven deep-link override in inline mode. |
+| `inlineDeepLinkParamName` | query parameter name | Defaults to `uhvPage`. Give each viewer a unique name when a page contains more than one UHV web part. |
 | `inlineExternalScripts` | `true` / `false` | Compatibility mode that fetches allowed external report scripts and inlines them before rendering. Useful when SharePoint CSP blocks CDN script tags used by generated reports. |
 | `inlineExternalScriptAllowedHosts` | host list | Optional host allowlist for external script inlining. When empty, UHV allows common PSWriteHTML CDN hosts: `code.jquery.com`, `cdnjs.cloudflare.com`, `cdn.jsdelivr.net`, `cdn.datatables.net`, `nightly.datatables.net`, `unpkg.com`. |
 | `sandboxPreset` | preset or custom | Controls iframe sandbox behavior. |
 | `iframeAllow` | permissions policy string | Optional iframe permissions (`fullscreen`, etc.). |
 
 - In `SharePointFileContent` mode, UHV injects a defensive `Content-Security-Policy` meta tag into `srcdoc` when the source HTML does not define one.
+- `Strict` isolates report content in an opaque origin while allowing user-initiated downloads and new tabs. `Relaxed` supports reports that need same-origin DOM access, but it should be used only for trusted content because `allow-scripts` plus `allow-same-origin` is not an effective containment boundary.
 - If your report HTML already defines a CSP meta tag, UHV preserves that policy and does not inject a second one.
 - `inlineExternalScripts` is intentionally opt-in because it executes the same third-party scripts the report references, but from inline HTML instead of blocked CDN `<script src>` tags.
 
@@ -314,6 +316,7 @@ UHV treats the host SharePoint page URL as the navigation state for the embedded
 - Works with site-relative paths (recommended) and allowed absolute URLs (based on security mode).
 - If `uhvPage` is missing, UHV falls back to configured default file.
 - By default, UHV ignores `uhvPage` and keeps configured default URL unless `allowQueryStringPageOverride` is enabled.
+- If a page contains multiple UHV web parts, set a different `inlineDeepLinkParamName` on each viewer so Back/Forward and shareable links address the intended viewer.
 - In `AnyHttps` mode, UHV intentionally ignores `uhvPage` overrides and keeps configured default URL to reduce open-redirect style abuse.
 
 ```mermaid
@@ -358,7 +361,7 @@ sequenceDiagram
 - Single source of truth (when query override is enabled):
   - URL query parameter (`uhvPage`) represents current embedded subpage.
 - Controlled inline navigation:
-  - UHV only intercepts approved extensions/links and normalizes paths.
+  - UHV only intercepts primary-click navigation to approved HTML extensions inside the configured host/path boundary. Eligible HTML anchors, including runtime-generated calendar links, are rewritten to the UHV host page so SharePoint cannot turn them into attachment downloads. `_blank` still opens a new tab, but that tab loads the UHV deep link. External links and non-HTML downloads keep native browser behavior.
 - Security-gated loading:
   - All requested targets pass URL policy checks (`StrictTenant`, `Allowlist`, `AnyHttps`).
 - Host-scroll protection during hydration:
@@ -384,10 +387,11 @@ sequenceDiagram
 
 ## 🚦 API and Throttling Considerations
 
-- `SharePointFileContent` mode loads HTML through SharePoint REST (`GetFileByServerRelativeUrl(...)/$value`).
+- `SharePointFileContent` mode loads HTML through SharePoint REST (`GetFileByServerRelativePath(decodedUrl=...)/$value`), which correctly handles literal `%` and `#` characters in SharePoint names.
 - With frequent refresh intervals and high traffic, this can increase API pressure.
 - UHV now retries transient SharePoint API failures (`429`, `502`, `503`, `504`) with bounded backoff and honors `Retry-After` when provided.
 - Auto-refresh skips hidden browser tabs and avoids overlapping refresh runs, reducing unnecessary background API traffic.
+- Recursive Files view has a bounded SharePoint request budget; if a very large folder tree reaches it, narrow the configured report root instead of issuing an unbounded request chain.
 - Keep `refreshIntervalMinutes` conservative and prefer `FileLastModified` cache-busting over aggressive timestamp refreshes.
 - Tune `inlineContentCacheTtlSeconds` (default 15s) to balance freshness and API volume.
 

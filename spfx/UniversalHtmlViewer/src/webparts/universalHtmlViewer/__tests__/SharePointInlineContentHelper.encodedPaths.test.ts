@@ -31,6 +31,8 @@ describe('loadSharePointFileContentForInline encoded server-relative paths', () 
     );
 
     const requestUrl = mockGet.mock.calls[0][0] as string;
+    expect(requestUrl).toContain('GetFileByServerRelativePath(decodedUrl=@p1)');
+    expect(requestUrl).not.toContain('GetFileByServerRelativeUrl');
     expect(requestUrl).toContain('My%20Reports');
     expect(requestUrl).toContain('Quarter%20%231.html');
     expect(requestUrl).not.toContain('%2520');

@@ -76,10 +76,10 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const allowedPathPrefixes: string[] = this.parsePathPrefixes(
       effectiveProps.allowedPathPrefixes,
     );
-    const inferredSourcePathPrefix = this.inferInlineSourcePathPrefix(
-      effectiveProps,
-      currentPageUrl,
-    );
+    const shouldInferPathPrefixes = allowedPathPrefixes.length === 0;
+    const inferredSourcePathPrefix = shouldInferPathPrefixes
+      ? this.inferInlineSourcePathPrefix(effectiveProps, currentPageUrl)
+      : undefined;
     if (
       inferredSourcePathPrefix &&
       !allowedPathPrefixes.some(
@@ -90,10 +90,9 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     ) {
       allowedPathPrefixes.push(inferredSourcePathPrefix);
     }
-    const inferredReportBrowserPathPrefix = this.inferReportBrowserPathPrefix(
-      effectiveProps,
-      currentPageUrl,
-    );
+    const inferredReportBrowserPathPrefix = shouldInferPathPrefixes
+      ? this.inferReportBrowserPathPrefix(effectiveProps, currentPageUrl)
+      : undefined;
     if (
       inferredReportBrowserPathPrefix &&
       !allowedPathPrefixes.some(
@@ -128,10 +127,6 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     }
 
     const candidateUrls = new Set<string>();
-    const trimmedCurrentBaseUrl = (this.currentBaseUrl || '').trim();
-    if (trimmedCurrentBaseUrl) {
-      candidateUrls.add(trimmedCurrentBaseUrl);
-    }
 
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
     const builtUrl = buildFinalUrl({
@@ -165,11 +160,6 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       return undefined;
     }
 
-    const currentWebPrefix = this.tryGetCurrentWebPrefix();
-    if (currentWebPrefix) {
-      inferredPrefixes.push(currentWebPrefix);
-    }
-
     const uniquePrefixes: string[] = [];
     const seen = new Set<string>();
     inferredPrefixes.forEach((prefix) => {
@@ -182,7 +172,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       uniquePrefixes.push(prefix);
     });
 
-    return uniquePrefixes.sort((left, right) => left.length - right.length)[0];
+    return uniquePrefixes.sort((left, right) => right.length - left.length)[0];
   }
 
   private inferReportBrowserPathPrefix(
@@ -207,23 +197,6 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       this.context.pageContext.web.absoluteUrl || currentPageUrl,
     );
     return normalizedRootPath ? `${normalizedRootPath}/` : undefined;
-  }
-
-  private tryGetCurrentWebPrefix(): string | undefined {
-    const serverRelativeUrl = (this.context?.pageContext?.web?.serverRelativeUrl || '').trim();
-    if (!serverRelativeUrl) {
-      return undefined;
-    }
-
-    let normalized = serverRelativeUrl.replace(/\\/g, '/');
-    if (!normalized.startsWith('/')) {
-      normalized = `/${normalized}`;
-    }
-    if (!normalized.endsWith('/')) {
-      normalized = `${normalized}/`;
-    }
-
-    return normalized;
   }
 
   private resolveContentDeliveryMode(
@@ -518,6 +491,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.showConfigActions = true;
     props.showDashboardSelector = false;
     props.allowQueryStringPageOverride = false;
+    props.inlineDeepLinkParamName = props.inlineDeepLinkParamName || 'uhvPage';
     props.fitContentWidth = false;
     props.chromeDensity = 'Comfortable';
     props.iframeLoadTimeoutSeconds = 10;
@@ -621,7 +595,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
 
   protected parsePathPrefixes(value?: string): string[] {
     return (value || '')
-      .split(/[,;\s]+/g)
+      .split(/[,;\r\n]+/g)
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0)
       .map((entry) => {
@@ -671,7 +645,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
         return 'allow-same-origin allow-scripts allow-forms allow-popups allow-downloads';
       }
       if (normalizedPreset === 'strict') {
-        return 'allow-scripts';
+        return 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-downloads';
       }
       return '';
     }

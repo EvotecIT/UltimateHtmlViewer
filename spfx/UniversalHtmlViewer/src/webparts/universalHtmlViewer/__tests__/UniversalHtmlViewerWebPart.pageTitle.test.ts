@@ -112,6 +112,68 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     expect((window as any).__uhvPageTitleSync).toBeUndefined();
   });
 
+  it('does not mutate browser history when inline deep links are disabled', () => {
+    const webPart = createWebPart();
+    webPart.lastEffectiveProps = {
+      contentDeliveryMode: 'SharePointFileContent',
+      allowQueryStringPageOverride: false,
+    };
+    const pushStateSpy = jest.spyOn(window.history, 'pushState');
+
+    webPart.onNavigatedToUrl(
+      `${window.location.origin}/SiteAssets/Reports/Next.html`,
+      `${window.location.origin}/SitePages/Dashboard.aspx`,
+    );
+
+    expect(pushStateSpy).not.toHaveBeenCalled();
+    pushStateSpy.mockRestore();
+  });
+
+  it('uses the configured deep-link parameter when history integration is enabled', () => {
+    const webPart = createWebPart();
+    webPart.lastEffectiveProps = {
+      contentDeliveryMode: 'SharePointFileContent',
+      allowQueryStringPageOverride: true,
+      inlineDeepLinkParamName: 'viewerTwoPage',
+    };
+    const pushStateSpy = jest
+      .spyOn(window.history, 'pushState')
+      .mockImplementation(() => undefined);
+
+    webPart.onNavigatedToUrl(
+      `${window.location.origin}/SiteAssets/Reports/Next.html`,
+      `${window.location.origin}/SitePages/Dashboard.aspx`,
+    );
+
+    expect(pushStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      expect.stringContaining('viewerTwoPage='),
+    );
+    pushStateSpy.mockRestore();
+  });
+
+  it('replaces an active blob frame location without adding iframe history', () => {
+    const webPart = createWebPart();
+    const replace = jest.fn();
+    const iframe = {
+      contentWindow: {
+        location: {
+          replace,
+        },
+      },
+      src: 'blob:https://contoso.sharepoint.com/old',
+    } as unknown as HTMLIFrameElement;
+
+    webPart.replaceInlineBlobFrameLocation(
+      iframe,
+      'blob:https://contoso.sharepoint.com/new',
+    );
+
+    expect(replace).toHaveBeenCalledWith('blob:https://contoso.sharepoint.com/new');
+    expect(iframe.src).toBe('blob:https://contoso.sharepoint.com/old');
+  });
+
   it('does not restore a title owned by another active viewer instance', () => {
     const firstWebPart = createWebPart('first');
     const secondWebPart = createWebPart('second');

@@ -28,6 +28,7 @@ import {
   isReportBrowserSourceMode,
 } from './UniversalHtmlViewerTypes';
 import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPartConfigBase';
+import { buildSharePointFileByPathApiUrl } from './SharePointResourcePathHelper';
 
 export interface INestedIframeDiagnosticsCounters {
   hydrationStarted: number;
@@ -64,6 +65,13 @@ export interface IDeepLinkScrollLockDiagnosticsCounters {
   lastLockDurationMs: number;
 }
 
+export interface IHostScrollPosition {
+  x: number;
+  y: number;
+  target?: HTMLElement;
+  useWindow?: boolean;
+}
+
 export function createDefaultDeepLinkScrollLockDiagnosticsCounters(): IDeepLinkScrollLockDiagnosticsCounters {
   return {
     starts: 0,
@@ -82,6 +90,7 @@ export function createDefaultDeepLinkScrollLockDiagnosticsCounters(): IDeepLinkS
 
 export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtmlViewerWebPartConfigBase {
   protected refreshInProgress: boolean = false;
+  private refreshRequestId: number = 0;
   protected lastInlineContentLoadError: string = '';
   protected nestedIframeDiagnostics: INestedIframeDiagnosticsCounters = {
     hydrationStarted: 0,
@@ -135,6 +144,8 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
           cacheBusterMode,
           cacheBusterParamName,
           activeTarget.pageUrl,
+          false,
+          true,
         ).catch(() => {
           return undefined;
         });
@@ -159,10 +170,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     preserveHostScrollPosition: boolean = false,
     bypassInlineContentCache: boolean = false,
   ): Promise<void> {
-    if (this.refreshInProgress) {
-      return;
-    }
-
+    const refreshRequestId = this.nextRefreshRequestId();
     this.refreshInProgress = true;
     try {
       this.clearHostScrollRestoreOnLoadListener();
@@ -183,6 +191,9 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
         cacheBusterParamName,
         pageUrl,
       );
+      if (!this.isRefreshRequestCurrent(refreshRequestId)) {
+        return;
+      }
 
       const effectiveProps: IUniversalHtmlViewerWebPartProps =
         this.lastEffectiveProps || this.properties;
@@ -197,7 +208,11 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
           pageUrl,
           effectiveProps,
           bypassInlineContentCache,
+          refreshRequestId,
         );
+        if (!this.isRefreshRequestCurrent(refreshRequestId)) {
+          return;
+        }
         if (updatedFromContent) {
           this.setLoadingVisible(false);
           if (resetInlineScrollToTop) {
@@ -220,7 +235,11 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       }
 
       const activeIframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
-      if (!activeIframe || activeIframe !== iframe) {
+      if (
+        !this.isRefreshRequestCurrent(refreshRequestId) ||
+        !activeIframe ||
+        activeIframe !== iframe
+      ) {
         return;
       }
 
@@ -237,8 +256,27 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       activeIframe.src = refreshedUrl;
       this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
     } finally {
-      this.refreshInProgress = false;
+      if (this.isRefreshRequestCurrent(refreshRequestId)) {
+        this.refreshInProgress = false;
+      }
     }
+  }
+
+  protected invalidateRefreshRequests(): void {
+    this.nextRefreshRequestId();
+    this.refreshInProgress = false;
+  }
+
+  protected isRefreshRequestCurrent(refreshRequestId: number): boolean {
+    return refreshRequestId === this.refreshRequestId;
+  }
+
+  private nextRefreshRequestId(): number {
+    const currentRequestId = Number.isFinite(this.refreshRequestId)
+      ? this.refreshRequestId
+      : 0;
+    this.refreshRequestId = currentRequestId + 1;
+    return this.refreshRequestId;
   }
 
   protected resetIframeScrollPosition(iframe: HTMLIFrameElement, targetUrl?: string): void {
@@ -309,7 +347,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     }
   }
 
-  protected captureHostScrollPosition(): { x: number; y: number } | undefined {
+  protected captureHostScrollPosition(): IHostScrollPosition | undefined {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       return undefined;
     }
@@ -323,6 +361,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       return {
         x: hostScrollContainer.scrollLeft || 0,
         y: hostScrollContainer.scrollTop || 0,
+        target: hostScrollContainer,
       };
     }
 
@@ -331,43 +370,32 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       return {
         x: scrollingElement.scrollLeft || 0,
         y: scrollingElement.scrollTop || 0,
+        target: scrollingElement,
       };
     }
 
     return {
       x: window.scrollX || 0,
       y: window.scrollY || 0,
+      useWindow: true,
     };
   }
 
-  protected restoreHostScrollPosition(position: { x: number; y: number }): void {
+  protected restoreHostScrollPosition(position: IHostScrollPosition): void {
     if (!position || typeof window === 'undefined' || typeof document === 'undefined') {
       return;
     }
 
     const applyRestore = (): void => {
-      const hostScrollContainers = this.getPotentialHostScrollContainers();
-      hostScrollContainers.forEach((hostScrollContainer) => {
-        hostScrollContainer.scrollLeft = position.x;
-        hostScrollContainer.scrollTop = position.y;
-      });
-
-      const scrollingElement = document.scrollingElement as HTMLElement | null;
-      if (scrollingElement) {
-        scrollingElement.scrollLeft = position.x;
-        scrollingElement.scrollTop = position.y;
+      if (position.target && document.contains(position.target)) {
+        position.target.scrollLeft = position.x;
+        position.target.scrollTop = position.y;
+        return;
       }
 
-      if (document.documentElement) {
-        document.documentElement.scrollLeft = position.x;
-        document.documentElement.scrollTop = position.y;
+      if (position.useWindow || !position.target) {
+        window.scrollTo(position.x, position.y);
       }
-      if (document.body) {
-        document.body.scrollLeft = position.x;
-        document.body.scrollTop = position.y;
-      }
-
-      window.scrollTo(position.x, position.y);
     };
 
     applyRestore();
@@ -381,93 +409,21 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       return;
     }
 
-    const touched = new Set<HTMLElement>();
-    const setTop = (element?: HTMLElement | null): void => {
-      if (!element || touched.has(element)) {
-        return;
-      }
-
-      touched.add(element);
-      element.scrollTop = 0;
-      element.scrollLeft = 0;
-    };
-
-    setTop(document.scrollingElement as HTMLElement | null);
-    setTop(document.documentElement);
-    setTop(document.body);
-
-    this.getPotentialHostScrollContainers().forEach((container) => {
-      setTop(container);
-    });
-
-    // Try common SharePoint scroll containers explicitly.
-    const sharePointScrollSelectors = [
-      '#spPageChromeAppDiv',
-      '[data-automationid="contentScrollRegion"]',
-      '.SPPageChrome',
-      '.CanvasZoneContainer',
-      '.CanvasZone',
-      '.CanvasComponent',
-      '[role="main"]',
-      'main',
-    ];
-    const sharePointCandidates = document.querySelectorAll<HTMLElement>(
-      sharePointScrollSelectors.join(','),
+    const hostScrollContainers = this.getPotentialHostScrollContainers();
+    const activeContainer = hostScrollContainers.find(
+      (container) => container.scrollTop !== 0 || container.scrollLeft !== 0,
     );
-    sharePointCandidates.forEach((element) => {
-      setTop(element);
-    });
-
-    // Active element ancestry can include hidden scroll wrappers.
-    let current = document.activeElement as HTMLElement | null;
-    while (current) {
-      setTop(current);
-      current = current.parentElement;
+    const scrollingElement = document.scrollingElement as HTMLElement | null;
+    const target = activeContainer || scrollingElement;
+    if (target) {
+      target.scrollTop = 0;
+      target.scrollLeft = 0;
     }
 
-    const topMarker = this.ensureHostTopMarker();
-    if (topMarker) {
-      try {
-        topMarker.scrollIntoView({
-          block: 'start',
-          inline: 'nearest',
-          behavior: 'auto',
-        });
-      } catch {
-        try {
-          topMarker.scrollIntoView(true);
-        } catch {
-          return;
-        }
-      }
+    if (!target || target === scrollingElement) {
+      window.scrollTo(0, 0);
     }
-
-    window.scrollTo(0, 0);
   }
-  protected ensureHostTopMarker(): HTMLElement | undefined {
-    if (typeof document === 'undefined' || !document.body) {
-      return undefined;
-    }
-
-    const markerId = 'uhv-scroll-top-marker';
-    let marker = document.getElementById(markerId) as HTMLElement | undefined;
-    if (!marker) {
-      marker = document.createElement('div');
-      marker.id = markerId;
-      marker.setAttribute('aria-hidden', 'true');
-      marker.style.position = 'absolute';
-      marker.style.top = '0';
-      marker.style.left = '0';
-      marker.style.width = '1px';
-      marker.style.height = '1px';
-      marker.style.pointerEvents = 'none';
-      marker.style.opacity = '0';
-      document.body.insertBefore(marker, document.body.firstChild);
-    }
-
-    return marker;
-  }
-
   protected getPotentialHostScrollContainers(): HTMLElement[] {
     if (typeof document === 'undefined') {
       return [];
@@ -668,6 +624,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     _pageUrl: string,
     _props: IUniversalHtmlViewerWebPartProps,
     _bypassInlineContentCache: boolean = false,
+    _refreshRequestId?: number,
   ): Promise<boolean> {
     return false;
   }
@@ -831,8 +788,12 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       return null;
     }
 
-    const encodedPath: string = encodeURIComponent(serverRelativePath);
-    const apiUrl: string = `${this.context.pageContext.web.absoluteUrl}/_api/web/GetFileByServerRelativeUrl(@p1)?@p1='${encodedPath}'&$select=TimeLastModified,ETag`;
+    const apiUrl: string = buildSharePointFileByPathApiUrl(
+      this.context.pageContext.web.absoluteUrl,
+      serverRelativePath,
+      '',
+      '$select=TimeLastModified,ETag',
+    );
 
     try {
       const response: SPHttpClientResponse = await this.context.spHttpClient.get(
@@ -1052,6 +1013,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   }
 
   protected onDispose(): void {
+    this.invalidateRefreshRequests();
     this.clearRefreshTimer();
     this.clearIframeLoadTimeout();
     this.clearIframeLoadFallbackListener();

@@ -235,7 +235,7 @@ describe('InlineNavigationHelper', () => {
     expect(result).toBeUndefined();
   });
 
-  it('intercepts same-site html links even when target is _blank', () => {
+  it('keeps native behavior for links that target a new browsing context', () => {
     const anchor = document.createElement('a');
     anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html';
     anchor.setAttribute(
@@ -256,12 +256,10 @@ describe('InlineNavigationHelper', () => {
       cacheBusterParamName: 'v',
     });
 
-    expect(result).toBe(
-      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html',
-    );
+    expect(result).toBeUndefined();
   });
 
-  it('intercepts same-site html links even when download attribute is present', () => {
+  it('intercepts eligible html download links so SharePoint cannot download them', () => {
     const anchor = document.createElement('a');
     anchor.href = 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/index.html';
     anchor.setAttribute(

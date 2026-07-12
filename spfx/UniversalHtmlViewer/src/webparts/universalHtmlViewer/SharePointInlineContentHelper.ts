@@ -5,16 +5,18 @@ import {
 } from './InlineHtmlTransformHelper';
 import {
   clearExternalScriptInliningCacheForTests,
-  getInlineExternalScriptAllowedHosts,
   inlineAllowedExternalScripts,
 } from './ExternalScriptInliningHelper';
+import { buildSharePointFileByPathApiUrl } from './SharePointResourcePathHelper';
+import {
+  buildInlineHtmlCacheKey,
+  InlineHtmlRenderMode,
+} from './InlineHtmlCacheKeyHelper';
 
 interface IInlineHtmlCacheEntry {
   html: string;
   expiresAt: number;
 }
-
-type InlineHtmlRenderMode = 'SrcDoc' | 'BlobUrl';
 
 export interface ILoadSharePointInlineContentOptions {
   cacheTtlMs?: number;
@@ -30,6 +32,8 @@ export interface ILoadSharePointInlineContentOptions {
   inlineCspImageAllowedHosts?: string[];
   rewriteInlineAnchorHrefs?: boolean;
   rewriteInlineAnchorAllowedFileExtensions?: string[];
+  rewriteInlineAnchorAllowedPathPrefixes?: string[];
+  rewriteInlineAnchorDeepLinkQueryParamName?: string;
   rewriteInlineAnchorPreservedHostQueryParamNames?: string[];
 }
 
@@ -115,6 +119,8 @@ async function loadSharePointFileContent(
     options?.inlineCspImageAllowedHosts || [],
     options?.rewriteInlineAnchorHrefs === true,
     options?.rewriteInlineAnchorAllowedFileExtensions || [],
+    options?.rewriteInlineAnchorAllowedPathPrefixes || [],
+    options?.rewriteInlineAnchorDeepLinkQueryParamName || '',
     options?.rewriteInlineAnchorPreservedHostQueryParamNames || [],
   );
   const bypassCache = options?.bypassCache === true;
@@ -180,8 +186,11 @@ async function loadSharePointInlineHtmlFromApi(
   options?: ILoadSharePointInlineContentOptions,
   renderMode: InlineHtmlRenderMode = 'SrcDoc',
 ): Promise<string> {
-  const encodedPath = encodeURIComponent(serverRelativePath);
-  const apiUrl = `${webAbsoluteUrl}/_api/web/GetFileByServerRelativeUrl(@p1)/$value?@p1='${encodedPath}'`;
+  const apiUrl = buildSharePointFileByPathApiUrl(
+    webAbsoluteUrl,
+    serverRelativePath,
+    '/$value',
+  );
 
   const response: SPHttpClientResponse = await getInlineHtmlResponseWithRetry(
     spHttpClient,
@@ -208,6 +217,8 @@ async function loadSharePointInlineHtmlFromApi(
     {
       enabled: options?.inlineExternalScripts === true,
       allowedHosts: options?.inlineExternalScriptAllowedHosts,
+      cacheTtlMs: options?.cacheTtlMs,
+      bypassCache: options?.bypassCache === true,
     },
   );
 
@@ -216,6 +227,10 @@ async function loadSharePointInlineHtmlFromApi(
       rewriteInlineAnchorHrefs: options?.rewriteInlineAnchorHrefs === true,
       rewriteInlineAnchorAllowedFileExtensions:
         options?.rewriteInlineAnchorAllowedFileExtensions,
+      rewriteInlineAnchorAllowedPathPrefixes:
+        options?.rewriteInlineAnchorAllowedPathPrefixes,
+      rewriteInlineAnchorDeepLinkQueryParamName:
+        options?.rewriteInlineAnchorDeepLinkQueryParamName,
       rewriteInlineAnchorPreservedHostQueryParamNames:
         options?.rewriteInlineAnchorPreservedHostQueryParamNames,
     });
@@ -229,6 +244,10 @@ async function loadSharePointInlineHtmlFromApi(
     rewriteInlineAnchorHrefs: options?.rewriteInlineAnchorHrefs === true,
     rewriteInlineAnchorAllowedFileExtensions:
       options?.rewriteInlineAnchorAllowedFileExtensions,
+    rewriteInlineAnchorAllowedPathPrefixes:
+      options?.rewriteInlineAnchorAllowedPathPrefixes,
+    rewriteInlineAnchorDeepLinkQueryParamName:
+      options?.rewriteInlineAnchorDeepLinkQueryParamName,
     rewriteInlineAnchorPreservedHostQueryParamNames:
       options?.rewriteInlineAnchorPreservedHostQueryParamNames,
   });
@@ -299,76 +318,6 @@ async function getInlineHtmlResponseWithRetry(
   }
 
   return response;
-}
-
-function buildInlineHtmlCacheKey(
-  webAbsoluteUrl: string,
-  sourceUrl: string,
-  baseUrlForRelativeLinks: string,
-  pageUrl: string,
-  renderMode: InlineHtmlRenderMode,
-  enforceStrictInlineCsp: boolean,
-  inlineExternalScripts: boolean,
-  inlineExternalScriptAllowedHosts: string[],
-  inlineCspScriptAllowedHosts: string[],
-  inlineCspStyleAllowedHosts: string[],
-  inlineCspImageAllowedHosts: string[],
-  rewriteInlineAnchorHrefs: boolean,
-  rewriteInlineAnchorAllowedFileExtensions: string[],
-  rewriteInlineAnchorPreservedHostQueryParamNames: string[],
-): string {
-  const normalizedSourceUrl = (sourceUrl || '').trim();
-  const normalizedBaseUrl = (baseUrlForRelativeLinks || '').trim();
-  const normalizedPageUrl = normalizePageUrlForCache(pageUrl);
-  const normalizedRenderMode = renderMode === 'BlobUrl' ? 'blob-url' : 'srcdoc';
-  const normalizedStrictMode = enforceStrictInlineCsp ? 'strict-csp' : 'default-csp';
-  const normalizedExternalScriptMode = inlineExternalScripts
-    ? `inline-scripts:${getInlineExternalScriptAllowedHosts(inlineExternalScriptAllowedHosts).join(',')}`
-    : 'external-scripts';
-  const normalizedInlineCspSources = [
-    `script:${normalizeHostsForCache(inlineCspScriptAllowedHosts).join(',')}`,
-    `style:${normalizeHostsForCache(inlineCspStyleAllowedHosts).join(',')}`,
-    `img:${normalizeHostsForCache(inlineCspImageAllowedHosts).join(',')}`,
-  ].join('|');
-  const normalizedAnchorRewriteMode = rewriteInlineAnchorHrefs
-    ? `rewrite-anchor-hrefs:${normalizeExtensionsForCache(
-        rewriteInlineAnchorAllowedFileExtensions,
-      ).join(',')}:${normalizeQueryParamNamesForCache(
-        rewriteInlineAnchorPreservedHostQueryParamNames,
-      ).join(',')}`
-    : 'raw-anchor-hrefs';
-  return `${webAbsoluteUrl}|${normalizedSourceUrl}|${normalizedBaseUrl}|${normalizedPageUrl}|${normalizedRenderMode}|${normalizedStrictMode}|${normalizedExternalScriptMode}|${normalizedInlineCspSources}|${normalizedAnchorRewriteMode}`;
-}
-
-function normalizeExtensionsForCache(extensions: string[]): string[] {
-  return Array.from(
-    new Set(
-      (extensions || [])
-        .map((extension) => (extension || '').trim().toLowerCase())
-        .filter((extension) => extension.length > 0)
-        .map((extension) => (extension.startsWith('.') ? extension : `.${extension}`)),
-    ),
-  ).sort();
-}
-
-function normalizeQueryParamNamesForCache(paramNames: string[]): string[] {
-  return Array.from(
-    new Set(
-      (paramNames || [])
-        .map((paramName) => (paramName || '').trim())
-        .filter((paramName) => paramName.length > 0),
-    ),
-  ).sort();
-}
-
-function normalizeHostsForCache(hosts: string[]): string[] {
-  return Array.from(
-    new Set(
-      (hosts || [])
-        .map((host) => (host || '').trim().toLowerCase())
-        .filter((host) => host.length > 0),
-    ),
-  ).sort();
 }
 
 function tryGetCachedInlineHtml(cacheKey: string): string | undefined {
@@ -680,20 +629,4 @@ function stripQueryAndHashFromPath(value: string): string {
         : Math.min(hashIndex, queryIndex);
 
   return value.substring(0, cutIndex);
-}
-
-function normalizePageUrlForCache(pageUrl: string): string {
-  const normalizedValue = (pageUrl || '').trim();
-  if (!normalizedValue) {
-    return '';
-  }
-
-  try {
-    const parsed = new URL(normalizedValue);
-    parsed.search = '';
-    parsed.hash = '';
-    return parsed.toString();
-  } catch {
-    return stripQueryAndHashFromPath(normalizedValue);
-  }
 }
