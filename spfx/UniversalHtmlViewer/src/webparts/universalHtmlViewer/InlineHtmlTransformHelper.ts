@@ -1,5 +1,8 @@
 import { appendAdditionalCspHostSources } from './InlineCspSourceHelper';
-import { rewriteInlineNavigationAnchorHrefs } from './InlineAnchorRewriteHelper';
+import {
+  getCanonicalHostPageUrl,
+  rewriteInlineNavigationAnchorHrefs,
+} from './InlineAnchorRewriteHelper';
 import { getInlineNavigationBridgeScript } from './InlineNavigationBridgeScript';
 
 export interface IPrepareInlineHtmlForSrcDocOptions {
@@ -124,6 +127,12 @@ function prepareInlineHtmlForFrameDocument(
         baseUrlForRelativeLinks,
         options?.rewriteInlineAnchorAllowedFileExtensions,
         options?.rewriteInlineAnchorAllowedPathPrefixes,
+        getCanonicalHostPageUrl(
+          pageUrl,
+          options?.rewriteInlineAnchorPreservedHostQueryParamNames,
+        ),
+        options?.rewriteInlineAnchorDeepLinkQueryParamName,
+        options?.rewriteInlineAnchorPreservedHostQueryParamNames,
       )}</script>`
     : '';
   const headInjectedMarkup = `${srcDocCspTag}${compatibilityShimTag}${inlineNavigationBridgeTag}${baseTag}`;

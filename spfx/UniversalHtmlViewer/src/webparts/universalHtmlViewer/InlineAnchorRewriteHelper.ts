@@ -140,17 +140,19 @@ function getDocumentBaseUrl(parsed: Document, fallbackBaseUrl: string): string {
   }
 }
 
-function getCanonicalHostPageUrl(
-  pageUrl: URL,
+export function getCanonicalHostPageUrl(
+  pageUrl: URL | string,
   preservedQueryParamNames?: string[],
 ): string {
-  const canonical = new URL(pageUrl.toString());
+  const sourcePageUrl =
+    typeof pageUrl === 'string' ? new URL(pageUrl) : pageUrl;
+  const canonical = new URL(sourcePageUrl.toString());
   const preservedValues = new Map<string, string[]>();
   (preservedQueryParamNames || [])
     .map((entry) => (entry || '').trim())
     .filter((entry) => entry.length > 0)
     .forEach((paramName) => {
-      const values = pageUrl.searchParams.getAll(paramName);
+      const values = sourcePageUrl.searchParams.getAll(paramName);
       if (values.length > 0) {
         preservedValues.set(paramName, values);
       }

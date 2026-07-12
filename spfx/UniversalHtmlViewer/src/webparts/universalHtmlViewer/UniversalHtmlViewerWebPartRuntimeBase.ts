@@ -28,7 +28,10 @@ import {
   isReportBrowserSourceMode,
 } from './UniversalHtmlViewerTypes';
 import { UniversalHtmlViewerWebPartConfigBase } from './UniversalHtmlViewerWebPartConfigBase';
-import { buildSharePointFileByPathApiUrl } from './SharePointResourcePathHelper';
+import {
+  buildSharePointFileByPathApiUrl,
+  decodeSharePointUrlPath,
+} from './SharePointResourcePathHelper';
 
 export interface INestedIframeDiagnosticsCounters {
   hydrationStarted: number;
@@ -833,7 +836,8 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
   private tryGetServerRelativePath(url: string, pageUrl: string): string | null {
     if (url.startsWith('/')) {
       const pathOnly = this.stripQueryAndHash(url);
-      return pathOnly || null;
+      const decodedPath = decodeSharePointUrlPath(pathOnly);
+      return decodedPath || null;
     }
 
     try {
@@ -842,7 +846,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
       if (target.host.toLowerCase() !== current.host.toLowerCase()) {
         return null;
       }
-      return decodeURIComponent(target.pathname);
+      return decodeSharePointUrlPath(target.pathname);
     } catch {
       return null;
     }

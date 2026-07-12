@@ -8,6 +8,15 @@ export function encodeSharePointDecodedPathAlias(decodedPath: string): string {
   return encodeURIComponent(escapedODataValue);
 }
 
+/** Decodes one URL-path encoding layer before calling a ResourcePath endpoint. */
+export function decodeSharePointUrlPath(encodedPath: string): string {
+  try {
+    return decodeURIComponent(encodedPath || '');
+  } catch {
+    return encodedPath || '';
+  }
+}
+
 export function buildSharePointFileByPathApiUrl(
   webAbsoluteUrl: string,
   decodedServerRelativePath: string,

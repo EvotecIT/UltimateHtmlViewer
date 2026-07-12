@@ -10,7 +10,7 @@ Use this file as the source checklist for preparing Universal HTML Viewer for Mi
 - Author: Przemysław Kłys.
 - Pricing: Free listing. The app does not require a license gate, entitlement service, paid checkout flow, or Evotec-hosted backend for this submission.
 - Package: `spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg`.
-- App/package version prepared for submission: `1.0.32.24`.
+- App/package version prepared for submission: `1.0.32.31`.
 - Web part manifest version: `1.0.34`.
 - Tenant-wide deployment: not enabled in the current package (`skipFeatureDeployment=false`). Microsoft Store/AppSource certification expects the solution to support global deployment to all sites, so treat the current package as blocked for store submission until a tenant-wide/store package is built and tested.
 

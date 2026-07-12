@@ -932,7 +932,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             initialContentUrl,
             pageUrl,
             SPHttpClient.configurations.v1,
-            this.getInlineContentOptions(effectiveProps),
+            this.getInlineContentOptions(
+              effectiveProps,
+              false,
+              validationOptions.allowedPathPrefixes,
+            ),
           );
           if (!this.isRenderRequestCurrent(renderRequestId)) {
             return;
@@ -946,7 +950,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             initialContentUrl,
             pageUrl,
             SPHttpClient.configurations.v1,
-            this.getInlineContentOptions(effectiveProps),
+            this.getInlineContentOptions(
+              effectiveProps,
+              false,
+              validationOptions.allowedPathPrefixes,
+            ),
           );
           if (!this.isRenderRequestCurrent(renderRequestId)) {
             return;
@@ -1096,7 +1104,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
             baseUrlForRelativeLinks,
             this.getCurrentPageUrl(),
             SPHttpClient.configurations.v1,
-            this.getInlineContentOptions(this.lastEffectiveProps || this.properties),
+            this.getInlineContentOptions(
+              this.lastEffectiveProps || this.properties,
+              false,
+              this.lastValidationOptions?.allowedPathPrefixes,
+            ),
           );
           this.lastInlineContentLoadError = '';
           return inlineHtml;
@@ -1132,7 +1144,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           baseUrlForRelativeLinks,
           pageUrl,
           SPHttpClient.configurations.v1,
-          this.getInlineContentOptions(props, bypassInlineContentCache),
+          this.getInlineContentOptions(
+            props,
+            bypassInlineContentCache,
+            this.lastValidationOptions?.allowedPathPrefixes,
+          ),
         );
         if (
           refreshRequestId !== undefined &&
@@ -1157,7 +1173,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         baseUrlForRelativeLinks,
         pageUrl,
         SPHttpClient.configurations.v1,
-        this.getInlineContentOptions(props, bypassInlineContentCache),
+        this.getInlineContentOptions(
+          props,
+          bypassInlineContentCache,
+          this.lastValidationOptions?.allowedPathPrefixes,
+        ),
       );
       if (
         refreshRequestId !== undefined &&
@@ -1183,6 +1203,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
   private getInlineContentOptions(
     props: IUniversalHtmlViewerWebPartProps,
     bypassCache: boolean = false,
+    effectiveAllowedPathPrefixes?: string[],
   ): ILoadSharePointInlineContentOptions {
     return {
       cacheTtlMs: this.getInlineContentCacheTtlMs(props),
@@ -1199,9 +1220,8 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       rewriteInlineAnchorAllowedFileExtensions: this.parseFileExtensions(
         props.allowedFileExtensions,
       ),
-      rewriteInlineAnchorAllowedPathPrefixes: this.parsePathPrefixes(
-        props.allowedPathPrefixes,
-      ),
+      rewriteInlineAnchorAllowedPathPrefixes:
+        effectiveAllowedPathPrefixes || this.parsePathPrefixes(props.allowedPathPrefixes),
       rewriteInlineAnchorDeepLinkQueryParamName: this.getInlineDeepLinkParamName(props),
       rewriteInlineAnchorPreservedHostQueryParamNames:
         this.getInlineAnchorPreservedHostQueryParamNames(props),

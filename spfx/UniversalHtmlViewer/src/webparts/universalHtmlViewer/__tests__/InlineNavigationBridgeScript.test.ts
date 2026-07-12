@@ -6,6 +6,9 @@ describe('InlineNavigationBridgeScript', () => {
       'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/start.html',
       ['.html'],
       ['/sites/Test/SiteAssets/Reports/'],
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&OR=Teams',
+      'uhvPage',
+      ['dashboard'],
     );
 
     // The bridge is shipped as an inline script string, so compilation is the
@@ -42,22 +45,90 @@ describe('InlineNavigationBridgeScript', () => {
       ['/sites/Test/SiteAssets/Reports/'],
     );
 
-    const nativeBehaviorIndex = script.indexOf(
-      'if (shouldKeepNativeAnchorBehavior(anchor)) { return; }',
-    );
     const eligibilityIndex = script.indexOf(
       'if (!isEligibleTargetUrl(absoluteTargetUrl)) { return; }',
     );
+    const nativeBehaviorIndex = script.indexOf(
+      'if (shouldKeepNativeAnchorBehavior(anchor, event)) {',
+    );
     const emitIndex = script.indexOf('emit(absoluteTargetUrl, event);');
 
-    expect(script).not.toContain("anchor.hasAttribute('download')");
+    expect(script).toContain("anchor.removeAttribute('download')");
     expect(script).toContain("target !== '_self'");
+    expect(script).toContain('event.metaKey || event.ctrlKey || event.shiftKey || event.altKey');
     expect(script).toContain('target.host.toLowerCase() !== parsedBase.host.toLowerCase()');
     expect(script).toContain("var allowedFileExtensions = [\".html\"];");
     expect(script).toContain("var configuredAllowedPathPrefixes = [\"/sites/Test/SiteAssets/Reports/\"];");
-    expect(nativeBehaviorIndex).toBeGreaterThan(-1);
-    expect(eligibilityIndex).toBeGreaterThan(nativeBehaviorIndex);
-    expect(emitIndex).toBeGreaterThan(eligibilityIndex);
+    expect(eligibilityIndex).toBeGreaterThan(-1);
+    expect(nativeBehaviorIndex).toBeGreaterThan(eligibilityIndex);
+    expect(emitIndex).toBeGreaterThan(nativeBehaviorIndex);
+  });
+
+  it('rewrites validated generated new-tab links through the viewer host page', () => {
+    const script = getInlineNavigationBridgeScript(
+      '/sites/Test/SiteAssets/Reports/start.html',
+      ['.html'],
+      ['/sites/Test/SiteAssets/Reports/'],
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&OR=Teams',
+      'reportPage',
+      ['dashboard'],
+    );
+
+    expect(script).toContain(
+      'var configuredBaseUrl = "/sites/Test/SiteAssets/Reports/start.html";',
+    );
+    expect(script).toContain('new URL(configuredBase || fallbackBase, fallbackBase || undefined)');
+    expect(script).toContain('var deepLinkQueryParamName = "reportPage";');
+    expect(script).toContain('var preservedHostQueryParamNames = ["dashboard"];');
+    expect(script).toContain('var rewriteNativeTargetAnchor = function(anchor, targetUrl)');
+    expect(script).toContain("anchor.setAttribute('href', hostDeepLinkUrl)");
+    expect(script).toContain('rewriteNativeTargetAnchor(anchor, absoluteTargetUrl);');
+  });
+
+  it('rewrites a generated new-tab anchor before native navigation can download it', () => {
+    const frame = document.createElement('iframe');
+    document.body.appendChild(frame);
+    const frameWindow = frame.contentWindow;
+    const frameDocument = frame.contentDocument;
+    expect(frameWindow).not.toBeNull();
+    expect(frameDocument).not.toBeNull();
+    if (!frameWindow || !frameDocument) {
+      return;
+    }
+    const executableFrameWindow = frameWindow as Window & typeof globalThis;
+
+    frameDocument.head.innerHTML =
+      '<base href="https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/start.html">';
+    frameDocument.body.innerHTML =
+      '<a id="generated" href="next.html" target="_blank" download>Next</a>';
+    executableFrameWindow.eval(
+      getInlineNavigationBridgeScript(
+        '/sites/Test/SiteAssets/Reports/start.html',
+        ['.html'],
+        ['/sites/Test/SiteAssets/Reports/'],
+        'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&OR=Teams',
+        'uhvPage',
+        ['dashboard'],
+      ),
+    );
+
+    const anchor = frameDocument.getElementById('generated') as HTMLAnchorElement;
+    anchor.dispatchEvent(
+      new executableFrameWindow.MouseEvent('mousedown', {
+        bubbles: true,
+        button: 0,
+      }),
+    );
+
+    expect(anchor.hasAttribute('download')).toBe(false);
+    expect(anchor.getAttribute('data-uhv-inline-href')).toBe(
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/next.html',
+    );
+    expect(anchor.href).toContain(
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main&uhvPage=',
+    );
+    expect(anchor.href).not.toContain('OR=Teams');
+    frame.remove();
   });
 
   it('forwards validated navigation messages from nested frames', () => {
