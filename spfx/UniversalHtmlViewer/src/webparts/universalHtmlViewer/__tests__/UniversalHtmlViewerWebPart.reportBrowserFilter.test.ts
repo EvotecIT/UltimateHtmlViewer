@@ -163,6 +163,58 @@ describe('UniversalHtmlViewerWebPart report browser filter', () => {
     expect(webPart.reportBrowserView).toBe('Files');
     expect(webPart.reportBrowserFolderPath).toBe('/sites/TestSite1/SiteAssets/Reports');
   });
+
+  it('does not commit a failed report-browser navigation', async () => {
+    const webPart = createWebPartHarness();
+    const currentReport =
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Current.html';
+    const failedReport =
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/Reports/Missing.html';
+    const pageUrl =
+      'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx';
+    webPart.currentBaseUrl = currentReport;
+    webPart.domElement.innerHTML =
+      '<iframe></iframe><span data-uhv-report-status></span>';
+    webPart.getCurrentPageUrl = jest.fn().mockReturnValue(pageUrl);
+    webPart.buildUrlValidationOptions = jest.fn().mockReturnValue({
+      securityMode: 'StrictTenant',
+      currentPageUrl: pageUrl,
+      allowHttp: false,
+      allowedHosts: ['contoso.sharepoint.com'],
+      allowedPathPrefixes: ['/sites/TestSite1/SiteAssets/Reports/'],
+      allowedFileExtensions: ['.html'],
+    });
+    webPart.setLoadingVisible = jest.fn();
+    webPart.onNavigatedToUrl = jest.fn();
+    webPart.updateOpenInNewTabLink = jest.fn();
+    webPart.setupIframeLoadFallback = jest.fn();
+    webPart.clearIframeLoadTimeout = jest.fn();
+    webPart.setupAutoRefresh = jest.fn();
+    webPart.updateStatusBadge = jest.fn();
+    webPart.refreshIframe = jest.fn().mockResolvedValue('failed');
+
+    await webPart.handleReportBrowserFileSelection(
+      failedReport,
+      {
+        contentDeliveryMode: 'SharePointFileContent',
+        securityMode: 'StrictTenant',
+        allowedFileExtensions: '.html',
+        allowedPathPrefixes: '/sites/TestSite1/SiteAssets/Reports/',
+      },
+      pageUrl,
+      'None',
+      'v',
+    );
+
+    expect(webPart.currentBaseUrl).toBe(currentReport);
+    expect(webPart.onNavigatedToUrl).not.toHaveBeenCalled();
+    expect(webPart.updateOpenInNewTabLink).not.toHaveBeenCalled();
+    expect(webPart.setupAutoRefresh).not.toHaveBeenCalled();
+    expect(webPart.clearIframeLoadTimeout).toHaveBeenCalled();
+    expect(webPart.domElement.querySelector('[data-uhv-report-status]')?.textContent).toContain(
+      'current report remains displayed',
+    );
+  });
 });
 
 export {};

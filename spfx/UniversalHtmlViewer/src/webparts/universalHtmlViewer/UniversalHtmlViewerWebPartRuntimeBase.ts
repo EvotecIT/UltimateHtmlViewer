@@ -53,6 +53,7 @@ export type DeepLinkScrollLockReleaseReason =
   | 'timeout';
 
 export type DeepLinkScrollLockLastReleaseReason = DeepLinkScrollLockReleaseReason | 'none';
+export type RefreshIframeResult = 'updated' | 'failed' | 'stale';
 
 export interface IDeepLinkScrollLockDiagnosticsCounters {
   starts: number;
@@ -172,14 +173,14 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
     resetInlineScrollToTop: boolean = false,
     preserveHostScrollPosition: boolean = false,
     bypassInlineContentCache: boolean = false,
-  ): Promise<void> {
+  ): Promise<RefreshIframeResult> {
     const refreshRequestId = this.nextRefreshRequestId();
     this.refreshInProgress = true;
     try {
       this.clearHostScrollRestoreOnLoadListener();
       const iframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
       if (!iframe) {
-        return;
+        return 'failed';
       }
 
       const hostScrollPosition = preserveHostScrollPosition
@@ -195,7 +196,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
         pageUrl,
       );
       if (!this.isRefreshRequestCurrent(refreshRequestId)) {
-        return;
+        return 'stale';
       }
 
       const effectiveProps: IUniversalHtmlViewerWebPartProps =
@@ -214,7 +215,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
           refreshRequestId,
         );
         if (!this.isRefreshRequestCurrent(refreshRequestId)) {
-          return;
+          return 'stale';
         }
         if (updatedFromContent) {
           this.setLoadingVisible(false);
@@ -225,7 +226,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
             this.restoreHostScrollPosition(hostScrollPosition);
           }
           this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
-          return;
+          return 'updated';
         }
 
         // Keep the current inline content when refresh fails to avoid direct SharePoint file
@@ -234,16 +235,15 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
         if (hostScrollPosition) {
           this.restoreHostScrollPosition(hostScrollPosition);
         }
-        return;
+        return 'failed';
       }
 
       const activeIframe: HTMLIFrameElement | null = this.domElement.querySelector('iframe');
-      if (
-        !this.isRefreshRequestCurrent(refreshRequestId) ||
-        !activeIframe ||
-        activeIframe !== iframe
-      ) {
-        return;
+      if (!this.isRefreshRequestCurrent(refreshRequestId)) {
+        return 'stale';
+      }
+      if (!activeIframe || activeIframe !== iframe) {
+        return 'failed';
       }
 
       if (hostScrollPosition) {
@@ -258,6 +258,7 @@ export abstract class UniversalHtmlViewerWebPartRuntimeBase extends UniversalHtm
 
       activeIframe.src = refreshedUrl;
       this.updateStatusBadge(this.lastValidationOptions, cacheBusterMode, this.lastEffectiveProps);
+      return 'updated';
     } finally {
       if (this.isRefreshRequestCurrent(refreshRequestId)) {
         this.refreshInProgress = false;

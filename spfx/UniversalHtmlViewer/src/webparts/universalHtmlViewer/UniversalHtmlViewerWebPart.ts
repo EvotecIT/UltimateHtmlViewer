@@ -1080,34 +1080,34 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       preservedHostQueryParamNames:
         this.getInlineAnchorPreservedHostQueryParamNames(effectiveProps),
       onNavigate: (targetUrl: string, inlineCacheBusterMode: CacheBusterMode) => {
-        this.currentBaseUrl = targetUrl;
         this.setLoadingVisible(true);
         this.lastCacheBusterMode = inlineCacheBusterMode;
-        const updatedPageUrl = this.getCurrentPageUrl();
-        this.onNavigatedToUrl(targetUrl, updatedPageUrl);
-        const navigatedPageUrl = this.getCurrentPageUrl();
-        this.setupAutoRefresh(
-          targetUrl,
-          inlineCacheBusterMode,
-          cacheBusterParamName,
-          navigatedPageUrl,
-          this.lastEffectiveProps || this.properties,
-        );
-        this.updateOpenInNewTabLink(
-          targetUrl,
-          navigatedPageUrl,
-          this.lastEffectiveProps || this.properties,
-        );
+        const currentPageUrl = this.getCurrentPageUrl();
+        const currentProps = this.lastEffectiveProps || this.properties;
         this.refreshIframe(
           targetUrl,
           inlineCacheBusterMode,
           cacheBusterParamName,
-          navigatedPageUrl,
+          currentPageUrl,
           true,
           true,
-        ).catch(() => {
-          return undefined;
-        });
+        )
+          .then((result) => {
+            if (result === 'updated') {
+              this.commitSuccessfulInlineNavigation(
+                targetUrl,
+                currentPageUrl,
+                inlineCacheBusterMode,
+                cacheBusterParamName,
+                currentProps,
+              );
+            } else if (result === 'failed') {
+              this.showInlineNavigationFailure();
+            }
+          })
+          .catch(() => {
+            this.showInlineNavigationFailure();
+          });
       },
       loadInlineHtml: async (
         sourceUrl: string,
@@ -1152,7 +1152,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return false;
     }
     try {
-      const baseUrlForRelativeLinks: string = this.currentBaseUrl || sourceUrl;
+      const baseUrlForRelativeLinks: string = sourceUrl;
       if (contentDeliveryMode === 'SharePointFileBlobUrl') {
         const blobHtml = await loadSharePointFileContentForBlobUrl(
           this.context.spHttpClient,

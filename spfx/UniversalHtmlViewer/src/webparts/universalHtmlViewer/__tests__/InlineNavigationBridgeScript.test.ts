@@ -20,9 +20,16 @@ describe('InlineNavigationBridgeScript', () => {
   it('handles fragment-only anchors before emitting inline navigation', () => {
     const script = getInlineNavigationBridgeScript();
     const hashHandlerIndex = script.indexOf(
-      'if (navigateToSamePageHash(rawHref, event)) { return; }',
+      'if (isSamePageHashHref(rawHref)) {',
     );
-    const unresolvedHashIndex = script.indexOf('if (isSamePageHashHref(rawHref)) { return; }');
+    const nativeHashBehaviorIndex = script.indexOf(
+      'if (shouldKeepNativeAnchorBehavior(anchor, event)) { return; }',
+      hashHandlerIndex,
+    );
+    const hashNavigationIndex = script.indexOf(
+      'navigateToSamePageHash(rawHref, event);',
+      hashHandlerIndex,
+    );
     const blockedProtocolIndex = script.indexOf('if (hasBlockedProtocol(rawHref)) { return; }');
     const emitIndex = script.indexOf('emit(absoluteTargetUrl, event);');
 
@@ -33,9 +40,51 @@ describe('InlineNavigationBridgeScript', () => {
     expect(script).toContain('window.location.hash = hashHref;');
     expect(script).toContain('target.scrollIntoView();');
     expect(hashHandlerIndex).toBeGreaterThan(-1);
-    expect(unresolvedHashIndex).toBeGreaterThan(hashHandlerIndex);
-    expect(blockedProtocolIndex).toBeGreaterThan(unresolvedHashIndex);
+    expect(nativeHashBehaviorIndex).toBeGreaterThan(hashHandlerIndex);
+    expect(hashNavigationIndex).toBeGreaterThan(nativeHashBehaviorIndex);
+    expect(blockedProtocolIndex).toBeGreaterThan(hashNavigationIndex);
     expect(emitIndex).toBeGreaterThan(blockedProtocolIndex);
+  });
+
+  it('preserves modified and middle-click behavior for same-page hash links', () => {
+    const frame = document.createElement('iframe');
+    document.body.appendChild(frame);
+    const frameWindow = frame.contentWindow;
+    const frameDocument = frame.contentDocument;
+    expect(frameWindow).not.toBeNull();
+    expect(frameDocument).not.toBeNull();
+    if (!frameWindow || !frameDocument) {
+      return;
+    }
+    const executableFrameWindow = frameWindow as Window & typeof globalThis;
+    frameDocument.body.innerHTML =
+      '<a id="hash-link" href="#details">Details</a><div id="details">Target</div>';
+    const target = frameDocument.getElementById('details') as HTMLElement & {
+      scrollIntoView: jest.Mock;
+    };
+    target.scrollIntoView = jest.fn();
+    executableFrameWindow.eval(getInlineNavigationBridgeScript());
+
+    const hashLink = frameDocument.getElementById('hash-link') as HTMLAnchorElement;
+    const modifiedEvent = new executableFrameWindow.MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      ctrlKey: true,
+    });
+    const middleEvent = new executableFrameWindow.MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+      button: 1,
+    });
+    hashLink.dispatchEvent(modifiedEvent);
+    hashLink.dispatchEvent(middleEvent);
+
+    expect(modifiedEvent.defaultPrevented).toBe(false);
+    expect(middleEvent.defaultPrevented).toBe(false);
+    expect(target.scrollIntoView).not.toHaveBeenCalled();
+    expect(executableFrameWindow.location.hash).toBe('');
+    frame.remove();
   });
 
   it('validates targets before suppressing native link behavior', () => {
@@ -50,6 +99,7 @@ describe('InlineNavigationBridgeScript', () => {
     );
     const nativeBehaviorIndex = script.indexOf(
       'if (shouldKeepNativeAnchorBehavior(anchor, event)) {',
+      eligibilityIndex,
     );
     const emitIndex = script.indexOf('emit(absoluteTargetUrl, event);');
 

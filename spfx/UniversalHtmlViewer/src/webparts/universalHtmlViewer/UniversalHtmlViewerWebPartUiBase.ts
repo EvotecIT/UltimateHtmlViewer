@@ -775,21 +775,27 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
 
     this.lastCacheBusterMode = cacheBusterMode;
     this.setLoadingVisible(true);
-    this.currentBaseUrl = filePath;
-    this.onNavigatedToUrl(filePath, currentPageUrl);
-    const updatedPageUrl: string = this.getCurrentPageUrl() || currentPageUrl;
-    this.updateOpenInNewTabLink(filePath, updatedPageUrl, props);
     this.setupIframeLoadFallback(filePath, props);
-    await this.refreshIframe(
+    const refreshResult = await this.refreshIframe(
       filePath,
       cacheBusterMode,
       cacheBusterParamName,
-      updatedPageUrl,
+      currentPageUrl,
       true,
       true,
     );
-    this.setupAutoRefresh(filePath, cacheBusterMode, cacheBusterParamName, updatedPageUrl, props);
-    this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+    if (refreshResult === 'updated') {
+      this.commitSuccessfulInlineNavigation(
+        filePath,
+        currentPageUrl,
+        cacheBusterMode,
+        cacheBusterParamName,
+        props,
+      );
+      this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+    } else if (refreshResult === 'failed') {
+      this.showInlineNavigationFailure();
+    }
   }
 
   private getEffectiveReportBrowserRootPath(
@@ -932,21 +938,60 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     this.lastCacheBusterMode = cacheBusterMode;
 
     this.setLoadingVisible(true);
-    this.currentBaseUrl = url;
-    this.onNavigatedToUrl(url, currentPageUrl);
-    const updatedPageUrl: string = this.getCurrentPageUrl() || currentPageUrl;
-    this.updateOpenInNewTabLink(url, updatedPageUrl, props);
     this.setupIframeLoadFallback(url, props);
-    await this.refreshIframe(
+    const refreshResult = await this.refreshIframe(
       url,
       cacheBusterMode,
       cacheBusterParamName,
-      updatedPageUrl,
+      currentPageUrl,
       true,
       true,
     );
-    this.setupAutoRefresh(url, cacheBusterMode, cacheBusterParamName, updatedPageUrl, props);
-    this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+    if (refreshResult === 'updated') {
+      this.commitSuccessfulInlineNavigation(
+        url,
+        currentPageUrl,
+        cacheBusterMode,
+        cacheBusterParamName,
+        props,
+      );
+      this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+    } else if (refreshResult === 'failed') {
+      this.showInlineNavigationFailure();
+    }
+  }
+
+  protected commitSuccessfulInlineNavigation(
+    targetUrl: string,
+    currentPageUrl: string,
+    cacheBusterMode: CacheBusterMode,
+    cacheBusterParamName: string,
+    props: IUniversalHtmlViewerWebPartProps,
+  ): void {
+    this.currentBaseUrl = targetUrl;
+    const livePageUrl: string = this.getCurrentPageUrl() || currentPageUrl;
+    this.onNavigatedToUrl(targetUrl, livePageUrl);
+    const updatedPageUrl: string = this.getCurrentPageUrl() || livePageUrl;
+    this.updateOpenInNewTabLink(targetUrl, updatedPageUrl, props);
+    this.setupAutoRefresh(
+      targetUrl,
+      cacheBusterMode,
+      cacheBusterParamName,
+      updatedPageUrl,
+      props,
+    );
+  }
+
+  protected showInlineNavigationFailure(): void {
+    this.clearIframeLoadTimeout();
+    this.setLoadingVisible(false);
+    const message = 'Unable to load the selected report. The current report remains displayed.';
+    const statusElement: HTMLElement | null =
+      this.domElement.querySelector('[data-uhv-report-status]') ||
+      this.domElement.querySelector('[data-uhv-status]');
+    if (statusElement) {
+      statusElement.textContent = message;
+    }
   }
 
   private buildUrlFromDashboardId(
