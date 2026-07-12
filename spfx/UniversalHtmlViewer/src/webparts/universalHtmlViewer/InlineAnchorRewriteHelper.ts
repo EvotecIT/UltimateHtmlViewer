@@ -1,5 +1,6 @@
 import {
   buildPageUrlWithInlineDeepLink,
+  DEFAULT_INLINE_DEEP_LINK_PARAM,
   MAX_DEEP_LINK_QUERY_VALUE_LENGTH,
 } from './InlineDeepLinkHelper';
 import {
@@ -106,6 +107,7 @@ export function rewriteInlineNavigationAnchorElement(
     page,
     options?.allowedFileExtensions,
     options?.allowedPathPrefixes,
+    options?.deepLinkQueryParamName,
   );
   if (!targetUrl) {
     return false;
@@ -218,6 +220,7 @@ function resolveInlineAnchorTargetUrl(
   pageUrl: URL,
   allowedFileExtensions?: string[],
   allowedPathPrefixes?: string[],
+  deepLinkQueryParamName?: string,
 ): string | undefined {
   const normalizedHref = (rawHref || '').trim();
   if (!normalizedHref || normalizedHref.startsWith('#')) {
@@ -250,7 +253,13 @@ function resolveInlineAnchorTargetUrl(
     return undefined;
   }
 
-  if (isCurrentPageDeepLink(target, pageUrl)) {
+  if (
+    isCurrentPageDeepLink(
+      target,
+      pageUrl,
+      deepLinkQueryParamName,
+    )
+  ) {
     return undefined;
   }
 
@@ -325,11 +334,17 @@ function isInsideBaseDirectory(target: URL, baseUrl: string): boolean {
   }
 }
 
-function isCurrentPageDeepLink(target: URL, pageUrl: URL): boolean {
+function isCurrentPageDeepLink(
+  target: URL,
+  pageUrl: URL,
+  deepLinkQueryParamName?: string,
+): boolean {
+  const queryParamName =
+    (deepLinkQueryParamName || '').trim() || DEFAULT_INLINE_DEEP_LINK_PARAM;
   return (
     target.host.toLowerCase() === pageUrl.host.toLowerCase() &&
     target.pathname.toLowerCase() === pageUrl.pathname.toLowerCase() &&
-    target.searchParams.has('uhvPage')
+    target.searchParams.has(queryParamName)
   );
 }
 

@@ -174,6 +174,25 @@ describe('InlineAnchorRewriteHelper', () => {
     expect(result).not.toContain('?uhvPage=');
   });
 
+  it('does not wrap an existing host deep link that uses a custom parameter', () => {
+    const hostDeepLink =
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?viewerTwoPage=%2Fsites%2FTheDashboardPage%2FShared%20Documents%2FComputers.html';
+    const result = rewriteInlineNavigationAnchorHrefs(
+      `<html><body><a href="${hostDeepLink}">Current host deep link</a></body></html>`,
+      '/sites/TheDashboardPage/Shared Documents/',
+      'https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx',
+      {
+        allowedPathPrefixes: ['/'],
+        deepLinkQueryParamName: 'viewerTwoPage',
+      },
+    );
+
+    expect(result).toContain(
+      'href="https://knauf.sharepoint.com/sites/TheDashboardPage/SitePages/TheDashboardPage.aspx?viewerTwoPage=%2Fsites%2FTheDashboardPage%2FShared%20Documents%2FComputers.html"',
+    );
+    expect(result).not.toContain('data-uhv-inline-href=');
+  });
+
   it('removes untrusted original href data before rewriting authored anchors', () => {
     const inputHtml =
       '<html><body><a data-uhv-inline-href="https://knauf.sharepoint.com/sites/TheDashboardPage/Shared%20Documents/Hidden.html" href="Visible.html">Visible</a></body></html>';
