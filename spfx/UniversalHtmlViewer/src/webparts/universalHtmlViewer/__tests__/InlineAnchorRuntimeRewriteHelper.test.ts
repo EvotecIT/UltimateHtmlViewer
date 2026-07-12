@@ -22,9 +22,14 @@ describe('InlineAnchorRuntimeRewriteHelper', () => {
     calendarEvent.className = 'fc-event';
     calendarEvent.href = 'GPOBroken_2021-04-05_230011.html';
     calendarEvent.setAttribute('href', 'GPOBroken_2021-04-05_230011.html');
+    const rewritten = waitForAttribute(
+      calendarEvent,
+      'data-uhv-inline-href',
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/GPOBroken_2021-04-05_230011.html',
+    );
     frameDocument.body.appendChild(calendarEvent);
 
-    await new Promise((resolve) => window.setTimeout(resolve, 10));
+    await rewritten;
 
     expect(calendarEvent.getAttribute('data-uhv-inline-href')).toBe(
       'https://contoso.sharepoint.com/sites/Test/SiteAssets/GPOBroken_2021-04-05_230011.html',
@@ -118,8 +123,13 @@ describe('InlineAnchorRuntimeRewriteHelper', () => {
     const event = frameDocument.getElementById('event') as HTMLAnchorElement;
     expect(event.getAttribute('data-uhv-inline-href')).toContain('/First.html');
 
+    const rewritten = waitForAttribute(
+      event,
+      'data-uhv-inline-href',
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Second.html',
+    );
     event.setAttribute('href', 'Second.html');
-    await new Promise((resolve) => window.setTimeout(resolve, 10));
+    await rewritten;
 
     expect(event.getAttribute('data-uhv-inline-href')).toBe(
       'https://contoso.sharepoint.com/sites/Test/SiteAssets/Second.html',
@@ -159,16 +169,56 @@ describe('InlineAnchorRuntimeRewriteHelper', () => {
     );
     const calendarEvent = frameDocument.createElement('a');
     calendarEvent.setAttribute('href', 'Generated.html');
+    const rewritten = waitForAttribute(
+      calendarEvent,
+      'data-uhv-inline-href',
+      `${window.location.origin}/sites/Test/SiteAssets/Generated.html`,
+    );
     frameDocument.body.appendChild(calendarEvent);
 
-    await new Promise((resolve) => window.setTimeout(resolve, 10));
+    await rewritten;
 
-    const rewritten = new URL(calendarEvent.getAttribute('href') || '', window.location.href);
-    expect(rewritten.searchParams.get('viewerTwoPage')).toBe('current-report');
-    expect(rewritten.searchParams.get('viewerTwoPage')).not.toBe('old-report');
+    const rewrittenUrl = new URL(calendarEvent.getAttribute('href') || '', window.location.href);
+    expect(rewrittenUrl.searchParams.get('viewerTwoPage')).toBe('current-report');
+    expect(rewrittenUrl.searchParams.get('viewerTwoPage')).not.toBe('old-report');
 
     cleanup();
     iframe.remove();
     window.history.replaceState(null, '', originalUrl || '/');
   });
 });
+
+function waitForAttribute(
+  element: Element,
+  attributeName: string,
+  expectedValue: string,
+): Promise<void> {
+  if (element.getAttribute(attributeName) === expectedValue) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    let timeoutId = 0;
+    const observer = new MutationObserver(() => {
+      if (element.getAttribute(attributeName) !== expectedValue) {
+        return;
+      }
+
+      window.clearTimeout(timeoutId);
+      observer.disconnect();
+      resolve();
+    });
+    timeoutId = window.setTimeout(() => {
+      observer.disconnect();
+      reject(
+        new Error(
+          `Timed out waiting for ${attributeName} to become ${expectedValue}.`,
+        ),
+      );
+    }, 1000);
+    observer.observe(element, {
+      attributeFilter: [attributeName],
+      attributes: true,
+    });
+  });
+}
