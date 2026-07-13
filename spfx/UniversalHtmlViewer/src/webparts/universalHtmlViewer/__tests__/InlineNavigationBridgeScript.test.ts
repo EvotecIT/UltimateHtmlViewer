@@ -150,6 +150,52 @@ describe('InlineNavigationBridgeScript', () => {
     expect(script).toContain('if (!enableHostDeepLinkUrls) { return ""; }');
   });
 
+  it('leaves generated host deep links with the configured parameter untouched', () => {
+    const frame = document.createElement('iframe');
+    document.body.appendChild(frame);
+    const frameWindow = frame.contentWindow;
+    const frameDocument = frame.contentDocument;
+    expect(frameWindow).not.toBeNull();
+    expect(frameDocument).not.toBeNull();
+    if (!frameWindow || !frameDocument) {
+      return;
+    }
+    const executableFrameWindow = frameWindow as Window & typeof globalThis;
+    const hostDeepLink =
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?viewerTwoPage=%2Fsites%2FTest%2FSiteAssets%2FReports%2Fnext.html';
+
+    frameDocument.head.innerHTML =
+      '<base href="https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/start.html">';
+    frameDocument.body.innerHTML =
+      `<a id="generated" href="${hostDeepLink}">Existing viewer deep link</a>`;
+    executableFrameWindow.eval(
+      getInlineNavigationBridgeScript(
+        '/sites/Test/SiteAssets/Reports/start.html',
+        ['.html', '.aspx'],
+        ['/'],
+        'https://contoso.sharepoint.com/sites/Test/SitePages/Viewer.aspx?dashboard=main',
+        'viewerTwoPage',
+      ),
+    );
+
+    const parentPostMessageSpy = jest.spyOn(window, 'postMessage');
+    const anchor = frameDocument.getElementById('generated') as HTMLAnchorElement;
+    const event = new executableFrameWindow.MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+    });
+    anchor.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(parentPostMessageSpy).not.toHaveBeenCalled();
+    expect(anchor.getAttribute('href')).toBe(hostDeepLink);
+    expect(anchor.hasAttribute('data-uhv-inline-href')).toBe(false);
+
+    parentPostMessageSpy.mockRestore();
+    frame.remove();
+  });
+
   it('rewrites a generated new-tab anchor before native navigation can download it', () => {
     const frame = document.createElement('iframe');
     document.body.appendChild(frame);
