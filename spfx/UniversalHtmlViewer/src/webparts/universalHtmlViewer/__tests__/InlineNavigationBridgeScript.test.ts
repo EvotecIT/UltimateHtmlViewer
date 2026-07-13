@@ -298,8 +298,9 @@ describe('InlineNavigationBridgeScript', () => {
 
     expect(script).toContain('var onNestedNavigationMessage = function(event)');
     expect(script).toContain("window.addEventListener('message', onNestedNavigationMessage)");
-    expect(script).toContain("payload.type !== 'uhv-inline-nav'");
-    expect(script).toContain('nestedFrames[frameIndex].contentWindow === event.source');
+    expect(script).toContain("payload.type !== 'uhv-inline-ready'");
+    expect(script).toContain('nestedFrames[frameIndex].contentWindow === source');
+    expect(script).toContain('hasNestedFrameSession(event.source, suppliedToken)');
   });
 
   it('only forwards navigation messages from hydrated nested frames', () => {
@@ -326,12 +327,17 @@ describe('InlineNavigationBridgeScript', () => {
     );
 
     const parentPostMessageSpy = jest.spyOn(window, 'postMessage');
-    const dispatchNavigationMessage = (source: MessageEventSource): void => {
+    const dispatchBridgeMessage = (
+      source: MessageEventSource,
+      type: 'uhv-inline-ready' | 'uhv-inline-nav',
+      navigationToken: string,
+    ): void => {
       const navigationMessage = new executableFrameWindow.MessageEvent('message', {
         data: {
-          type: 'uhv-inline-nav',
+          type,
           targetUrl:
             'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/next.html',
+          navigationToken,
         },
       });
       Object.defineProperty(navigationMessage, 'source', {
@@ -341,13 +347,17 @@ describe('InlineNavigationBridgeScript', () => {
       executableFrameWindow.dispatchEvent(navigationMessage);
     };
 
-    dispatchNavigationMessage(window);
+    dispatchBridgeMessage(window, 'uhv-inline-nav', 'trusted-token');
     expect(parentPostMessageSpy).not.toHaveBeenCalled();
 
     const nestedFrame = frameDocument.getElementById('known') as HTMLIFrameElement;
     expect(nestedFrame.contentWindow).not.toBeNull();
     if (nestedFrame.contentWindow) {
-      dispatchNavigationMessage(nestedFrame.contentWindow);
+      nestedFrame.setAttribute('data-uhv-inline-nav-token', 'trusted-token');
+      dispatchBridgeMessage(nestedFrame.contentWindow, 'uhv-inline-ready', 'trusted-token');
+      dispatchBridgeMessage(nestedFrame.contentWindow, 'uhv-inline-nav', 'forged-token');
+      expect(parentPostMessageSpy).not.toHaveBeenCalled();
+      dispatchBridgeMessage(nestedFrame.contentWindow, 'uhv-inline-nav', 'trusted-token');
     }
     expect(parentPostMessageSpy).toHaveBeenCalledWith(
       {
