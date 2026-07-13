@@ -25,6 +25,9 @@ describe('prepareInlineHtmlForSrcDoc', () => {
     expect(result).toContain('data-uhv-inline-csp="1"');
     expect(result).toContain('object-src &#39;none&#39;');
     expect(result).toContain('data-uhv-history-compat="1"');
+    expect(result).toContain('canIgnoreHashStateUrl');
+    expect(result).not.toContain('window.location.replace(hashValue);');
+    expect(result).not.toContain('window.location.hash = hashValue;');
     expect(result).toContain('data-uhv-inline-nav-bridge="1"');
     expect(result).toContain(
       '<base href="https://contoso.sharepoint.com/sites/TestSite2/SiteAssets/GPOzaurr/">',

@@ -90,6 +90,7 @@ export interface IBuildOpenInNewTabUrlOptions {
   pageUrl: string;
   currentPageUrl?: string;
   contentDeliveryMode: ContentDeliveryMode;
+  queryParamName?: string;
 }
 
 export function buildOpenInNewTabUrl(
@@ -107,7 +108,7 @@ export function buildOpenInNewTabUrl(
   const pageDeepLinkUrl = buildPageUrlWithInlineDeepLink({
     pageUrl: effectivePageUrl,
     targetUrl: options.baseUrl,
-    queryParamName: DEFAULT_INLINE_DEEP_LINK_PARAM,
+    queryParamName: options.queryParamName,
   });
   if (!pageDeepLinkUrl) {
     return options.resolvedUrl;

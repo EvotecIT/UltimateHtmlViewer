@@ -1,6 +1,8 @@
 export interface IInlineExternalScriptsOptions {
   enabled?: boolean;
   allowedHosts?: string[];
+  cacheTtlMs?: number;
+  bypassCache?: boolean;
 }
 
 interface IExternalScriptLoadResult {
@@ -16,7 +18,13 @@ const DEFAULT_ALLOWED_HOSTS: string[] = [
   'nightly.datatables.net',
   'unpkg.com',
 ];
-const externalScriptCache = new Map<string, string>();
+interface IExternalScriptCacheEntry {
+  scriptText: string;
+  expiresAt: number;
+}
+
+const DEFAULT_EXTERNAL_SCRIPT_CACHE_TTL_MS = 15000;
+const externalScriptCache = new Map<string, IExternalScriptCacheEntry>();
 const externalScriptInFlightRequests = new Map<string, Promise<string>>();
 const EXTERNAL_SCRIPT_CACHE_MAX_ENTRIES = 80;
 
@@ -61,6 +69,7 @@ export async function inlineAllowedExternalScripts(
         absoluteSrc,
         pageUrl,
         allowedHosts,
+        options,
       );
       if (!scriptLoadResult.scriptText) {
         continue;
@@ -183,13 +192,14 @@ async function loadExternalScriptText(
   scriptUrl: string,
   pageUrl: string,
   allowedHosts: string[],
+  options?: IInlineExternalScriptsOptions,
 ): Promise<IExternalScriptLoadResult> {
   const candidateUrls = getExternalScriptCandidateUrls(scriptUrl).filter((candidateUrl) =>
     isExternalScriptHostAllowed(candidateUrl, pageUrl, allowedHosts),
   );
 
   for (const candidateUrl of candidateUrls) {
-    const scriptText = await loadSingleExternalScriptText(candidateUrl, pageUrl);
+    const scriptText = await loadSingleExternalScriptText(candidateUrl, pageUrl, options);
     if (scriptText) {
       return { scriptText, sourceUrl: candidateUrl };
     }
@@ -220,15 +230,23 @@ function getExternalScriptCandidateUrls(scriptUrl: string): string[] {
 async function loadSingleExternalScriptText(
   scriptUrl: string,
   pageUrl: string,
+  options?: IInlineExternalScriptsOptions,
 ): Promise<string> {
-  const cachedScript = externalScriptCache.get(scriptUrl);
-  if (cachedScript) {
+  const bypassCache = options?.bypassCache === true;
+  const cacheTtlMs = normalizeExternalScriptCacheTtlMs(options?.cacheTtlMs);
+  const cachedScript = bypassCache ? undefined : externalScriptCache.get(scriptUrl);
+  if (cachedScript && cachedScript.expiresAt > Date.now()) {
     externalScriptCache.delete(scriptUrl);
     externalScriptCache.set(scriptUrl, cachedScript);
-    return cachedScript;
+    return cachedScript.scriptText;
+  }
+  if (cachedScript) {
+    externalScriptCache.delete(scriptUrl);
   }
 
-  const inFlightRequest = externalScriptInFlightRequests.get(scriptUrl);
+  const inFlightRequest = bypassCache
+    ? undefined
+    : externalScriptInFlightRequests.get(scriptUrl);
   if (inFlightRequest) {
     return inFlightRequest;
   }
@@ -240,20 +258,34 @@ async function loadSingleExternalScriptText(
         return '';
       }
       const scriptText = await response.text();
-      if (scriptText) {
+      if (scriptText && cacheTtlMs > 0) {
         externalScriptCache.delete(scriptUrl);
-        externalScriptCache.set(scriptUrl, scriptText);
+        externalScriptCache.set(scriptUrl, {
+          scriptText,
+          expiresAt: Date.now() + cacheTtlMs,
+        });
         trimExternalScriptCache();
       }
       return scriptText;
     })
     .catch(() => '')
     .finally(() => {
-      externalScriptInFlightRequests.delete(scriptUrl);
+      if (!bypassCache && externalScriptInFlightRequests.get(scriptUrl) === request) {
+        externalScriptInFlightRequests.delete(scriptUrl);
+      }
     });
 
-  externalScriptInFlightRequests.set(scriptUrl, request);
+  if (!bypassCache) {
+    externalScriptInFlightRequests.set(scriptUrl, request);
+  }
   return request;
+}
+
+function normalizeExternalScriptCacheTtlMs(value?: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_EXTERNAL_SCRIPT_CACHE_TTL_MS;
+  }
+  return Math.max(0, Math.round(value));
 }
 
 function isSameOrigin(scriptUrl: string, pageUrl: string): boolean {

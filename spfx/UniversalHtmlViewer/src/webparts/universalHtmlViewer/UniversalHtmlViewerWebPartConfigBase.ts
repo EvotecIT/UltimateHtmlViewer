@@ -36,7 +36,7 @@ const tenantMergeDefaultValues: Record<string, boolean | number> = {
   fitContentWidth: false,
   showConfigActions: false,
   showDashboardSelector: false,
-  allowQueryStringPageOverride: false,
+  allowQueryStringPageOverride: true,
   showReportBrowser: false,
   reportBrowserMaxItems: 300,
   showChrome: true,
@@ -76,10 +76,10 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     const allowedPathPrefixes: string[] = this.parsePathPrefixes(
       effectiveProps.allowedPathPrefixes,
     );
-    const inferredSourcePathPrefix = this.inferInlineSourcePathPrefix(
-      effectiveProps,
-      currentPageUrl,
-    );
+    const shouldInferPathPrefixes = allowedPathPrefixes.length === 0;
+    const inferredSourcePathPrefix = shouldInferPathPrefixes
+      ? this.inferInlineSourcePathPrefix(effectiveProps, currentPageUrl)
+      : undefined;
     if (
       inferredSourcePathPrefix &&
       !allowedPathPrefixes.some(
@@ -90,10 +90,9 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     ) {
       allowedPathPrefixes.push(inferredSourcePathPrefix);
     }
-    const inferredReportBrowserPathPrefix = this.inferReportBrowserPathPrefix(
-      effectiveProps,
-      currentPageUrl,
-    );
+    const inferredReportBrowserPathPrefix = shouldInferPathPrefixes
+      ? this.inferReportBrowserPathPrefix(effectiveProps, currentPageUrl)
+      : undefined;
     if (
       inferredReportBrowserPathPrefix &&
       !allowedPathPrefixes.some(
@@ -128,31 +127,42 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     }
 
     const candidateUrls = new Set<string>();
-    const trimmedCurrentBaseUrl = (this.currentBaseUrl || '').trim();
-    if (trimmedCurrentBaseUrl) {
-      candidateUrls.add(trimmedCurrentBaseUrl);
-    }
 
     const htmlSourceMode: HtmlSourceMode = effectiveProps.htmlSourceMode || 'FullUrl';
-    const builtUrl = buildFinalUrl({
-      htmlSourceMode,
-      fullUrl: effectiveProps.fullUrl,
-      basePath: effectiveProps.basePath,
-      reportBrowserRootPath: effectiveProps.reportBrowserRootPath,
-      webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
-      relativePath: effectiveProps.relativePath,
-      dashboardId: effectiveProps.dashboardId,
-      defaultFileName: effectiveProps.defaultFileName,
-      queryStringParamName: effectiveProps.queryStringParamName,
-      pageUrl: currentPageUrl,
-    });
-    if (builtUrl) {
-      candidateUrls.add(builtUrl);
-    }
+    if (
+      htmlSourceMode === 'BasePathAndDashboardId' ||
+      htmlSourceMode === 'BasePathAndRelativePath'
+    ) {
+      const configuredBasePath = (effectiveProps.basePath || '').trim();
+      if (configuredBasePath) {
+        const rootedBasePath = configuredBasePath.startsWith('/')
+          ? configuredBasePath
+          : `/${configuredBasePath}`;
+        candidateUrls.add(
+          rootedBasePath.endsWith('/') ? rootedBasePath : `${rootedBasePath}/`,
+        );
+      }
+    } else {
+      const builtUrl = buildFinalUrl({
+        htmlSourceMode,
+        fullUrl: effectiveProps.fullUrl,
+        basePath: effectiveProps.basePath,
+        reportBrowserRootPath: effectiveProps.reportBrowserRootPath,
+        webAbsoluteUrl: this.context.pageContext.web.absoluteUrl,
+        relativePath: effectiveProps.relativePath,
+        dashboardId: effectiveProps.dashboardId,
+        defaultFileName: effectiveProps.defaultFileName,
+        queryStringParamName: effectiveProps.queryStringParamName,
+        pageUrl: currentPageUrl,
+      });
+      if (builtUrl) {
+        candidateUrls.add(builtUrl);
+      }
 
-    const fullUrl = (effectiveProps.fullUrl || '').trim();
-    if (fullUrl) {
-      candidateUrls.add(fullUrl);
+      const fullUrl = (effectiveProps.fullUrl || '').trim();
+      if (fullUrl) {
+        candidateUrls.add(fullUrl);
+      }
     }
 
     const inferredPrefixes = Array.from(candidateUrls.values())
@@ -163,11 +173,6 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
 
     if (inferredPrefixes.length === 0) {
       return undefined;
-    }
-
-    const currentWebPrefix = this.tryGetCurrentWebPrefix();
-    if (currentWebPrefix) {
-      inferredPrefixes.push(currentWebPrefix);
     }
 
     const uniquePrefixes: string[] = [];
@@ -182,7 +187,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       uniquePrefixes.push(prefix);
     });
 
-    return uniquePrefixes.sort((left, right) => left.length - right.length)[0];
+    return uniquePrefixes.sort((left, right) => right.length - left.length)[0];
   }
 
   private inferReportBrowserPathPrefix(
@@ -207,23 +212,6 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       this.context.pageContext.web.absoluteUrl || currentPageUrl,
     );
     return normalizedRootPath ? `${normalizedRootPath}/` : undefined;
-  }
-
-  private tryGetCurrentWebPrefix(): string | undefined {
-    const serverRelativeUrl = (this.context?.pageContext?.web?.serverRelativeUrl || '').trim();
-    if (!serverRelativeUrl) {
-      return undefined;
-    }
-
-    let normalized = serverRelativeUrl.replace(/\\/g, '/');
-    if (!normalized.startsWith('/')) {
-      normalized = `/${normalized}`;
-    }
-    if (!normalized.endsWith('/')) {
-      normalized = `${normalized}/`;
-    }
-
-    return normalized;
   }
 
   private resolveContentDeliveryMode(
@@ -322,7 +310,26 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       effectiveProps = this.mergeTenantConfig(effectiveProps, tenantConfig, mode);
     }
 
+    this.normalizeInlineDeepLinkConfiguration(
+      effectiveProps,
+      tenantConfig?.allowQueryStringPageOverride === false,
+    );
+
     return { effectiveProps, tenantConfig };
+  }
+
+  protected normalizeInlineDeepLinkConfiguration(
+    props: IUniversalHtmlViewerWebPartProps,
+    preserveDisabledOverride: boolean = false,
+  ): void {
+    if (
+      !preserveDisabledOverride &&
+      isInlineContentDeliveryMode(this.resolveContentDeliveryMode(props)) &&
+      props.showOpenInNewTab === true &&
+      props.allowQueryStringPageOverride !== true
+    ) {
+      props.allowQueryStringPageOverride = true;
+    }
   }
 
   private mergeTenantConfig(
@@ -517,7 +524,8 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     props.showLoadingIndicator = true;
     props.showConfigActions = true;
     props.showDashboardSelector = false;
-    props.allowQueryStringPageOverride = false;
+    props.allowQueryStringPageOverride = true;
+    props.inlineDeepLinkParamName = props.inlineDeepLinkParamName || 'uhvPage';
     props.fitContentWidth = false;
     props.chromeDensity = 'Comfortable';
     props.iframeLoadTimeoutSeconds = 10;
@@ -563,12 +571,14 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
         break;
       case 'AllowlistCDN':
         props.contentDeliveryMode = 'DirectUrl';
+        props.allowQueryStringPageOverride = false;
         props.securityMode = 'Allowlist';
         props.cacheBusterMode = 'Timestamp';
         props.sandboxPreset = 'Relaxed';
         break;
       case 'AnyHttps':
         props.contentDeliveryMode = 'DirectUrl';
+        props.allowQueryStringPageOverride = false;
         props.securityMode = 'AnyHttps';
         props.enableExpertSecurityModes = true;
         props.cacheBusterMode = 'Timestamp';
@@ -621,7 +631,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
 
   protected parsePathPrefixes(value?: string): string[] {
     return (value || '')
-      .split(/[,;\s]+/g)
+      .split(/[,;\r\n]+/g)
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0)
       .map((entry) => {
@@ -671,7 +681,7 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
         return 'allow-same-origin allow-scripts allow-forms allow-popups allow-downloads';
       }
       if (normalizedPreset === 'strict') {
-        return 'allow-scripts';
+        return 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-downloads';
       }
       return '';
     }

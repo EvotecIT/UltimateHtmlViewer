@@ -1,5 +1,6 @@
 import {
   buildPageUrlWithInlineDeepLink,
+  DEFAULT_INLINE_DEEP_LINK_PARAM,
   MAX_DEEP_LINK_QUERY_VALUE_LENGTH,
 } from './InlineDeepLinkHelper';
 import {
@@ -9,8 +10,20 @@ import {
 
 export interface IRewriteInlineNavigationAnchorHrefsOptions {
   allowedFileExtensions?: string[];
+  allowedPathPrefixes?: string[];
   preservedHostQueryParamNames?: string[];
+  deepLinkQueryParamName?: string;
 }
+
+export const SHAREPOINT_TRANSIENT_HOST_QUERY_PARAM_NAMES: string[] = [
+  'ct',
+  'e',
+  'isspofile',
+  'or',
+  'wdlor',
+  'wdorigin',
+  'web',
+];
 
 export function rewriteInlineNavigationAnchorHrefs(
   html: string,
@@ -43,40 +56,12 @@ export function rewriteInlineNavigationAnchorHrefs(
     );
     const anchors = parsed.querySelectorAll('a[href]');
     anchors.forEach((anchor) => {
-      if (anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) === '1') {
-        return;
-      }
-
-      if (anchor.hasAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE)) {
-        anchor.removeAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE);
-      }
-
-      const rawHref = (anchor.getAttribute('href') || '').trim();
-      const targetUrl = resolveInlineAnchorTargetUrl(
-        rawHref,
+      rewriteInlineNavigationAnchorElement(
+        anchor,
         baseUrl,
-        page,
-        options?.allowedFileExtensions,
+        hostPageUrl,
+        options,
       );
-      if (!targetUrl) {
-        return;
-      }
-
-      if (getDeepLinkQueryValueLength(targetUrl, page) > MAX_DEEP_LINK_QUERY_VALUE_LENGTH) {
-        return;
-      }
-
-      const hostDeepLinkUrl = buildPageUrlWithInlineDeepLink({
-        pageUrl: hostPageUrl,
-        targetUrl,
-      });
-      if (!hostDeepLinkUrl || hostDeepLinkUrl === rawHref) {
-        return;
-      }
-
-      anchor.setAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE, targetUrl);
-      anchor.setAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE, '1');
-      anchor.setAttribute('href', hostDeepLinkUrl);
     });
 
     const rebuiltHtml = parsed.documentElement.outerHTML;
@@ -88,6 +73,104 @@ export function rewriteInlineNavigationAnchorHrefs(
   } catch {
     return html;
   }
+}
+
+export function rewriteInlineNavigationAnchorElement(
+  anchor: Element,
+  baseUrlForRelativeLinks: string,
+  pageUrl: string,
+  options?: IRewriteInlineNavigationAnchorHrefsOptions,
+): boolean {
+  if (
+    !anchor ||
+    anchor.tagName.toLowerCase() !== 'a' ||
+    anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) === '1'
+  ) {
+    return false;
+  }
+
+  if (anchor.hasAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE)) {
+    anchor.removeAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE);
+  }
+
+  let page: URL;
+  try {
+    page = new URL(pageUrl);
+  } catch {
+    return false;
+  }
+
+  const rawHref = (anchor.getAttribute('href') || '').trim();
+  const targetUrl = resolveInlineAnchorTargetUrl(
+    rawHref,
+    baseUrlForRelativeLinks,
+    page,
+    options?.allowedFileExtensions,
+    options?.allowedPathPrefixes,
+    options?.deepLinkQueryParamName,
+  );
+  if (!targetUrl) {
+    return false;
+  }
+
+  if (getDeepLinkQueryValueLength(targetUrl, page) > MAX_DEEP_LINK_QUERY_VALUE_LENGTH) {
+    return false;
+  }
+
+  const hostPageUrl = getCanonicalHostPageUrl(
+    page,
+    options?.preservedHostQueryParamNames,
+  );
+  const hostDeepLinkUrl = buildPageUrlWithInlineDeepLink({
+    pageUrl: hostPageUrl,
+    targetUrl,
+    queryParamName: options?.deepLinkQueryParamName,
+  });
+  if (!hostDeepLinkUrl || hostDeepLinkUrl === rawHref) {
+    return false;
+  }
+
+  // SharePoint commonly serves .html files as attachments. Eligible HTML links
+  // are viewer navigation, even when a generated report added `download`.
+  anchor.removeAttribute('download');
+  anchor.setAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE, targetUrl);
+  anchor.setAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE, '1');
+  anchor.setAttribute('href', hostDeepLinkUrl);
+  return true;
+}
+
+export function isInlineNavigationAnchorRewriteCurrent(
+  anchor: Element,
+  baseUrlForRelativeLinks: string,
+  pageUrl: string,
+  options?: IRewriteInlineNavigationAnchorHrefsOptions,
+): boolean {
+  const originalHref = (
+    anchor.getAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE) || ''
+  ).trim();
+  if (
+    anchor.getAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE) !== '1' ||
+    !originalHref
+  ) {
+    return false;
+  }
+
+  const expectedAnchor = anchor.cloneNode(false) as Element;
+  expectedAnchor.removeAttribute(INLINE_NAVIGATION_ORIGINAL_HREF_ATTRIBUTE);
+  expectedAnchor.removeAttribute(INLINE_NAVIGATION_REWRITTEN_ATTRIBUTE);
+  expectedAnchor.setAttribute('href', originalHref);
+  if (
+    !rewriteInlineNavigationAnchorElement(
+      expectedAnchor,
+      baseUrlForRelativeLinks,
+      pageUrl,
+      options,
+    )
+  ) {
+    return false;
+  }
+
+  return expectedAnchor.getAttribute('href') === anchor.getAttribute('href');
 }
 
 function getDocumentBaseUrl(parsed: Document, fallbackBaseUrl: string): string {
@@ -103,27 +186,29 @@ function getDocumentBaseUrl(parsed: Document, fallbackBaseUrl: string): string {
   }
 }
 
-function getCanonicalHostPageUrl(
-  pageUrl: URL,
+export function getCanonicalHostPageUrl(
+  pageUrl: URL | string,
   preservedQueryParamNames?: string[],
 ): string {
-  const canonical = new URL(pageUrl.toString());
-  const preservedValues = new Map<string, string[]>();
-  (preservedQueryParamNames || [])
+  const sourcePageUrl =
+    typeof pageUrl === 'string' ? new URL(pageUrl) : pageUrl;
+  const canonical = new URL(sourcePageUrl.toString());
+  const explicitlyPreservedNames = new Set(
+    (preservedQueryParamNames || [])
     .map((entry) => (entry || '').trim())
     .filter((entry) => entry.length > 0)
-    .forEach((paramName) => {
-      const values = pageUrl.searchParams.getAll(paramName);
-      if (values.length > 0) {
-        preservedValues.set(paramName, values);
-      }
-    });
+    .map((entry) => entry.toLowerCase()),
+  );
 
   canonical.search = '';
-  preservedValues.forEach((values, paramName) => {
-    values.forEach((value) => {
+  sourcePageUrl.searchParams.forEach((value, paramName) => {
+    const normalizedName = paramName.toLowerCase();
+    if (
+      explicitlyPreservedNames.has(normalizedName) ||
+      !SHAREPOINT_TRANSIENT_HOST_QUERY_PARAM_NAMES.includes(normalizedName)
+    ) {
       canonical.searchParams.append(paramName, value);
-    });
+    }
   });
   canonical.hash = '';
   return canonical.toString();
@@ -134,6 +219,8 @@ function resolveInlineAnchorTargetUrl(
   baseUrl: string,
   pageUrl: URL,
   allowedFileExtensions?: string[],
+  allowedPathPrefixes?: string[],
+  deepLinkQueryParamName?: string,
 ): string | undefined {
   const normalizedHref = (rawHref || '').trim();
   if (!normalizedHref || normalizedHref.startsWith('#')) {
@@ -162,11 +249,17 @@ function resolveInlineAnchorTargetUrl(
     return undefined;
   }
 
-  if (!isInsideBaseDirectory(target, baseUrl)) {
+  if (!isInsideAllowedPath(target, baseUrl, allowedPathPrefixes)) {
     return undefined;
   }
 
-  if (isCurrentPageDeepLink(target, pageUrl)) {
+  if (
+    isCurrentPageDeepLink(
+      target,
+      pageUrl,
+      deepLinkQueryParamName,
+    )
+  ) {
     return undefined;
   }
 
@@ -176,6 +269,24 @@ function resolveInlineAnchorTargetUrl(
   }
 
   return target.toString();
+}
+
+function isInsideAllowedPath(
+  target: URL,
+  baseUrl: string,
+  allowedPathPrefixes?: string[],
+): boolean {
+  const normalizedPrefixes = (allowedPathPrefixes || [])
+    .map((prefix) => normalizePath(prefix).replace(/\/?$/, '/'))
+    .filter((prefix) => prefix.length > 0);
+  if (normalizedPrefixes.length === 0) {
+    return isInsideBaseDirectory(target, baseUrl);
+  }
+
+  const targetPath = normalizePath(target.pathname);
+  return normalizedPrefixes.some(
+    (prefix) => targetPath === prefix.slice(0, -1) || targetPath.startsWith(prefix),
+  );
 }
 
 function getDeepLinkQueryValueLength(targetUrl: string, pageUrl: URL): number {
@@ -223,11 +334,17 @@ function isInsideBaseDirectory(target: URL, baseUrl: string): boolean {
   }
 }
 
-function isCurrentPageDeepLink(target: URL, pageUrl: URL): boolean {
+function isCurrentPageDeepLink(
+  target: URL,
+  pageUrl: URL,
+  deepLinkQueryParamName?: string,
+): boolean {
+  const queryParamName =
+    (deepLinkQueryParamName || '').trim() || DEFAULT_INLINE_DEEP_LINK_PARAM;
   return (
     target.host.toLowerCase() === pageUrl.host.toLowerCase() &&
     target.pathname.toLowerCase() === pageUrl.pathname.toLowerCase() &&
-    target.searchParams.has('uhvPage')
+    target.searchParams.has(queryParamName)
   );
 }
 

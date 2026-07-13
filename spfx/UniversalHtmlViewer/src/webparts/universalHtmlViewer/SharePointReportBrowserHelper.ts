@@ -1,5 +1,6 @@
 import type { SPHttpClient, SPHttpClientResponse } from '@microsoft/sp-http';
 import { ReportBrowserDefaultView } from './UniversalHtmlViewerTypes';
+import { buildSharePointFolderByPathApiUrl } from './SharePointResourcePathHelper';
 
 export interface ISharePointReportBrowserItem {
   name: string;
@@ -17,6 +18,7 @@ export interface ILoadSharePointReportBrowserItemsOptions {
   allowedExtensions: string[];
   view: ReportBrowserDefaultView;
   maxItems: number;
+  maxRequests?: number;
   spHttpClientConfiguration?: unknown;
 }
 
@@ -37,13 +39,22 @@ interface ISharePointListResponse<T> {
   'odata.nextLink'?: string;
 }
 
+type SettledResult<T> =
+  | { status: 'fulfilled'; value: T }
+  | { status: 'rejected'; reason: unknown };
+
 const DEFAULT_MAX_ITEMS = 300;
+const DEFAULT_MAX_REQUESTS = 200;
 const MAX_SHAREPOINT_PAGE_SIZE = 5000;
 const skippedFolderNames = new Set<string>(['forms']);
+const requestBudgets = new WeakMap<object, { remaining: number }>();
+
+class ReportBrowserRequestBudgetExceededError extends Error {}
 
 export async function loadSharePointReportBrowserItems(
   options: ILoadSharePointReportBrowserItemsOptions,
 ): Promise<ISharePointReportBrowserItem[]> {
+  const requestOptions: ILoadSharePointReportBrowserItemsOptions = { ...options };
   const rootPath = normalizeSharePointReportBrowserRootPath(
     options.rootPath,
     options.webAbsoluteUrl,
@@ -51,6 +62,9 @@ export async function loadSharePointReportBrowserItems(
   if (!rootPath) {
     return [];
   }
+  requestBudgets.set(requestOptions, {
+    remaining: normalizeMaxRequests(options.maxRequests),
+  });
 
   const currentFolderPath =
     options.view === 'Folders'
@@ -61,34 +75,71 @@ export async function loadSharePointReportBrowserItems(
 
   if (options.view === 'Files') {
     const files: ISharePointReportBrowserItem[] = [];
-    await appendFolderFilesRecursive(
-      options,
-      rootPath,
-      rootPath,
-      allowedExtensions,
-      maxItems,
-      files,
-      new Set<string>(),
-    );
-    return files;
+    try {
+      await appendFolderFilesRecursive(
+        requestOptions,
+        rootPath,
+        rootPath,
+        allowedExtensions,
+        maxItems,
+        files,
+        new Set<string>(),
+      );
+      return files;
+    } finally {
+      requestBudgets.delete(requestOptions);
+    }
   }
 
-  const [folders, files] = await Promise.all([
-    loadFolderEntries(options, currentFolderPath, maxItems),
-    loadAllowedFileEntries(options, currentFolderPath, allowedExtensions, maxItems),
-  ]);
+  try {
+    const [folderResult, fileResult] = await Promise.all([
+      settlePromise(loadFolderEntries(requestOptions, currentFolderPath, maxItems)),
+      settlePromise(
+        loadAllowedFileEntries(
+          requestOptions,
+          currentFolderPath,
+          allowedExtensions,
+          maxItems,
+        ),
+      ),
+    ]);
+    if (folderResult.status === 'rejected') {
+      throw folderResult.reason;
+    }
+    if (fileResult.status === 'rejected') {
+      throw fileResult.reason;
+    }
+    const folders = folderResult.value;
+    const files = fileResult.value;
 
-  const folderItems = folders
-    .filter((folder) => !skippedFolderNames.has(String(folder.Name || '').toLowerCase()))
-    .map((folder) =>
-      buildFolderItem(folder, rootPath),
-    )
-    .filter((item): item is ISharePointReportBrowserItem => !!item);
-  const fileItems = files
-    .map((file) => buildFileItem(file, rootPath))
-    .filter((item): item is ISharePointReportBrowserItem => !!item);
+    const folderItems = folders
+      .filter((folder) => !skippedFolderNames.has(String(folder.Name || '').toLowerCase()))
+      .map((folder) =>
+        buildFolderItem(folder, rootPath),
+      )
+      .filter((item): item is ISharePointReportBrowserItem => !!item);
+    const fileItems = files
+      .map((file) => buildFileItem(file, rootPath))
+      .filter((item): item is ISharePointReportBrowserItem => !!item);
 
-  return mergeFolderViewItems(folderItems, fileItems, maxItems);
+    return mergeFolderViewItems(folderItems, fileItems, maxItems);
+  } finally {
+    requestBudgets.delete(requestOptions);
+  }
+}
+
+async function settlePromise<T>(promise: Promise<T>): Promise<SettledResult<T>> {
+  try {
+    return {
+      status: 'fulfilled',
+      value: await promise,
+    };
+  } catch (reason) {
+    return {
+      status: 'rejected',
+      reason,
+    };
+  }
 }
 
 export function normalizeSharePointReportBrowserRootPath(
@@ -400,6 +451,15 @@ async function loadSharePointJson<T>(
   options: ILoadSharePointReportBrowserItemsOptions,
   apiUrl: string,
 ): Promise<T> {
+  const requestBudget = requestBudgets.get(options);
+  if (requestBudget) {
+    if (requestBudget.remaining <= 0) {
+      throw new ReportBrowserRequestBudgetExceededError(
+        'SharePoint report browser request limit reached.',
+      );
+    }
+    requestBudget.remaining -= 1;
+  }
   const response: SPHttpClientResponse = await options.spHttpClient.get(
     apiUrl,
     options.spHttpClientConfiguration as never,
@@ -428,8 +488,12 @@ function buildFolderChildrenApiUrl(
   childCollectionName: 'Files' | 'Folders',
   query: string,
 ): string {
-  const encodedPath = encodeURIComponent(normalizeServerRelativeFolderPath(folderPath));
-  return `${webAbsoluteUrl}/_api/web/GetFolderByServerRelativeUrl(@p1)/${childCollectionName}?@p1='${encodedPath}'&${query}`;
+  return buildSharePointFolderByPathApiUrl(
+    webAbsoluteUrl,
+    normalizeServerRelativeFolderPath(folderPath),
+    `/${childCollectionName}`,
+    query,
+  );
 }
 
 function buildFolderItem(
@@ -515,6 +579,13 @@ function isAllowedReportFile(
 function normalizeMaxItems(value: number): number {
   if (!Number.isFinite(value) || value <= 0) {
     return DEFAULT_MAX_ITEMS;
+  }
+  return Math.max(1, Math.min(Math.floor(value), 1000));
+}
+
+function normalizeMaxRequests(value?: number): number {
+  if (!Number.isFinite(value) || !value || value <= 0) {
+    return DEFAULT_MAX_REQUESTS;
   }
   return Math.max(1, Math.min(Math.floor(value), 1000));
 }

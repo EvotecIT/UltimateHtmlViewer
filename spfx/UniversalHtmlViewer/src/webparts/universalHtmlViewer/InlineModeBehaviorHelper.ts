@@ -20,6 +20,9 @@ export interface IInlineModeBehaviorOptions {
   heightMode: HeightMode;
   fixedHeightPx: number;
   fitContentWidth: boolean;
+  rewriteAnchorHrefs?: boolean;
+  deepLinkQueryParamName?: string;
+  preservedHostQueryParamNames?: string[];
   onNavigate: (targetUrl: string, cacheBusterMode: CacheBusterMode) => void;
   loadInlineHtml: (
     sourceUrl: string,
@@ -45,6 +48,10 @@ export function applyInlineModeBehaviors(
     currentPageUrl: options.pageUrl,
     validationOptions: options.validationOptions,
     cacheBusterParamName: options.cacheBusterParamName,
+    rewriteAnchorHrefs: options.rewriteAnchorHrefs,
+    hostPageUrl: options.pageUrl,
+    deepLinkQueryParamName: options.deepLinkQueryParamName,
+    preservedHostQueryParamNames: options.preservedHostQueryParamNames,
     onNavigate: (targetUrl: string) => {
       options.onNavigate(targetUrl, options.cacheBusterMode);
     },

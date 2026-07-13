@@ -12,12 +12,18 @@ import {
   scrollHostPageToIframeHashTarget,
   tryApplyHostPageHashNavigation,
 } from './HostPageHashNavigationHelper';
+import { wireInlineAnchorRuntimeRewrite } from './InlineAnchorRuntimeRewriteHelper';
+import { wireInlineHostPageUrlSync } from './InlineHostPageUrlSyncHelper';
 
 export interface IInlineNavigationOptions {
   iframe: HTMLIFrameElement;
   currentPageUrl: string;
   validationOptions: UrlValidationOptions;
   cacheBusterParamName: string;
+  rewriteAnchorHrefs?: boolean;
+  hostPageUrl?: string;
+  deepLinkQueryParamName?: string;
+  preservedHostQueryParamNames?: string[];
   onNavigate: (targetUrl: string) => void;
 }
 
@@ -31,6 +37,18 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
   const handledEvents = new WeakSet<Event>();
   let lastNavigationTargetUrl = '';
   let lastNavigationTimestamp = 0;
+  const hostPageUrlSync = wireInlineHostPageUrlSync(options.iframe);
+  const runtimeAnchorRewriteCleanup = options.rewriteAnchorHrefs === true
+    ? wireInlineAnchorRuntimeRewrite({
+        iframe: options.iframe,
+        fallbackBaseUrl: options.currentPageUrl,
+        fallbackHostPageUrl: options.hostPageUrl || options.currentPageUrl,
+        allowedFileExtensions: options.validationOptions.allowedFileExtensions,
+        allowedPathPrefixes: options.validationOptions.allowedPathPrefixes,
+        deepLinkQueryParamName: options.deepLinkQueryParamName,
+        preservedHostQueryParamNames: options.preservedHostQueryParamNames,
+      })
+    : (): void => undefined;
   const emitNavigation = (targetUrl: string, event?: Event): void => {
     const now = Date.now();
     const isDuplicatedNavigation =
@@ -90,7 +108,6 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
   const applyHostPageHash = (): void => {
     tryApplyHostPageHashNavigation(options.iframe, scheduleHostPageHashScroll);
   };
-
   const attachHandler = (): void => {
     const iframeDocument: Document | undefined = tryGetIframeDocument(options.iframe);
     if (!iframeDocument) {
@@ -144,8 +161,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
     applyHostPageHash();
   };
   const onInlineNavigationBridgeMessage = (event: MessageEvent): void => {
-    const iframeWindow = tryGetIframeWindow(options.iframe);
-    if (iframeWindow && event.source && event.source !== iframeWindow) {
+    if (!hostPageUrlSync.isAuthenticatedBridgeMessage(event)) {
       return;
     }
 
@@ -185,6 +201,8 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
   attachHandler();
 
   return (): void => {
+    runtimeAnchorRewriteCleanup();
+    hostPageUrlSync.cleanup();
     options.iframe.removeEventListener('load', attachHandler);
     if (typeof window !== 'undefined') {
       window.removeEventListener('message', onInlineNavigationBridgeMessage);
@@ -232,6 +250,10 @@ export function resolveInlineNavigationTarget(
     return undefined;
   }
 
+  if (shouldKeepNativeAnchorBehavior(anchor)) {
+    return undefined;
+  }
+
   const rawHref: string = getAnchorNavigationHref(anchor);
   if (!rawHref || rawHref.startsWith('#')) {
     return undefined;
@@ -243,6 +265,11 @@ export function resolveInlineNavigationTarget(
     cacheBusterParamName: options.cacheBusterParamName,
     baseUrl: getAnchorAbsoluteHref(anchor, options.currentPageUrl),
   });
+}
+
+function shouldKeepNativeAnchorBehavior(anchor: Element): boolean {
+  const target = (anchor.getAttribute('target') || '').trim().toLowerCase();
+  return target.length > 0 && target !== '_self';
 }
 
 interface IInlineNavigationTargetResolutionOptions

@@ -1,4 +1,11 @@
-import { wireInlineIframeNavigation } from '../InlineNavigationHelper';
+import {
+  wireInlineIframeNavigation,
+} from '../InlineNavigationHelper';
+import { INLINE_HOST_PAGE_URL_CHANGED_EVENT } from '../InlineHostPageUrlSyncHelper';
+import {
+  INLINE_NAVIGATION_TOKEN_ATTRIBUTE,
+  stageInlineNavigationSessionToken,
+} from '../InlineNavigationSessionTokenHelper';
 import { UrlValidationOptions } from '../UrlHelper';
 
 describe('wireInlineIframeNavigation lifecycle', () => {
@@ -102,7 +109,9 @@ describe('wireInlineIframeNavigation lifecycle', () => {
       true,
     );
 
-    const loadHandler = addLoadListener.mock.calls[0][1] as () => void;
+    const loadHandler = addLoadListener.mock.calls.filter(
+      (call) => call[0] === 'load',
+    )[1][1] as () => void;
     activeDocument = reloadedDocument;
     loadHandler();
 
@@ -346,23 +355,25 @@ describe('wireInlineIframeNavigation lifecycle', () => {
     addDocumentListenerSpy.mockRestore();
   });
 
-  it('navigates from inline bridge postMessage events emitted inside iframe srcdoc', () => {
+  it('authenticates the prepared iframe before accepting bridge navigation or sharing the host URL', () => {
     const iframeDocument = document.implementation.createHTMLDocument('iframe-message');
-    const addLoadListener = jest.fn();
-    const removeLoadListener = jest.fn();
-    const addWindowListener = jest.fn();
-    const removeWindowListener = jest.fn();
+    const iframePostMessage = jest.fn();
     const iframeWindowStub = {
-      addEventListener: addWindowListener,
-      removeEventListener: removeWindowListener,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      postMessage: iframePostMessage,
     } as unknown as Window;
     const onNavigate = jest.fn();
-    const iframeStub = {
-      contentDocument: iframeDocument,
-      contentWindow: iframeWindowStub,
-      addEventListener: addLoadListener,
-      removeEventListener: removeLoadListener,
-    } as unknown as HTMLIFrameElement;
+    const iframeStub = document.createElement('iframe');
+    Object.defineProperty(iframeStub, 'contentDocument', {
+      value: iframeDocument,
+      configurable: true,
+    });
+    Object.defineProperty(iframeStub, 'contentWindow', {
+      value: iframeWindowStub,
+      configurable: true,
+    });
+    stageInlineNavigationSessionToken(iframeStub, 'trusted-top-level-token');
 
     const cleanup = wireInlineIframeNavigation({
       iframe: iframeStub,
@@ -372,21 +383,124 @@ describe('wireInlineIframeNavigation lifecycle', () => {
       onNavigate,
     });
 
-    const messageEvent = new MessageEvent('message', {
-      data: {
-        type: 'uhv-inline-nav',
-        targetUrl: 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/next-message.html?v=1',
-      },
+    const dispatchFrameMessage = (data: Record<string, unknown>): void => {
+      const messageEvent = new MessageEvent('message', { data });
+      Object.defineProperty(messageEvent, 'source', {
+        value: iframeWindowStub,
+        configurable: true,
+      });
+      window.dispatchEvent(messageEvent);
+    };
+
+    iframeStub.dispatchEvent(new Event('load'));
+    dispatchFrameMessage({ type: 'uhv-inline-ready' });
+    dispatchFrameMessage({
+      type: 'uhv-inline-ready',
+      navigationToken: 'forged-token',
     });
-    Object.defineProperty(messageEvent, 'source', {
+    dispatchFrameMessage({
+      type: 'uhv-inline-nav',
+      navigationToken: 'trusted-top-level-token',
+      targetUrl: 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/next-message.html?v=1',
+    });
+
+    expect(iframePostMessage).not.toHaveBeenCalled();
+    expect(onNavigate).not.toHaveBeenCalled();
+
+    dispatchFrameMessage({
+      type: 'uhv-inline-ready',
+      navigationToken: 'trusted-top-level-token',
+    });
+    expect(iframePostMessage).toHaveBeenCalledWith(
+      {
+        type: 'uhv-inline-host-page-url',
+        hostPageUrl: window.location.href,
+      },
+      '*',
+    );
+    expect(iframeStub.hasAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE)).toBe(false);
+
+    dispatchFrameMessage({
+      type: 'uhv-inline-nav',
+      targetUrl: 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/forged.html',
+    });
+    expect(onNavigate).not.toHaveBeenCalled();
+
+    dispatchFrameMessage({
+      type: 'uhv-inline-nav',
+      navigationToken: 'trusted-top-level-token',
+      targetUrl: 'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/next-message.html?v=1',
+    });
+    expect(onNavigate).toHaveBeenCalledWith(
+      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/next-message.html',
+    );
+
+    iframePostMessage.mockClear();
+    iframeStub.dispatchEvent(new Event('load'));
+    dispatchFrameMessage({
+      type: 'uhv-inline-ready',
+      navigationToken: 'trusted-top-level-token',
+    });
+    window.dispatchEvent(new Event(INLINE_HOST_PAGE_URL_CHANGED_EVENT));
+    expect(iframePostMessage).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it('re-authenticates host URL sync only after a newly staged frame session', () => {
+    const iframePostMessage = jest.fn();
+    const iframeWindowStub = { postMessage: iframePostMessage } as unknown as Window;
+    const iframeStub = document.createElement('iframe');
+    Object.defineProperty(iframeStub, 'contentWindow', {
       value: iframeWindowStub,
       configurable: true,
     });
+    stageInlineNavigationSessionToken(iframeStub, 'first-token');
 
-    window.dispatchEvent(messageEvent);
+    const cleanup = wireInlineIframeNavigation({
+      iframe: iframeStub,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      onNavigate: jest.fn(),
+    });
+    const dispatchReady = (navigationToken: string): void => {
+      const readyEvent = new MessageEvent('message', {
+        data: { type: 'uhv-inline-ready', navigationToken },
+      });
+      Object.defineProperty(readyEvent, 'source', {
+        value: iframeWindowStub,
+        configurable: true,
+      });
+      window.dispatchEvent(readyEvent);
+    };
 
-    expect(onNavigate).toHaveBeenCalledWith(
-      'https://contoso.sharepoint.com/sites/TestSite1/SiteAssets/next-message.html',
+    iframeStub.dispatchEvent(new Event('load'));
+    dispatchReady('first-token');
+    expect(iframePostMessage).toHaveBeenCalledWith(
+      {
+        type: 'uhv-inline-host-page-url',
+        hostPageUrl: window.location.href,
+      },
+      '*',
+    );
+
+    iframePostMessage.mockClear();
+    stageInlineNavigationSessionToken(iframeStub, 'second-token');
+    window.dispatchEvent(new Event(INLINE_HOST_PAGE_URL_CHANGED_EVENT));
+    expect(iframePostMessage).not.toHaveBeenCalled();
+
+    iframeStub.dispatchEvent(new Event('load'));
+    dispatchReady('first-token');
+    expect(iframePostMessage).not.toHaveBeenCalled();
+
+    dispatchReady('second-token');
+    expect(iframePostMessage).toHaveBeenCalledWith(
+      {
+        type: 'uhv-inline-host-page-url',
+        hostPageUrl: window.location.href,
+      },
+      '*',
     );
 
     cleanup();

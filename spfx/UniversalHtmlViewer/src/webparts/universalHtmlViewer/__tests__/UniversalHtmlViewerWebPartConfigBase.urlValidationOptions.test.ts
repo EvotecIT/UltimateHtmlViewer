@@ -16,6 +16,13 @@ const {
 }: {
   UniversalHtmlViewerWebPartConfigBase: any;
 } = require('../UniversalHtmlViewerWebPartConfigBase');
+const {
+  buildFinalUrl,
+  isUrlAllowed,
+}: {
+  buildFinalUrl: any;
+  isUrlAllowed: any;
+} = require('../UrlHelper');
 
 function createConfigHarness(): any {
   const configBase = Object.create(
@@ -37,7 +44,7 @@ function createConfigHarness(): any {
 describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () => {
   const pageUrl = 'https://contoso.sharepoint.com/sites/TestSite2/SitePages/Dashboard.aspx';
 
-  it('appends inferred site prefix for SharePoint inline mode when configured prefix is stale', () => {
+  it('does not widen an explicitly configured path allowlist', () => {
     const configBase = createConfigHarness();
 
     const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
@@ -52,7 +59,7 @@ describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () =>
     });
 
     expect(options.allowedPathPrefixes).toContain('/sites/Reports/Dashboards/');
-    expect(options.allowedPathPrefixes).toContain('/sites/TestSite2/');
+    expect(options.allowedPathPrefixes).not.toContain('/sites/TestSite2/');
   });
 
   it('does not append inferred source directory prefix for DirectUrl mode', () => {
@@ -90,6 +97,101 @@ describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () =>
     expect(options.allowedPathPrefixes).toContain(
       '/sites/TestSite2/Shared Documents/Reports/',
     );
+  });
+
+  it('infers the configured base path for sibling dashboard navigation', () => {
+    const configBase = createConfigHarness();
+
+    const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
+      htmlSourceMode: 'BasePathAndDashboardId',
+      basePath: '/sites/TestSite2/SiteAssets/Dashboards',
+      dashboardId: 'Current',
+      defaultFileName: 'Index.html',
+      contentDeliveryMode: 'SharePointFileBlobUrl',
+      securityMode: 'StrictTenant',
+      allowHttp: false,
+      allowedHosts: '',
+      allowedPathPrefixes: '',
+      allowedFileExtensions: '.html,.htm,.aspx',
+    });
+
+    expect(options.allowedPathPrefixes).toEqual([
+      '/sites/TestSite2/SiteAssets/Dashboards/',
+    ]);
+    expect(options.allowedPathPrefixes).not.toContain(
+      '/sites/TestSite2/SiteAssets/Dashboards/Current/',
+    );
+  });
+
+  it('infers the configured base path for relative-path navigation', () => {
+    const configBase = createConfigHarness();
+
+    const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
+      htmlSourceMode: 'BasePathAndRelativePath',
+      basePath: '/sites/TestSite2/SiteAssets/Reports',
+      relativePath: 'Current/Index.html',
+      contentDeliveryMode: 'SharePointFileBlobUrl',
+      securityMode: 'StrictTenant',
+      allowHttp: false,
+      allowedHosts: '',
+      allowedPathPrefixes: '',
+      allowedFileExtensions: '.html,.htm,.aspx',
+    });
+
+    expect(options.allowedPathPrefixes).toEqual([
+      '/sites/TestSite2/SiteAssets/Reports/',
+    ]);
+    expect(options.allowedPathPrefixes).not.toContain(
+      '/sites/TestSite2/SiteAssets/Reports/Current/',
+    );
+  });
+
+  it('roots an imported relative base path before inferring its validation prefix', () => {
+    const configBase = createConfigHarness();
+
+    const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
+      htmlSourceMode: 'BasePathAndRelativePath',
+      basePath: 'Shared Documents/Reports',
+      relativePath: 'Current/Index.html',
+      contentDeliveryMode: 'SharePointFileBlobUrl',
+      securityMode: 'StrictTenant',
+      allowHttp: false,
+      allowedHosts: '',
+      allowedPathPrefixes: '',
+      allowedFileExtensions: '.html,.htm,.aspx',
+    });
+
+    const builtUrl = buildFinalUrl({
+      htmlSourceMode: 'BasePathAndRelativePath',
+      basePath: 'Shared Documents/Reports',
+      relativePath: 'Current/Index.html',
+    });
+
+    expect(builtUrl).toBe('/Shared Documents/Reports/Current/Index.html');
+    expect(isUrlAllowed(builtUrl, options)).toBe(true);
+    expect(options.allowedPathPrefixes.join(',').toLowerCase()).not.toContain(
+      '/sites/testsite2/sitepages/',
+    );
+  });
+
+  it('preserves spaces inside configured SharePoint path prefixes', () => {
+    const configBase = createConfigHarness();
+
+    const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
+      htmlSourceMode: 'FullUrl',
+      fullUrl:
+        'https://contoso.sharepoint.com/sites/TestSite2/Shared Documents/Reports/Index.html',
+      contentDeliveryMode: 'SharePointFileContent',
+      securityMode: 'StrictTenant',
+      allowHttp: false,
+      allowedHosts: '',
+      allowedPathPrefixes: '/sites/TestSite2/Shared Documents/Reports/',
+      allowedFileExtensions: '.html,.htm,.aspx',
+    });
+
+    expect(options.allowedPathPrefixes).toEqual([
+      '/sites/TestSite2/Shared Documents/Reports/',
+    ]);
   });
 
   it('does not append inferred source directory prefix for cross-host full URL', () => {

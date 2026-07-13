@@ -89,6 +89,40 @@ describe('NestedIframeHydrationHelper', () => {
     cleanup();
   });
 
+  it('gives each hydrated bridge a one-time parent-verified navigation capability', async () => {
+    document.body.innerHTML =
+      '<iframe src="/sites/TestSite1/SitePages/reports/nested.html"></iframe>';
+    Object.defineProperty(document, 'baseURI', {
+      value: 'https://contoso.sharepoint.com/sites/TestSite1/SitePages/Dashboard.aspx',
+      configurable: true,
+    });
+    const parentIframe = createIframeStubWithDocument(document);
+    const loadInlineHtml = jest.fn().mockResolvedValue(
+      '<html><head><script data-uhv-inline-nav-bridge="1">/* bridge */</script></head><body>Nested content</body></html>',
+    );
+
+    const cleanup = wireNestedIframeHydration({
+      iframe: parentIframe,
+      currentPageUrl: validationOptions.currentPageUrl,
+      validationOptions,
+      cacheBusterParamName: 'v',
+      loadInlineHtml,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const nestedFrame = document.querySelector('iframe') as HTMLIFrameElement;
+    const navigationToken = nestedFrame.getAttribute('data-uhv-inline-nav-token');
+    expect(navigationToken).toMatch(/^[a-z0-9-]{16,}$/i);
+    expect(nestedFrame.srcdoc).toContain(
+      `data-uhv-inline-nav-token="${navigationToken}"`,
+    );
+
+    cleanup();
+    expect(nestedFrame.hasAttribute('data-uhv-inline-nav-token')).toBe(false);
+  });
+
   it('does not hydrate nested iframes that resolve outside current tenant host', async () => {
     document.body.innerHTML = '<iframe src="https://example.org/report.html"></iframe>';
     const parentIframe = createIframeStubWithDocument(document);

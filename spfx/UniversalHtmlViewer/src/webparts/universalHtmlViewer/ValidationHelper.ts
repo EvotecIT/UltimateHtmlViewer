@@ -82,7 +82,7 @@ export function validateAllowedHosts(value?: string): string {
 
 export function validateAllowedPathPrefixes(value?: string): string {
   const entries = (value || '')
-    .split(/[,;\s]+/g)
+    .split(/[,;\r\n]+/g)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
 

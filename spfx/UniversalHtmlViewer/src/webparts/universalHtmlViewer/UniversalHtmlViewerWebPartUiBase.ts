@@ -66,6 +66,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     effectiveProps: IUniversalHtmlViewerWebPartProps,
     currentDashboardId?: string,
     srcDocHtml?: string,
+    inlineNavigationToken?: string,
   ): void {
     const iframeTitle: string =
       (effectiveProps.iframeTitle || '').trim() || 'Universal HTML Viewer';
@@ -102,6 +103,9 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     const referrerPolicyAttribute: string = iframeReferrerPolicy
       ? ` referrerpolicy="${escape(iframeReferrerPolicy)}"`
       : '';
+    const inlineNavigationTokenAttribute = inlineNavigationToken
+      ? ` data-uhv-inline-nav-token="${escape(inlineNavigationToken)}"`
+      : '';
 
     this.domElement.innerHTML = `
       <div class="${styles.universalHtmlViewer}">
@@ -113,7 +117,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
           title="${escape(iframeTitle)}"
           style="${iframeHeightStyle}border:0;"
           width="100%"
-          frameborder="0"${loadingAttribute}${sandboxAttribute}${allowAttribute}${referrerPolicyAttribute}
+          frameborder="0"${loadingAttribute}${sandboxAttribute}${allowAttribute}${referrerPolicyAttribute}${inlineNavigationTokenAttribute}
         ></iframe>
         </div>
       </div>${diagnosticsHtml}`;
@@ -152,7 +156,14 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       (props.iframeTitle || '').trim() ||
       'Universal HTML Viewer';
     const subtitle: string = (props.chromeSubtitle || '').trim();
-    const showOpenInNewTab: boolean = props.showOpenInNewTab !== false;
+    const contentDeliveryMode = this.getContentDeliveryMode(props);
+    const showOpenInNewTab: boolean =
+      props.showOpenInNewTab !== false &&
+      (!isInlineContentDeliveryMode(contentDeliveryMode) ||
+        !(props.enableExpertSecurityModes === true && props.securityMode === 'AnyHttps'));
+    const canOpenInlineContentInNewTab: boolean =
+      !isInlineContentDeliveryMode(contentDeliveryMode) ||
+      props.allowQueryStringPageOverride === true;
     const showRefreshButton: boolean = props.showRefreshButton !== false;
     const showStatus: boolean = props.showStatus !== false;
     const showConfigActions: boolean = props.showConfigActions === true;
@@ -170,14 +181,18 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       ? this.getStatusLabel(validationOptions, cacheBusterMode, props)
       : '';
     const statusHtml: string = statusLabel
-      ? `<span class="${styles.status}" data-uhv-status>${escape(statusLabel)}</span>`
+      ? `<span class="${styles.status}" data-uhv-status role="status" aria-live="polite">${escape(statusLabel)}</span>`
       : '';
 
-    const openInNewTabHtml: string = showOpenInNewTab
+    const openInNewTabHtml: string = !showOpenInNewTab
+      ? ''
+      : canOpenInlineContentInNewTab
       ? `<a class="${styles.actionLink}" href="${escape(openInNewTabUrl)}" target="_blank" rel="noopener noreferrer" data-uhv-action="open-in-new-tab">
           Open in new tab
         </a>`
-      : '';
+      : `<span class="${styles.actionLink}" style="color:#6b6b6b;cursor:not-allowed;text-decoration:none;" aria-disabled="true" title="Enable page query override to open the current inline report in a new tab." data-uhv-action="open-in-new-tab-disabled">
+          Open in new tab
+        </span>`;
 
     const refreshHtml: string = showRefreshButton
       ? `<button class="${styles.actionButton}" type="button" data-uhv-action="refresh">Refresh</button>`
@@ -197,7 +212,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       : '';
     const anyHttpsWarningHtml: string =
       validationOptions.securityMode === 'AnyHttps'
-        ? `<div class="${styles.anyHttpsWarning}">
+        ? `<div class="${styles.anyHttpsWarning}" role="alert">
             Warning: Any HTTPS mode is enabled. Restrict usage to trusted, controlled scenarios.
           </div>`
         : '';
@@ -243,6 +258,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       pageUrl,
       currentPageUrl: this.getCurrentPageUrl(),
       contentDeliveryMode,
+      queryParamName: props.inlineDeepLinkParamName,
     });
   }
   protected updateOpenInNewTabLink(
@@ -290,8 +306,8 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     return `
       <div class="${styles.dashboardBar}">
         <label class="${styles.dashboardLabel}">Dashboard</label>
-        <input class="${styles.dashboardInput}" type="search" placeholder="Filter dashboards" data-uhv-dashboard-filter />
-        <select class="${styles.dashboardSelect}" data-uhv-dashboard-select>
+        <input class="${styles.dashboardInput}" type="search" placeholder="Filter dashboards" aria-label="Filter dashboards" data-uhv-dashboard-filter />
+        <select class="${styles.dashboardSelect}" aria-label="Dashboard" data-uhv-dashboard-select>
           ${optionsHtml}
         </select>
       </div>`;
@@ -322,12 +338,12 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       <div class="${styles.reportBrowser}" data-uhv-report-browser>
         <div class="${styles.reportBrowserToolbar}">
           <div class="${styles.reportBrowserTitle}">Reports</div>
-          <button class="${folderButtonClass}" type="button" data-uhv-report-view="Folders">Folders</button>
-          <button class="${filesButtonClass}" type="button" data-uhv-report-view="Files">Files</button>
-          <input class="${styles.reportBrowserSearch}" type="search" placeholder="Filter reports" data-uhv-report-filter />
+          <button class="${folderButtonClass}" type="button" data-uhv-report-view="Folders" aria-pressed="${currentView === 'Folders'}">Folders</button>
+          <button class="${filesButtonClass}" type="button" data-uhv-report-view="Files" aria-pressed="${currentView === 'Files'}">Files</button>
+          <input class="${styles.reportBrowserSearch}" type="search" placeholder="Filter reports" aria-label="Filter reports" data-uhv-report-filter />
         </div>
-        <div class="${styles.reportBrowserStatus}" data-uhv-report-status>Loading reports...</div>
-        <div class="${styles.reportBrowserList}" data-uhv-report-list></div>
+        <div class="${styles.reportBrowserStatus}" data-uhv-report-status role="status" aria-live="polite">Loading reports...</div>
+        <div class="${styles.reportBrowserList}" data-uhv-report-list role="region" aria-label="Available reports"></div>
       </div>`;
   }
 
@@ -336,7 +352,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       return '';
     }
 
-    return `<div class="${styles.loading}" data-uhv-loading>Loading…</div>`;
+    return `<div class="${styles.loading}" data-uhv-loading role="status" aria-live="polite">Loading…</div>`;
   }
 
   private parseDashboardList(
@@ -407,7 +423,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
           cacheBusterParamName,
           activePageUrl,
           false,
-          false,
+          true,
           true,
         ).catch(() => {
           return undefined;
@@ -721,8 +737,10 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
       );
       if (buttonView === view) {
         button.classList.add(styles.reportBrowserViewButtonActive);
+        button.setAttribute('aria-pressed', 'true');
       } else {
         button.classList.remove(styles.reportBrowserViewButtonActive);
+        button.setAttribute('aria-pressed', 'false');
       }
     });
   }
@@ -761,21 +779,27 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
 
     this.lastCacheBusterMode = cacheBusterMode;
     this.setLoadingVisible(true);
-    this.currentBaseUrl = filePath;
-    this.onNavigatedToUrl(filePath, currentPageUrl);
-    const updatedPageUrl: string = this.getCurrentPageUrl() || currentPageUrl;
-    this.updateOpenInNewTabLink(filePath, updatedPageUrl, props);
     this.setupIframeLoadFallback(filePath, props);
-    await this.refreshIframe(
+    const refreshResult = await this.refreshIframe(
       filePath,
       cacheBusterMode,
       cacheBusterParamName,
-      updatedPageUrl,
+      currentPageUrl,
       true,
       true,
     );
-    this.setupAutoRefresh(filePath, cacheBusterMode, cacheBusterParamName, updatedPageUrl, props);
-    this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+    if (refreshResult === 'updated') {
+      this.commitSuccessfulInlineNavigation(
+        filePath,
+        currentPageUrl,
+        cacheBusterMode,
+        cacheBusterParamName,
+        props,
+      );
+      this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+    } else if (refreshResult === 'failed') {
+      this.showInlineNavigationFailure();
+    }
   }
 
   private getEffectiveReportBrowserRootPath(
@@ -918,21 +942,60 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     this.lastCacheBusterMode = cacheBusterMode;
 
     this.setLoadingVisible(true);
-    this.currentBaseUrl = url;
-    this.onNavigatedToUrl(url, currentPageUrl);
-    const updatedPageUrl: string = this.getCurrentPageUrl() || currentPageUrl;
-    this.updateOpenInNewTabLink(url, updatedPageUrl, props);
     this.setupIframeLoadFallback(url, props);
-    await this.refreshIframe(
+    const refreshResult = await this.refreshIframe(
       url,
       cacheBusterMode,
       cacheBusterParamName,
-      updatedPageUrl,
+      currentPageUrl,
       true,
       true,
     );
-    this.setupAutoRefresh(url, cacheBusterMode, cacheBusterParamName, updatedPageUrl, props);
-    this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+    if (refreshResult === 'updated') {
+      this.commitSuccessfulInlineNavigation(
+        url,
+        currentPageUrl,
+        cacheBusterMode,
+        cacheBusterParamName,
+        props,
+      );
+      this.updateStatusBadge(validationOptions, cacheBusterMode, props);
+    } else if (refreshResult === 'failed') {
+      this.showInlineNavigationFailure();
+    }
+  }
+
+  protected commitSuccessfulInlineNavigation(
+    targetUrl: string,
+    currentPageUrl: string,
+    cacheBusterMode: CacheBusterMode,
+    cacheBusterParamName: string,
+    props: IUniversalHtmlViewerWebPartProps,
+  ): void {
+    this.currentBaseUrl = targetUrl;
+    const livePageUrl: string = this.getCurrentPageUrl() || currentPageUrl;
+    this.onNavigatedToUrl(targetUrl, livePageUrl);
+    const updatedPageUrl: string = this.getCurrentPageUrl() || livePageUrl;
+    this.updateOpenInNewTabLink(targetUrl, updatedPageUrl, props);
+    this.setupAutoRefresh(
+      targetUrl,
+      cacheBusterMode,
+      cacheBusterParamName,
+      updatedPageUrl,
+      props,
+    );
+  }
+
+  protected showInlineNavigationFailure(): void {
+    this.clearIframeLoadTimeout();
+    this.setLoadingVisible(false);
+    const message = 'Unable to load the selected report. The current report remains displayed.';
+    const statusElement: HTMLElement | null =
+      this.domElement.querySelector('[data-uhv-report-status]') ||
+      this.domElement.querySelector('[data-uhv-status]');
+    if (statusElement) {
+      statusElement.textContent = message;
+    }
   }
 
   private buildUrlFromDashboardId(

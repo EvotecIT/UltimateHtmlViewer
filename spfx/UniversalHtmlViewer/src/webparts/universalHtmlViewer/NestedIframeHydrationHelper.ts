@@ -1,5 +1,9 @@
 import { isUrlAllowed, UrlValidationOptions } from './UrlHelper';
 import { resolveInlineNavigationTarget } from './InlineNavigationHelper';
+import {
+  INLINE_NAVIGATION_TOKEN_ATTRIBUTE,
+  prepareAndStageInlineNavigationSession,
+} from './InlineNavigationSessionTokenHelper';
 
 export type NestedIframeHydrationDiagnosticEvent =
   | 'nestedHydrationStarted'
@@ -125,6 +129,7 @@ export function wireNestedIframeHydration(
             const frame = target as HTMLIFrameElement;
             frame.removeAttribute('data-uhv-nested-state');
             frame.removeAttribute('data-uhv-nested-src');
+            frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
             shouldScan = true;
           }
           return;
@@ -199,6 +204,7 @@ function hydrateNestedFrame(
   }
 
   frame.setAttribute('data-uhv-nested-state', 'processing');
+  frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
   const hydrationSource = rawSrc;
   emitDiagnosticsEvent(options, 'nestedHydrationStarted');
 
@@ -216,11 +222,12 @@ function hydrateNestedFrame(
         return;
       }
       if (!inlineHtml || inlineHtml.trim().length === 0) {
+        frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
         frame.setAttribute('data-uhv-nested-state', 'failed');
         emitDiagnosticsEvent(options, 'nestedHydrationFailed');
         return;
       }
-      frame.srcdoc = inlineHtml;
+      frame.srcdoc = prepareNestedFrameHtml(frame, inlineHtml);
       frame.setAttribute('data-uhv-nested-state', 'done');
       emitDiagnosticsEvent(options, 'nestedHydrationSucceeded');
     })
@@ -233,6 +240,7 @@ function hydrateNestedFrame(
         return;
       }
       if (frame.getAttribute('data-uhv-nested-state') === 'processing') {
+        frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
         frame.setAttribute('data-uhv-nested-state', 'failed');
         emitDiagnosticsEvent(options, 'nestedHydrationFailed');
       }
@@ -361,6 +369,7 @@ function ensureNestedFrameNavigationWired(
       lastNavigationTargetUrl = targetUrl;
       lastNavigationTimestamp = now;
       frame.setAttribute('data-uhv-nested-state', 'processing');
+      frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
       frame.setAttribute('data-uhv-nested-src', targetUrl);
       const navigationSource = targetUrl;
       emitDiagnosticsEvent(options, 'nestedNavigationStarted');
@@ -379,11 +388,12 @@ function ensureNestedFrameNavigationWired(
             return;
           }
           if (!inlineHtml || inlineHtml.trim().length === 0) {
+            frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
             frame.setAttribute('data-uhv-nested-state', 'failed');
             emitDiagnosticsEvent(options, 'nestedNavigationFailed');
             return;
           }
-          frame.srcdoc = inlineHtml;
+          frame.srcdoc = prepareNestedFrameHtml(frame, inlineHtml);
           frame.setAttribute('data-uhv-nested-state', 'done');
           emitDiagnosticsEvent(options, 'nestedNavigationSucceeded');
         })
@@ -395,6 +405,7 @@ function ensureNestedFrameNavigationWired(
             emitDiagnosticsEvent(options, 'nestedNavigationStaleResultIgnored');
             return;
           }
+          frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
           frame.setAttribute('data-uhv-nested-state', 'failed');
           emitDiagnosticsEvent(options, 'nestedNavigationFailed');
         });
@@ -420,7 +431,12 @@ function ensureNestedFrameNavigationWired(
     clearPendingScrollResetTimeouts();
     frame.removeEventListener('load', onFrameLoad);
     clearFrameClickHandlers();
+    frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
   });
+}
+
+function prepareNestedFrameHtml(frame: HTMLIFrameElement, inlineHtml: string): string {
+  return prepareAndStageInlineNavigationSession(frame, inlineHtml);
 }
 
 function resolveNestedFrameUrl(

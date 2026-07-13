@@ -112,6 +112,68 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     expect((window as any).__uhvPageTitleSync).toBeUndefined();
   });
 
+  it('does not mutate browser history when inline deep links are disabled', () => {
+    const webPart = createWebPart();
+    webPart.lastEffectiveProps = {
+      contentDeliveryMode: 'SharePointFileContent',
+      allowQueryStringPageOverride: false,
+    };
+    const pushStateSpy = jest.spyOn(window.history, 'pushState');
+
+    webPart.onNavigatedToUrl(
+      `${window.location.origin}/SiteAssets/Reports/Next.html`,
+      `${window.location.origin}/SitePages/Dashboard.aspx`,
+    );
+
+    expect(pushStateSpy).not.toHaveBeenCalled();
+    pushStateSpy.mockRestore();
+  });
+
+  it('uses the configured deep-link parameter when history integration is enabled', () => {
+    const webPart = createWebPart();
+    webPart.lastEffectiveProps = {
+      contentDeliveryMode: 'SharePointFileContent',
+      allowQueryStringPageOverride: true,
+      inlineDeepLinkParamName: 'viewerTwoPage',
+    };
+    const pushStateSpy = jest
+      .spyOn(window.history, 'pushState')
+      .mockImplementation(() => undefined);
+
+    webPart.onNavigatedToUrl(
+      `${window.location.origin}/SiteAssets/Reports/Next.html`,
+      `${window.location.origin}/SitePages/Dashboard.aspx`,
+    );
+
+    expect(pushStateSpy).toHaveBeenCalledWith(
+      window.history.state,
+      '',
+      expect.stringContaining('viewerTwoPage='),
+    );
+    pushStateSpy.mockRestore();
+  });
+
+  it('replaces an active blob frame location without adding iframe history', () => {
+    const webPart = createWebPart();
+    const replace = jest.fn();
+    const iframe = {
+      contentWindow: {
+        location: {
+          replace,
+        },
+      },
+      src: 'blob:https://contoso.sharepoint.com/old',
+    } as unknown as HTMLIFrameElement;
+
+    webPart.replaceInlineBlobFrameLocation(
+      iframe,
+      'blob:https://contoso.sharepoint.com/new',
+    );
+
+    expect(replace).toHaveBeenCalledWith('blob:https://contoso.sharepoint.com/new');
+    expect(iframe.src).toBe('blob:https://contoso.sharepoint.com/old');
+  });
+
   it('does not restore a title owned by another active viewer instance', () => {
     const firstWebPart = createWebPart('first');
     const secondWebPart = createWebPart('second');
@@ -175,7 +237,7 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     );
   });
 
-  it('enables host deep-link anchor rewrites only when query overrides are active', () => {
+  it('enables validated host deep links for query overrides or the new-tab action', () => {
     const webPart = createWebPart();
 
     expect(webPart.shouldRewriteInlineAnchorHrefs({})).toBe(false);
@@ -184,11 +246,165 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     );
     expect(
       webPart.shouldRewriteInlineAnchorHrefs({
+        allowQueryStringPageOverride: false,
+        showOpenInNewTab: true,
+      }),
+    ).toBe(false);
+    expect(
+      webPart.shouldRewriteInlineAnchorHrefs({
+        allowQueryStringPageOverride: true,
+        showOpenInNewTab: true,
+        enableExpertSecurityModes: true,
+        securityMode: 'AnyHttps',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps inbound query overrides behind their explicit toggle', () => {
+    const webPart = createWebPart();
+
+    expect(
+      webPart.shouldAllowInlineDeepLinkOverride({
+        allowQueryStringPageOverride: false,
+        showOpenInNewTab: true,
+      }),
+    ).toBe(false);
+    expect(
+      webPart.shouldAllowInlineDeepLinkOverride({
+        allowQueryStringPageOverride: true,
+        showOpenInNewTab: false,
+      }),
+    ).toBe(true);
+    expect(
+      webPart.shouldAllowInlineDeepLinkOverride({
         allowQueryStringPageOverride: true,
         enableExpertSecurityModes: true,
         securityMode: 'AnyHttps',
       }),
     ).toBe(false);
+    expect(
+      webPart.shouldAllowInlineDeepLinkOverride({
+        contentDeliveryMode: 'DirectUrl',
+        allowQueryStringPageOverride: true,
+        securityMode: 'Allowlist',
+      }),
+    ).toBe(false);
+  });
+
+  it('disables inline-only query overrides for direct URL presets', () => {
+    const webPart = createWebPart();
+    const allowlistProps = {
+      allowQueryStringPageOverride: true,
+    };
+    const anyHttpsProps = {
+      allowQueryStringPageOverride: true,
+    };
+
+    webPart.applyPreset('AllowlistCDN', allowlistProps);
+    webPart.applyPreset('AnyHttps', anyHttpsProps);
+
+    expect(allowlistProps).toMatchObject({
+      contentDeliveryMode: 'DirectUrl',
+      allowQueryStringPageOverride: false,
+    });
+    expect(anyHttpsProps).toMatchObject({
+      contentDeliveryMode: 'DirectUrl',
+      allowQueryStringPageOverride: false,
+    });
+  });
+
+  it('keeps inline new-tab navigation and validated inbound deep links consistent', () => {
+    const webPart = createWebPart();
+    const props = {
+      contentDeliveryMode: 'SharePointFileContent',
+      showOpenInNewTab: true,
+      allowQueryStringPageOverride: false,
+    };
+
+    webPart.normalizeInlineDeepLinkConfiguration(props);
+
+    expect(props.allowQueryStringPageOverride).toBe(true);
+    expect(webPart.shouldRewriteInlineAnchorHrefs(props)).toBe(true);
+    expect(webPart.shouldAllowInlineDeepLinkOverride(props)).toBe(true);
+  });
+
+  it('preserves a tenant policy that explicitly disables inline deep links', async () => {
+    const webPart = createWebPart();
+    webPart.properties = {
+      configurationPreset: 'Custom',
+      contentDeliveryMode: 'SharePointFileContent',
+      showOpenInNewTab: true,
+      allowQueryStringPageOverride: true,
+      tenantConfigMode: 'Merge',
+    };
+    webPart.tryLoadTenantConfig = jest.fn().mockResolvedValue({
+      allowQueryStringPageOverride: false,
+    });
+
+    const result = await webPart.getEffectiveProperties(
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx',
+    );
+
+    expect(result.effectiveProps.showOpenInNewTab).toBe(true);
+    expect(result.effectiveProps.allowQueryStringPageOverride).toBe(false);
+    expect(webPart.shouldRewriteInlineAnchorHrefs(result.effectiveProps)).toBe(false);
+    expect(webPart.shouldAllowInlineDeepLinkOverride(result.effectiveProps)).toBe(false);
+  });
+
+  it('explains when inline open-in-new-tab cannot honor a disabled query override', () => {
+    const webPart = createWebPart();
+    webPart.getCurrentPageUrl = jest
+      .fn()
+      .mockReturnValue('https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx');
+
+    const chromeHtml = webPart.buildChromeHtml(
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/Current.html',
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/Current.html',
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx',
+      { securityMode: 'StrictTenant' },
+      'None',
+      {
+        contentDeliveryMode: 'SharePointFileContent',
+        showChrome: true,
+        showOpenInNewTab: true,
+        allowQueryStringPageOverride: false,
+        showRefreshButton: false,
+        showStatus: false,
+      },
+    );
+
+    expect(chromeHtml).toContain('data-uhv-action="open-in-new-tab-disabled"');
+    expect(chromeHtml).toContain('aria-disabled="true"');
+    expect(chromeHtml).toContain('Enable page query override');
+    expect(chromeHtml).not.toContain('data-uhv-action="open-in-new-tab"');
+    expect(chromeHtml).not.toContain('uhvPage=');
+  });
+
+  it('renders a working inline open-in-new-tab deep link when query overrides are enabled', () => {
+    const webPart = createWebPart();
+    webPart.getCurrentPageUrl = jest
+      .fn()
+      .mockReturnValue('https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx');
+
+    const chromeHtml = webPart.buildChromeHtml(
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/Current.html',
+      'https://contoso.sharepoint.com/sites/Test/SiteAssets/Reports/Current.html',
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx',
+      { securityMode: 'StrictTenant' },
+      'None',
+      {
+        contentDeliveryMode: 'SharePointFileContent',
+        showChrome: true,
+        showOpenInNewTab: true,
+        allowQueryStringPageOverride: true,
+        showRefreshButton: false,
+        showStatus: false,
+      },
+    );
+
+    expect(chromeHtml).toContain('data-uhv-action="open-in-new-tab"');
+    expect(chromeHtml).toContain('uhvPage=');
+    expect(chromeHtml).not.toContain('open-in-new-tab-disabled');
   });
 });
 

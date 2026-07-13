@@ -81,6 +81,7 @@ export interface IUniversalHtmlViewerWebPartProps {
   showConfigActions?: boolean;
   showDashboardSelector?: boolean;
   allowQueryStringPageOverride?: boolean;
+  inlineDeepLinkParamName?: string;
   showReportBrowser?: boolean;
   reportBrowserRootPath?: string;
   reportBrowserDefaultView?: ReportBrowserDefaultView;
@@ -141,6 +142,7 @@ export interface ITenantConfig {
   showConfigActions?: boolean;
   showDashboardSelector?: boolean;
   allowQueryStringPageOverride?: boolean;
+  inlineDeepLinkParamName?: string;
   showReportBrowser?: boolean;
   reportBrowserRootPath?: string;
   reportBrowserDefaultView?: ReportBrowserDefaultView;

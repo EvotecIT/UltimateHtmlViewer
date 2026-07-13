@@ -20,7 +20,7 @@ on:
         type: string
 
 env:
-  NODE_VERSION: '22.x'
+  NODE_VERSION: '22.14.0'
   CI: 'true'
 
 permissions:

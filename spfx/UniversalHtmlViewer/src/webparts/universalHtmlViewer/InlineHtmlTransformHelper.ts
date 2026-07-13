@@ -1,5 +1,8 @@
 import { appendAdditionalCspHostSources } from './InlineCspSourceHelper';
-import { rewriteInlineNavigationAnchorHrefs } from './InlineAnchorRewriteHelper';
+import {
+  getCanonicalHostPageUrl,
+  rewriteInlineNavigationAnchorHrefs,
+} from './InlineAnchorRewriteHelper';
 import { getInlineNavigationBridgeScript } from './InlineNavigationBridgeScript';
 
 export interface IPrepareInlineHtmlForSrcDocOptions {
@@ -9,6 +12,8 @@ export interface IPrepareInlineHtmlForSrcDocOptions {
   additionalImageSrcHosts?: string[];
   rewriteInlineAnchorHrefs?: boolean;
   rewriteInlineAnchorAllowedFileExtensions?: string[];
+  rewriteInlineAnchorAllowedPathPrefixes?: string[];
+  rewriteInlineAnchorDeepLinkQueryParamName?: string;
   rewriteInlineAnchorPreservedHostQueryParamNames?: string[];
 }
 
@@ -35,6 +40,8 @@ export function prepareInlineHtmlForBlobUrl(
     IPrepareInlineHtmlForSrcDocOptions,
     | 'rewriteInlineAnchorHrefs'
     | 'rewriteInlineAnchorAllowedFileExtensions'
+    | 'rewriteInlineAnchorAllowedPathPrefixes'
+    | 'rewriteInlineAnchorDeepLinkQueryParamName'
     | 'rewriteInlineAnchorPreservedHostQueryParamNames'
   >,
 ): string {
@@ -65,26 +72,29 @@ function prepareInlineHtmlForFrameDocument(
           pageUrl,
           {
             allowedFileExtensions: options?.rewriteInlineAnchorAllowedFileExtensions,
+            allowedPathPrefixes: options?.rewriteInlineAnchorAllowedPathPrefixes,
             preservedHostQueryParamNames:
               options?.rewriteInlineAnchorPreservedHostQueryParamNames,
+            deepLinkQueryParamName:
+              options?.rewriteInlineAnchorDeepLinkQueryParamName,
           },
         )
       : htmlWithNeutralizedNestedFrames;
+  const shouldInjectCompatibilityShim = !/data-uhv-history-compat=/i.test(
+    htmlWithHostDeepLinkedAnchors,
+  );
+  const shouldInjectInlineNavigationBridge = !/data-uhv-inline-nav-bridge=/i.test(
+    htmlWithHostDeepLinkedAnchors,
+  );
+  const inlineScriptNonce =
+    pageScriptNonce ||
+    (enforceStrictInlineCsp
+      ? createStrictInlineHistoryShimNonce()
+      : undefined);
   const htmlWithNonceStampedScripts = applyPageScriptNonceToInlineScripts(
     htmlWithHostDeepLinkedAnchors,
     pageScriptNonce,
   );
-  const shouldInjectCompatibilityShim = !/data-uhv-history-compat=/i.test(
-    htmlWithNonceStampedScripts,
-  );
-  const shouldInjectInlineNavigationBridge = !/data-uhv-inline-nav-bridge=/i.test(
-    htmlWithNonceStampedScripts,
-  );
-  const inlineScriptNonce =
-    pageScriptNonce ||
-    (enforceStrictInlineCsp && (shouldInjectCompatibilityShim || shouldInjectInlineNavigationBridge)
-      ? createStrictInlineHistoryShimNonce()
-      : undefined);
   const srcDocCspTag =
     injectDefaultContentSecurityPolicy && !hasContentSecurityPolicyMetaTag(htmlWithNonceStampedScripts)
       ? `<meta data-uhv-inline-csp="1" http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(
@@ -113,7 +123,18 @@ function prepareInlineHtmlForFrameDocument(
         inlineScriptNonce
           ? ` nonce="${escapeHtmlAttribute(inlineScriptNonce)}"`
           : ''
-      }>${getInlineNavigationBridgeScript()}</script>`
+      }>${getInlineNavigationBridgeScript(
+        baseUrlForRelativeLinks,
+        options?.rewriteInlineAnchorAllowedFileExtensions,
+        options?.rewriteInlineAnchorAllowedPathPrefixes,
+        getCanonicalHostPageUrl(
+          pageUrl,
+          options?.rewriteInlineAnchorPreservedHostQueryParamNames,
+        ),
+        options?.rewriteInlineAnchorDeepLinkQueryParamName,
+        options?.rewriteInlineAnchorPreservedHostQueryParamNames,
+        options?.rewriteInlineAnchorHrefs === true,
+      )}</script>`
     : '';
   const headInjectedMarkup = `${srcDocCspTag}${compatibilityShimTag}${inlineNavigationBridgeTag}${baseTag}`;
 
@@ -414,8 +435,9 @@ function getHistoryCompatibilityShimScript(): string {
   return [
     '(function(){',
     '  try {',
-    "    var isSrcDoc = String(window.location && window.location.href || '').indexOf('about:srcdoc') === 0;",
-    '    if (!isSrcDoc || !window.history) { return; }',
+    "    var frameDocumentUrl = String(window.location && window.location.href || '');",
+    "    var isInlineFrameDocument = frameDocumentUrl.indexOf('about:srcdoc') === 0 || frameDocumentUrl.indexOf('blob:') === 0;",
+    '    if (!isInlineFrameDocument || !window.history) { return; }',
     '    var historyObject = window.history;',
     '    var originalPushState = typeof historyObject.pushState === "function"',
     '      ? historyObject.pushState.bind(historyObject)',
@@ -427,34 +449,28 @@ function getHistoryCompatibilityShimScript(): string {
     "      var name = error && error.name ? String(error.name) : '';",
     "      return name === 'SecurityError' || name === 'TypeError';",
     '    };',
-    '    var trySetHash = function(url, replace) {',
+    '    var canIgnoreHashStateUrl = function(url) {',
     "      if (typeof url !== 'string' || url.length === 0) { return false; }",
     "      var hashIndex = url.indexOf('#');",
     '      if (hashIndex < 0) { return false; }',
     '      var hashValue = url.substring(hashIndex);',
-    '      if (!hashValue) { return false; }',
-    '      try {',
-    '        if (replace && typeof window.location.replace === "function") {',
-    '          window.location.replace(hashValue);',
-    '        } else {',
-    '          window.location.hash = hashValue;',
-    '        }',
-    '        return true;',
-    '      } catch (_hashError) {',
-    '        return false;',
-    '      }',
+    '      return hashValue.length > 1;',
     '    };',
-    '    var wrapState = function(originalMethod, methodName, replace) {',
+    '    var wrapState = function(originalMethod, methodName) {',
     '      if (!originalMethod) { return; }',
     '      try {',
     '        var wrapped = function(state, title, url) {',
     '          try {',
     '            return originalMethod(state, title, url);',
     '          } catch (error) {',
-    '            if (isRecoverable(error) && trySetHash(typeof url === "string" ? url : "", replace)) {',
+    '            if (isRecoverable(error) && canIgnoreHashStateUrl(typeof url === "string" ? url : "")) {',
+    '              // An inline frame base URL points at the SharePoint file. Calling',
+    '              // location.replace("#fragment") here resolves against that',
+    '              // base and downloads the raw HTML attachment. The report has',
+    '              // already applied its UI state, so only the unsafe URL update',
+    '              // is intentionally ignored.',
     '              return;',
     '            }',
-    '            if (isRecoverable(error)) { return; }',
     '            throw error;',
     '          }',
     '        };',
@@ -467,8 +483,8 @@ function getHistoryCompatibilityShimScript(): string {
     '        return;',
     '      }',
     '    };',
-    '    wrapState(originalPushState, "pushState", false);',
-    '    wrapState(originalReplaceState, "replaceState", true);',
+    '    wrapState(originalPushState, "pushState");',
+    '    wrapState(originalReplaceState, "replaceState");',
     '  } catch (_error) {',
     '    return;',
     '  }',

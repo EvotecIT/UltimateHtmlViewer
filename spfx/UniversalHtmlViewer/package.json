@@ -16,7 +16,7 @@
     "preserve": "node ./scripts/ensure-node-version.js",
     "serve": "gulp serve",
     "prebundle:ship": "node ./scripts/ensure-node-version.js",
-    "bundle:ship": "gulp bundle --ship",
+    "bundle:ship": "gulp clean && gulp bundle --ship",
     "prepackage-solution": "node ./scripts/ensure-node-version.js",
     "package-solution": "gulp package-solution",
     "postpackage-solution": "node ./scripts/ensure-catalog-icon-client-asset.js",
