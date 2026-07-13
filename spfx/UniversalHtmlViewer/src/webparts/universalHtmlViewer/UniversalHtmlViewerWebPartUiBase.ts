@@ -66,6 +66,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     effectiveProps: IUniversalHtmlViewerWebPartProps,
     currentDashboardId?: string,
     srcDocHtml?: string,
+    inlineNavigationToken?: string,
   ): void {
     const iframeTitle: string =
       (effectiveProps.iframeTitle || '').trim() || 'Universal HTML Viewer';
@@ -102,6 +103,9 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
     const referrerPolicyAttribute: string = iframeReferrerPolicy
       ? ` referrerpolicy="${escape(iframeReferrerPolicy)}"`
       : '';
+    const inlineNavigationTokenAttribute = inlineNavigationToken
+      ? ` data-uhv-inline-nav-token="${escape(inlineNavigationToken)}"`
+      : '';
 
     this.domElement.innerHTML = `
       <div class="${styles.universalHtmlViewer}">
@@ -113,7 +117,7 @@ export abstract class UniversalHtmlViewerWebPartUiBase extends UniversalHtmlView
           title="${escape(iframeTitle)}"
           style="${iframeHeightStyle}border:0;"
           width="100%"
-          frameborder="0"${loadingAttribute}${sandboxAttribute}${allowAttribute}${referrerPolicyAttribute}
+          frameborder="0"${loadingAttribute}${sandboxAttribute}${allowAttribute}${referrerPolicyAttribute}${inlineNavigationTokenAttribute}
         ></iframe>
         </div>
       </div>${diagnosticsHtml}`;

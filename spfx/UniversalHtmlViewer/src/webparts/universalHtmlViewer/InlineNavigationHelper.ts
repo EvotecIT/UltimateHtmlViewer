@@ -37,7 +37,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
   const handledEvents = new WeakSet<Event>();
   let lastNavigationTargetUrl = '';
   let lastNavigationTimestamp = 0;
-  const hostPageUrlSyncCleanup = wireInlineHostPageUrlSync(options.iframe);
+  const hostPageUrlSync = wireInlineHostPageUrlSync(options.iframe);
   const runtimeAnchorRewriteCleanup = options.rewriteAnchorHrefs === true
     ? wireInlineAnchorRuntimeRewrite({
         iframe: options.iframe,
@@ -161,8 +161,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
     applyHostPageHash();
   };
   const onInlineNavigationBridgeMessage = (event: MessageEvent): void => {
-    const iframeWindow = tryGetIframeWindow(options.iframe);
-    if (iframeWindow && event.source && event.source !== iframeWindow) {
+    if (!hostPageUrlSync.isAuthenticatedBridgeMessage(event)) {
       return;
     }
 
@@ -203,7 +202,7 @@ export function wireInlineIframeNavigation(options: IInlineNavigationOptions): (
 
   return (): void => {
     runtimeAnchorRewriteCleanup();
-    hostPageUrlSyncCleanup();
+    hostPageUrlSync.cleanup();
     options.iframe.removeEventListener('load', attachHandler);
     if (typeof window !== 'undefined') {
       window.removeEventListener('message', onInlineNavigationBridgeMessage);

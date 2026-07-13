@@ -42,6 +42,10 @@ import {
 } from './SharePointInlineContentHelper';
 import { extractTitleFromHtml } from './PageTitleHelper';
 import {
+  prepareInlineNavigationSessionHtml,
+  stageInlineNavigationSessionToken,
+} from './InlineNavigationSessionTokenHelper';
+import {
   buildPageUrlWithoutInlineDeepLink,
   buildPageUrlWithInlineDeepLink,
   DEFAULT_INLINE_DEEP_LINK_PARAM,
@@ -938,6 +942,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       return;
     }
     let inlineHtml: string | undefined;
+    let inlineNavigationToken: string | undefined;
     let iframeUrl: string = resolvedUrl;
     if (isInlineContentDeliveryMode(contentDeliveryMode)) {
       try {
@@ -958,6 +963,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           if (!this.isRenderRequestCurrent(renderRequestId)) {
             return;
           }
+          const preparedSession = prepareInlineNavigationSessionHtml(inlineHtml);
+          inlineHtml = preparedSession.html;
+          inlineNavigationToken = preparedSession.navigationToken;
           iframeUrl = this.createInlineBlobUrl(inlineHtml);
         } else {
           inlineHtml = await loadSharePointFileContentForInline(
@@ -976,6 +984,9 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
           if (!this.isRenderRequestCurrent(renderRequestId)) {
             return;
           }
+          const preparedSession = prepareInlineNavigationSessionHtml(inlineHtml);
+          inlineHtml = preparedSession.html;
+          inlineNavigationToken = preparedSession.navigationToken;
         }
       } catch (error) {
         if (!this.isRenderRequestCurrent(renderRequestId)) {
@@ -1052,6 +1063,7 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       effectiveProps,
       currentDashboardId,
       contentDeliveryMode === 'SharePointFileContent' ? inlineHtml : undefined,
+      inlineNavigationToken,
     );
     this.setupIframeLoadFallback(iframeUrl, effectiveProps);
     this.setupAutoRefresh(
@@ -1173,12 +1185,14 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
         ) {
           return false;
         }
+        const preparedSession = prepareInlineNavigationSessionHtml(blobHtml);
         this.lastInlineContentLoadError = '';
-        this.syncPageTitleFromHtml(blobHtml, props);
+        this.syncPageTitleFromHtml(preparedSession.html, props);
+        stageInlineNavigationSessionToken(iframe, preparedSession.navigationToken);
         iframe.removeAttribute('srcdoc');
         this.replaceInlineBlobFrameLocation(
           iframe,
-          this.createInlineBlobUrl(blobHtml),
+          this.createInlineBlobUrl(preparedSession.html),
         );
         return true;
       }
@@ -1202,9 +1216,11 @@ export default class UniversalHtmlViewerWebPart extends UniversalHtmlViewerWebPa
       ) {
         return false;
       }
+      const preparedSession = prepareInlineNavigationSessionHtml(inlineHtml);
       this.lastInlineContentLoadError = '';
-      this.syncPageTitleFromHtml(inlineHtml, props);
-      iframe.srcdoc = inlineHtml;
+      this.syncPageTitleFromHtml(preparedSession.html, props);
+      stageInlineNavigationSessionToken(iframe, preparedSession.navigationToken);
+      iframe.srcdoc = preparedSession.html;
       return true;
     } catch (error) {
       if (

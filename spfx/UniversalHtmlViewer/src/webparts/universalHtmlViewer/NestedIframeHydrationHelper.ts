@@ -1,9 +1,9 @@
 import { isUrlAllowed, UrlValidationOptions } from './UrlHelper';
 import { resolveInlineNavigationTarget } from './InlineNavigationHelper';
-
-const NESTED_NAVIGATION_TOKEN_ATTRIBUTE = 'data-uhv-inline-nav-token';
-const INLINE_NAVIGATION_BRIDGE_SCRIPT_PATTERN =
-  /<script\b[^>]*\bdata-uhv-inline-nav-bridge\s*=\s*(["'])1\1[^>]*>/i;
+import {
+  INLINE_NAVIGATION_TOKEN_ATTRIBUTE,
+  prepareAndStageInlineNavigationSession,
+} from './InlineNavigationSessionTokenHelper';
 
 export type NestedIframeHydrationDiagnosticEvent =
   | 'nestedHydrationStarted'
@@ -129,7 +129,7 @@ export function wireNestedIframeHydration(
             const frame = target as HTMLIFrameElement;
             frame.removeAttribute('data-uhv-nested-state');
             frame.removeAttribute('data-uhv-nested-src');
-            frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
+            frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
             shouldScan = true;
           }
           return;
@@ -204,7 +204,7 @@ function hydrateNestedFrame(
   }
 
   frame.setAttribute('data-uhv-nested-state', 'processing');
-  frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
+  frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
   const hydrationSource = rawSrc;
   emitDiagnosticsEvent(options, 'nestedHydrationStarted');
 
@@ -222,7 +222,7 @@ function hydrateNestedFrame(
         return;
       }
       if (!inlineHtml || inlineHtml.trim().length === 0) {
-        frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
+        frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
         frame.setAttribute('data-uhv-nested-state', 'failed');
         emitDiagnosticsEvent(options, 'nestedHydrationFailed');
         return;
@@ -240,7 +240,7 @@ function hydrateNestedFrame(
         return;
       }
       if (frame.getAttribute('data-uhv-nested-state') === 'processing') {
-        frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
+        frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
         frame.setAttribute('data-uhv-nested-state', 'failed');
         emitDiagnosticsEvent(options, 'nestedHydrationFailed');
       }
@@ -369,7 +369,7 @@ function ensureNestedFrameNavigationWired(
       lastNavigationTargetUrl = targetUrl;
       lastNavigationTimestamp = now;
       frame.setAttribute('data-uhv-nested-state', 'processing');
-      frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
+      frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
       frame.setAttribute('data-uhv-nested-src', targetUrl);
       const navigationSource = targetUrl;
       emitDiagnosticsEvent(options, 'nestedNavigationStarted');
@@ -388,7 +388,7 @@ function ensureNestedFrameNavigationWired(
             return;
           }
           if (!inlineHtml || inlineHtml.trim().length === 0) {
-            frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
+            frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
             frame.setAttribute('data-uhv-nested-state', 'failed');
             emitDiagnosticsEvent(options, 'nestedNavigationFailed');
             return;
@@ -405,7 +405,7 @@ function ensureNestedFrameNavigationWired(
             emitDiagnosticsEvent(options, 'nestedNavigationStaleResultIgnored');
             return;
           }
-          frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
+          frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
           frame.setAttribute('data-uhv-nested-state', 'failed');
           emitDiagnosticsEvent(options, 'nestedNavigationFailed');
         });
@@ -431,56 +431,12 @@ function ensureNestedFrameNavigationWired(
     clearPendingScrollResetTimeouts();
     frame.removeEventListener('load', onFrameLoad);
     clearFrameClickHandlers();
-    frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
+    frame.removeAttribute(INLINE_NAVIGATION_TOKEN_ATTRIBUTE);
   });
 }
 
 function prepareNestedFrameHtml(frame: HTMLIFrameElement, inlineHtml: string): string {
-  const navigationToken = createNestedNavigationToken();
-  if (!navigationToken) {
-    frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
-    return inlineHtml;
-  }
-
-  let bridgeStamped = false;
-  const preparedHtml = inlineHtml.replace(
-    INLINE_NAVIGATION_BRIDGE_SCRIPT_PATTERN,
-    (bridgeTag: string): string => {
-      bridgeStamped = true;
-      const tagWithoutExistingToken = bridgeTag.replace(
-        /\sdata-uhv-inline-nav-token\s*=\s*(["'])[^"']*\1/gi,
-        '',
-      );
-      return tagWithoutExistingToken.replace(
-        />$/,
-        ` ${NESTED_NAVIGATION_TOKEN_ATTRIBUTE}="${navigationToken}">`,
-      );
-    },
-  );
-
-  if (bridgeStamped) {
-    frame.setAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE, navigationToken);
-  } else {
-    frame.removeAttribute(NESTED_NAVIGATION_TOKEN_ATTRIBUTE);
-  }
-
-  return preparedHtml;
-}
-
-function createNestedNavigationToken(): string | undefined {
-  try {
-    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-      const values = new Uint32Array(4);
-      crypto.getRandomValues(values);
-      return Array.from(values)
-        .map((value) => value.toString(16).padStart(8, '0'))
-        .join('');
-    }
-  } catch {
-    return undefined;
-  }
-
-  return undefined;
+  return prepareAndStageInlineNavigationSession(frame, inlineHtml);
 }
 
 function resolveNestedFrameUrl(
