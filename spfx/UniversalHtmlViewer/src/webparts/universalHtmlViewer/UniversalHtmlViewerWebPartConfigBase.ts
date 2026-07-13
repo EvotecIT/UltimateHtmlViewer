@@ -135,8 +135,11 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
     ) {
       const configuredBasePath = (effectiveProps.basePath || '').trim();
       if (configuredBasePath) {
+        const rootedBasePath = configuredBasePath.startsWith('/')
+          ? configuredBasePath
+          : `/${configuredBasePath}`;
         candidateUrls.add(
-          configuredBasePath.endsWith('/') ? configuredBasePath : `${configuredBasePath}/`,
+          rootedBasePath.endsWith('/') ? rootedBasePath : `${rootedBasePath}/`,
         );
       }
     } else {
@@ -307,15 +310,20 @@ export abstract class UniversalHtmlViewerWebPartConfigBase extends BaseClientSid
       effectiveProps = this.mergeTenantConfig(effectiveProps, tenantConfig, mode);
     }
 
-    this.normalizeInlineDeepLinkConfiguration(effectiveProps);
+    this.normalizeInlineDeepLinkConfiguration(
+      effectiveProps,
+      tenantConfig?.allowQueryStringPageOverride === false,
+    );
 
     return { effectiveProps, tenantConfig };
   }
 
   protected normalizeInlineDeepLinkConfiguration(
     props: IUniversalHtmlViewerWebPartProps,
+    preserveDisabledOverride: boolean = false,
   ): void {
     if (
+      !preserveDisabledOverride &&
       isInlineContentDeliveryMode(this.resolveContentDeliveryMode(props)) &&
       props.showOpenInNewTab === true &&
       props.allowQueryStringPageOverride !== true

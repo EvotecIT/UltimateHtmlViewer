@@ -328,6 +328,29 @@ describe('UniversalHtmlViewerWebPart page title sync', () => {
     expect(webPart.shouldAllowInlineDeepLinkOverride(props)).toBe(true);
   });
 
+  it('preserves a tenant policy that explicitly disables inline deep links', async () => {
+    const webPart = createWebPart();
+    webPart.properties = {
+      configurationPreset: 'Custom',
+      contentDeliveryMode: 'SharePointFileContent',
+      showOpenInNewTab: true,
+      allowQueryStringPageOverride: true,
+      tenantConfigMode: 'Merge',
+    };
+    webPart.tryLoadTenantConfig = jest.fn().mockResolvedValue({
+      allowQueryStringPageOverride: false,
+    });
+
+    const result = await webPart.getEffectiveProperties(
+      'https://contoso.sharepoint.com/sites/Test/SitePages/Dashboard.aspx',
+    );
+
+    expect(result.effectiveProps.showOpenInNewTab).toBe(true);
+    expect(result.effectiveProps.allowQueryStringPageOverride).toBe(false);
+    expect(webPart.shouldRewriteInlineAnchorHrefs(result.effectiveProps)).toBe(false);
+    expect(webPart.shouldAllowInlineDeepLinkOverride(result.effectiveProps)).toBe(false);
+  });
+
   it('explains when inline open-in-new-tab cannot honor a disabled query override', () => {
     const webPart = createWebPart();
     webPart.getCurrentPageUrl = jest

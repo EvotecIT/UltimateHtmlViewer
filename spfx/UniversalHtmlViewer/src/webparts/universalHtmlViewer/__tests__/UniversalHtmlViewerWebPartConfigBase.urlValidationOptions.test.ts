@@ -16,6 +16,13 @@ const {
 }: {
   UniversalHtmlViewerWebPartConfigBase: any;
 } = require('../UniversalHtmlViewerWebPartConfigBase');
+const {
+  buildFinalUrl,
+  isUrlAllowed,
+}: {
+  buildFinalUrl: any;
+  isUrlAllowed: any;
+} = require('../UrlHelper');
 
 function createConfigHarness(): any {
   const configBase = Object.create(
@@ -136,6 +143,34 @@ describe('UniversalHtmlViewerWebPartConfigBase buildUrlValidationOptions', () =>
     ]);
     expect(options.allowedPathPrefixes).not.toContain(
       '/sites/TestSite2/SiteAssets/Reports/Current/',
+    );
+  });
+
+  it('roots an imported relative base path before inferring its validation prefix', () => {
+    const configBase = createConfigHarness();
+
+    const options = (configBase as any).buildUrlValidationOptions(pageUrl, {
+      htmlSourceMode: 'BasePathAndRelativePath',
+      basePath: 'Shared Documents/Reports',
+      relativePath: 'Current/Index.html',
+      contentDeliveryMode: 'SharePointFileBlobUrl',
+      securityMode: 'StrictTenant',
+      allowHttp: false,
+      allowedHosts: '',
+      allowedPathPrefixes: '',
+      allowedFileExtensions: '.html,.htm,.aspx',
+    });
+
+    const builtUrl = buildFinalUrl({
+      htmlSourceMode: 'BasePathAndRelativePath',
+      basePath: 'Shared Documents/Reports',
+      relativePath: 'Current/Index.html',
+    });
+
+    expect(builtUrl).toBe('/Shared Documents/Reports/Current/Index.html');
+    expect(isUrlAllowed(builtUrl, options)).toBe(true);
+    expect(options.allowedPathPrefixes.join(',').toLowerCase()).not.toContain(
+      '/sites/testsite2/sitepages/',
     );
   });
 
