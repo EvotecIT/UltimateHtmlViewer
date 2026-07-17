@@ -98,6 +98,7 @@
     "yaml@^1.0.0": "1.10.3",
     "yargs@4.6.0": {
       "yargs-parser": "5.0.1"
-    }
+    },
+    "websocket-driver": "0.7.5"
   }
 }
