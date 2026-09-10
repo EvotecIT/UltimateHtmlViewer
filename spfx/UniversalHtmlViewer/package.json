@@ -47,6 +47,7 @@
     "@microsoft/sp-build-web": "1.23.2",
     "@microsoft/sp-module-interfaces": "1.23.2",
     "@rushstack/eslint-config": "4.6.5",
+    "@typescript-eslint/parser": "8.56.1",
     "@types/jest": "^30.0.0",
     "@types/webpack-env": "~1.18.8",
     "ajv": "^8.20.0",
@@ -57,7 +58,7 @@
     "jest-util": "^30.5.1",
     "jszip": "~3.10.1",
     "ts-jest": "^29.4.12",
-    "typescript": "~7.0.2"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "ajv@^6.0.0": "6.14.0",
@@ -72,6 +73,7 @@
     "body-parser": "1.20.3",
     "braces": "3.0.3",
     "cookie": "0.7.2",
+    "decode-uri-component": "0.5.0",
     "express": "4.22.1",
     "fast-xml-parser": "5.7.0",
     "fast-uri": "3.1.6",
