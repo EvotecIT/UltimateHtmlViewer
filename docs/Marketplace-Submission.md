@@ -92,7 +92,7 @@ Suggested tester flow:
 - [ ] Screenshots are uploaded with clear captions and use the 1280 x 720 PNG files from `assets/marketplace/`.
 - [ ] Screenshots have been reviewed for example personas, placeholder tenant URLs, and no private/customer data.
 - [ ] Test credentials and test site instructions are entered in Partner Center only.
-- [ ] `.sppkg` was built with `gulp bundle --ship` and `gulp package-solution --ship`.
+- [ ] `.sppkg` was built with `npm run bundle:ship` and `npm run package-solution:ship`.
 - [ ] UHV was smoke-tested on a SharePoint test site.
 - [ ] Global deployment is confirmed with a store-safe package. The current `skipFeatureDeployment=false` package is not enough for SharePoint Store/AppSource certification.
 - [ ] Store-safe script behavior is confirmed. If Microsoft certification rejects script-capable HTML rendering, submit a marketplace package/configuration that disables script execution instead of using the current relaxed sandbox defaults.

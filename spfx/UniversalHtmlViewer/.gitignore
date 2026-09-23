@@ -9,6 +9,11 @@ node_modules
 # Build generated files
 dist
 lib
+lib-commonjs
+lib-dts
+lib-esm
+jest-output
+.heft
 solution
 temp
 *.sppkg

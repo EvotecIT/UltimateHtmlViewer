@@ -1,10 +1,12 @@
 {
   "@microsoft/generator-sharepoint": {
-    "version": "1.11.0",
+    "version": "1.23.2",
     "libraryName": "universal-html-viewer",
     "libraryId": "15fe766e-03e4-4543-8129-c5e260b0b9e9",
     "environment": "spo",
     "packageManager": "npm",
+    "nodeVersion": "22.14.0",
+    "useGulp": false,
     "solutionName": "UniversalHtmlViewer",
     "skipFeatureDeployment": "false",
     "componentType": "webpart",
