@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report bundle sample - Probe details</title>
+  <link rel="stylesheet" href="assets/app.css">
+  <script src="assets/app.js"></script>
+</head>
+<body data-report-page="page2" data-lazy-dataset="probes" data-lazy-chunk="0">
+  <header class="report-header">
+    <h1>Probe details</h1>
+    <nav class="report-nav">
+      <a id="nav-overview" href="index.html#summary">Overview</a>
+      <a id="nav-page2" href="page2.html">Probe details</a>
+    </nav>
+  </header>
+  <main>
+    <div class="spacer">Content above the deep-link target.</div>
+    <section id="section">
+      <h2>Probe table</h2>
+      <p>This page loads <code>data/probes/0.js</code> with a runtime-created script tag.</p>
+      <table id="probe-table">
+        <thead><tr><th>Probe</th><th>Target</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

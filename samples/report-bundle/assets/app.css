@@ -1,0 +1,49 @@
+:root {
+  --report-surface: #ffffff;
+  --report-text: #1b1f24;
+  --report-accent: #0f6cbd;
+  --report-muted: #5f6b7a;
+}
+
+:root[data-report-theme="dark"] {
+  --report-surface: #1b1a19;
+  --report-text: #f3f2f1;
+  --report-muted: #b3b0ad;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--report-surface);
+  color: var(--report-text);
+}
+
+.report-header {
+  padding: 16px 24px;
+  border-bottom: 3px solid var(--report-accent);
+}
+
+.report-nav a {
+  margin-right: 16px;
+  color: var(--report-accent);
+}
+
+main {
+  padding: 16px 24px;
+}
+
+.spacer {
+  min-height: 1200px;
+  color: var(--report-muted);
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--report-muted);
+  text-align: left;
+}

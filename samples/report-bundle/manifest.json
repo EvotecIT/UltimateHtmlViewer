@@ -1,0 +1,20 @@
+{
+  "schema": "report-bundle-manifest/0-spike",
+  "title": "Report bundle sample",
+  "generator": "UHV compatibility spike (hand written)",
+  "generatedAt": "2026-09-25T00:00:00Z",
+  "entry": "index.html",
+  "pages": [
+    { "id": "index", "title": "Overview", "path": "index.html", "sections": ["summary", "runtime-links"] },
+    { "id": "page2", "title": "Probe details", "path": "page2.html", "sections": ["section"] }
+  ],
+  "assets": ["assets/app.css", "assets/app.js"],
+  "datasets": [
+    {
+      "id": "probes",
+      "chunks": [
+        { "index": 0, "path": "data/probes/0.js", "rows": 3 }
+      ]
+    }
+  ]
+}

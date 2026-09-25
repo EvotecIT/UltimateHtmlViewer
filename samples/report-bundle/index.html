@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report bundle sample - Overview</title>
+  <link rel="stylesheet" href="assets/app.css">
+  <script src="assets/app.js"></script>
+  <script src="data/probes/0.js"></script>
+</head>
+<body data-report-page="index">
+  <header class="report-header">
+    <h1>Overview</h1>
+    <nav class="report-nav">
+      <a id="nav-overview" href="index.html">Overview</a>
+      <a id="nav-page2-section" href="page2.html#section">Probe details</a>
+    </nav>
+  </header>
+  <main>
+    <section id="summary">
+      <h2>Probe summary</h2>
+      <p id="probe-summary" data-dataset="probes">Waiting for sidecar data.</p>
+    </section>
+    <section id="runtime-links">
+      <h2>Links created at runtime</h2>
+      <ul id="runtime-link-list"></ul>
+    </section>
+  </main>
+</body>
+</html>
