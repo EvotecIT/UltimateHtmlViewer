@@ -10,8 +10,8 @@ Use this file as the source checklist for preparing Universal HTML Viewer for Mi
 - Author: Przemysław Kłys.
 - Pricing: Free listing. The app does not require a license gate, entitlement service, paid checkout flow, or Evotec-hosted backend for this submission.
 - Package: `spfx/UniversalHtmlViewer/sharepoint/solution/universal-html-viewer.sppkg`.
-- App/package version prepared for submission: `1.0.32.31`.
-- Web part manifest version: `1.0.34`.
+- App/package version prepared for submission: `1.0.32.44`.
+- Web part manifest version: `1.0.54`.
 - Tenant-wide deployment: not enabled in the current package (`skipFeatureDeployment=false`). Microsoft Store/AppSource certification expects the solution to support global deployment to all sites, so treat the current package as blocked for store submission until a tenant-wide/store package is built and tested.
 
 Choose the offer type carefully in Partner Center. Microsoft does not allow changing the offer type after the offer is created.
@@ -26,7 +26,7 @@ The Partner Center listing should match the SPFx package metadata where Microsof
 | Publisher | Evotec Services sp. z o.o. |
 | Author | Przemysław Kłys |
 | Short description | Render trusted HTML reports and dashboards inside SharePoint pages. |
-| Long description | Universal HTML Viewer lets site owners embed and navigate trusted HTML reports and supporting assets in SharePoint pages while keeping navigation inside the host experience. |
+| Long description | Universal HTML Viewer displays trusted HTML reports and dashboards inside modern SharePoint pages. Load a single report or browse a report folder, keep report links inside the viewer, and share links to individual reports. Configure allowed paths, hosts and file types for your content. The app runs in your Microsoft 365 tenant and uses the current user's SharePoint permissions. |
 | Website URL | `https://github.com/EvotecIT/UltimateHtmlViewer` |
 | Privacy URL | `https://github.com/EvotecIT/UltimateHtmlViewer/blob/HEAD/docs/Privacy.md` |
 | Terms URL | `https://github.com/EvotecIT/UltimateHtmlViewer/blob/HEAD/docs/Terms-of-Use.md` |
@@ -52,20 +52,24 @@ UHV does not provide an external hosted service. It runs in the customer's Micro
 
 ## Screenshot Set
 
-Recommended screenshots from `assets/`. These images are anonymized examples: they must not show a real user's name, profile photo, tenant URL, or customer content when uploaded to Partner Center.
+The gallery starts with product artwork, followed by four screenshots of the viewer in SharePoint. The cover illustrates the product's purpose; it is not a screenshot of its interface. The screenshots are anonymized examples: they must not show a real user's name, profile photo, tenant URL, or customer content when uploaded to Partner Center.
+
+All five images are included in the `.sppkg` through `solution.metadata.screenshotPaths` in `config/package-solution.json`, with the cover first. SharePoint displays them on the app details page after the updated package is published to the app catalog. The package embeds the image files, so the previews do not require an external image host. Keep these paths aligned with the files below when updating the gallery.
 
 | File | Suggested caption |
 | --- | --- |
-| `assets/marketplace/site-contents.png` | Confirm UHV is installed in SharePoint site contents. |
+| `assets/marketplace/product-overview.png` | Your HTML reports. Inside SharePoint. Product illustration. |
 | `assets/marketplace/runtime-page.png` | Render an HTML report inside a modern SharePoint page. |
 | `assets/marketplace/editor-quick-setup.png` | Configure the SharePoint HTML file source and delivery mode. |
 | `assets/marketplace/source-mode-selector.png` | Choose between single page, report browser, and URL-builder source modes. |
+| `assets/marketplace/site-contents.png` | Confirm UHV is installed in SharePoint site contents. |
 
 Asset dimensions checked during preparation:
 
 | Asset family | Dimensions |
 | --- | --- |
-| `assets/marketplace/*.png` | 1280 x 720 |
+| `assets/marketplace/product-overview.png` | 1672 x 941 |
+| Four SharePoint screenshots in `assets/marketplace/` | 1280 x 720 |
 
 ## Microsoft Test Instructions
 
@@ -89,7 +93,7 @@ Suggested tester flow:
 - [ ] Package solution name, descriptions, and URLs match Partner Center listing text.
 - [ ] Privacy and terms URLs are public and reviewed.
 - [ ] Support URL is public and monitored.
-- [ ] Screenshots are uploaded with clear captions and use the 1280 x 720 PNG files from `assets/marketplace/`.
+- [ ] Partner Center screenshots are uploaded with clear captions using the four 1280 x 720 screenshot files from `assets/marketplace/`; adapt the product artwork separately if the listing requires a different promotional-image size.
 - [ ] Screenshots have been reviewed for example personas, placeholder tenant URLs, and no private/customer data.
 - [ ] Test credentials and test site instructions are entered in Partner Center only.
 - [ ] `.sppkg` was built with `npm run bundle:ship` and `npm run package-solution:ship`.
