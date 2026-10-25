@@ -377,8 +377,8 @@ function getAnchorFromEvent(event: MouseEvent): Element | undefined {
   const pathElements = getEventComposedPathElements(event);
   for (let index = 0; index < pathElements.length; index += 1) {
     const pathElement = pathElements[index];
-    const pathAnchor =
-      findClosestAnchorElement(pathElement) || findUniqueDescendantAnchorElement(pathElement);
+    // An ancestor may also contain a dropdown or other control beside its only link.
+    const pathAnchor = findClosestAnchorElement(pathElement);
     if (pathAnchor) {
       return pathAnchor;
     }
