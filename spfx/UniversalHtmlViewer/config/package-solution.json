@@ -3,7 +3,7 @@
   "solution": {
     "name": "Universal HTML Viewer",
     "id": "15fe766e-03e4-4543-8129-c5e260b0b9e9",
-    "version": "1.0.32.43",
+    "version": "1.0.32.44",
     "iconPath": "uhv-app-icon-96.png",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": false,
@@ -20,8 +20,14 @@
         "default": "Render trusted HTML reports and dashboards inside SharePoint pages."
       },
       "longDescription": {
-        "default": "Universal HTML Viewer lets site owners embed and navigate trusted HTML reports and supporting assets in SharePoint pages while keeping navigation inside the host experience."
+        "default": "Universal HTML Viewer displays trusted HTML reports and dashboards inside modern SharePoint pages. Load a single report or browse a report folder, keep report links inside the viewer, and share links to individual reports. Configure allowed paths, hosts and file types for your content. The app runs in your Microsoft 365 tenant and uses the current user's SharePoint permissions."
       },
+      "screenshotPaths": [
+        "../../../assets/marketplace/runtime-page.png",
+        "../../../assets/marketplace/editor-quick-setup.png",
+        "../../../assets/marketplace/source-mode-selector.png",
+        "../../../assets/marketplace/site-contents.png"
+      ],
       "categories": [
         "Productivity",
         "Content management"
