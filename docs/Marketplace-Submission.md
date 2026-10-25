@@ -52,22 +52,24 @@ UHV does not provide an external hosted service. It runs in the customer's Micro
 
 ## Screenshot Set
 
-Recommended screenshots from `assets/`. These images are anonymized examples: they must not show a real user's name, profile photo, tenant URL, or customer content when uploaded to Partner Center.
+The gallery starts with product artwork, followed by four screenshots of the viewer in SharePoint. The cover illustrates the product's purpose; it is not a screenshot of its interface. The screenshots are anonymized examples: they must not show a real user's name, profile photo, tenant URL, or customer content when uploaded to Partner Center.
 
-The same four images are included in the `.sppkg` through `solution.metadata.screenshotPaths` in `config/package-solution.json`. SharePoint displays them on the app details page after the updated package is published to the app catalog. The package embeds the image files, so the previews do not require an external image host. Keep these paths aligned with the files below when updating the screenshots.
+All five images are included in the `.sppkg` through `solution.metadata.screenshotPaths` in `config/package-solution.json`, with the cover first. SharePoint displays them on the app details page after the updated package is published to the app catalog. The package embeds the image files, so the previews do not require an external image host. Keep these paths aligned with the files below when updating the gallery.
 
 | File | Suggested caption |
 | --- | --- |
-| `assets/marketplace/site-contents.png` | Confirm UHV is installed in SharePoint site contents. |
+| `assets/marketplace/product-overview.png` | Your HTML reports. Inside SharePoint. Product illustration. |
 | `assets/marketplace/runtime-page.png` | Render an HTML report inside a modern SharePoint page. |
 | `assets/marketplace/editor-quick-setup.png` | Configure the SharePoint HTML file source and delivery mode. |
 | `assets/marketplace/source-mode-selector.png` | Choose between single page, report browser, and URL-builder source modes. |
+| `assets/marketplace/site-contents.png` | Confirm UHV is installed in SharePoint site contents. |
 
 Asset dimensions checked during preparation:
 
 | Asset family | Dimensions |
 | --- | --- |
-| `assets/marketplace/*.png` | 1280 x 720 |
+| `assets/marketplace/product-overview.png` | 1672 x 941 |
+| Four SharePoint screenshots in `assets/marketplace/` | 1280 x 720 |
 
 ## Microsoft Test Instructions
 
@@ -91,7 +93,7 @@ Suggested tester flow:
 - [ ] Package solution name, descriptions, and URLs match Partner Center listing text.
 - [ ] Privacy and terms URLs are public and reviewed.
 - [ ] Support URL is public and monitored.
-- [ ] Screenshots are uploaded with clear captions and use the 1280 x 720 PNG files from `assets/marketplace/`.
+- [ ] Partner Center screenshots are uploaded with clear captions using the four 1280 x 720 screenshot files from `assets/marketplace/`; adapt the product artwork separately if the listing requires a different promotional-image size.
 - [ ] Screenshots have been reviewed for example personas, placeholder tenant URLs, and no private/customer data.
 - [ ] Test credentials and test site instructions are entered in Partner Center only.
 - [ ] `.sppkg` was built with `npm run bundle:ship` and `npm run package-solution:ship`.

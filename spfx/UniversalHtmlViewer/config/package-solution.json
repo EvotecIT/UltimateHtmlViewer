@@ -23,6 +23,7 @@
         "default": "Universal HTML Viewer displays trusted HTML reports and dashboards inside modern SharePoint pages. Load a single report or browse a report folder, keep report links inside the viewer, and share links to individual reports. Configure allowed paths, hosts and file types for your content. The app runs in your Microsoft 365 tenant and uses the current user's SharePoint permissions."
       },
       "screenshotPaths": [
+        "../../../assets/marketplace/product-overview.png",
         "../../../assets/marketplace/runtime-page.png",
         "../../../assets/marketplace/editor-quick-setup.png",
         "../../../assets/marketplace/source-mode-selector.png",
