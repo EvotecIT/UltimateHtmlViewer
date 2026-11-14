@@ -74,6 +74,9 @@
     "minimatch@^3.0.0": "3.1.4",
     "minimatch@^5.0.0": "5.1.8",
     "minimatch@>=7 <11.0.1": "11.0.1",
+    "test-exclude@7.0.2": {
+      "minimatch": "11.0.1"
+    },
     "node-forge": "1.4.3",
     "node-notifier": "8.0.2",
     "path-to-regexp": "0.1.13",
